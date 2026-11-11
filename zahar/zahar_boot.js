@@ -5,6 +5,8 @@
    Порядок: страница готова → браузер простаивает → словарь →
    мозг → слой → (фон, опционально) модель эмбеддингов.
    Событие готовности: document.dispatchEvent('zahar-ready').
+   ИЗМЕНЕНО: AUTO_WAKE_MS = 20000 — модель эмбеддингов просыпается
+   сама через 20 секунд после загрузки страницы.
    ============================================================ */
 (function () {
     var FILES = [
@@ -14,8 +16,8 @@
     'zahar/zahar_embed.js'
   ];
 
-  var AUTO_WAKE_MS = 0; // 0 = модель просыпается только по кнопке;
-                        // 20000 = фоновой прогрев через 20 секунд тишины
+  var AUTO_WAKE_MS = 20000; // 0 = модель просыпается только по кнопке;
+                            // 20000 = фоновый прогрев через 20 секунд тишины
 
   function loadOne(src) {
     return new Promise(function (res, rej) {
@@ -55,6 +57,7 @@
     }
     console.info('[zahar_boot] Захаръ на мѣстѣ: ' + FILES.length + ' файл(ов)');
     if (AUTO_WAKE_MS > 0 && typeof window.ZAHAR_EMBED_WAKE === 'function') {
+      console.info('[zahar_boot] прогрѣвъ модели черезъ ' + (AUTO_WAKE_MS / 1000) + ' сек.');
       setTimeout(function () { window.ZAHAR_EMBED_WAKE(); }, AUTO_WAKE_MS);
     }
   }).catch(function (e) {
