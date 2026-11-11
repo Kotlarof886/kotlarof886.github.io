@@ -1,30 +1,29 @@
 /* ============================================================
-   zahar_embed.js — правка №21: семантический роутер на эмбеддингах.
+   zahar_embed.js — правка №23: семантический роутер на эмбеддингах.
    Библиотека: @huggingface/transformers v3 (ModernBERT поддержка).
    Подключать ПОСЛЕ zahar_chat.js (обычным тегом, не type="module"):
      <script src="zahar/zahar_embed.js"></script>
-   Модель просыпается по кнопке «Изысканіе въ эфиры»:
-     - элемент с атрибутом data-zahar-embed (или .zahar-embed-wake)
-     - либо вручную: ZAHAR_EMBED_WAKE()
-     - либо автоматически через AUTO_WAKE_MS в zahar_boot.js
-   ИЗМЕНЕНО (№21): хук теперь вешается на window.ZAHAR_ASK —
-   настоящую точку входа слоя чата (раньше вешали на window.chat,
-   которой у Захара нет, поэтому роутер молчал).
+   ИЗМЕНЕНО (№23): будильник вшит в сам файл — модель просыпается
+   автоматически через 20 секунд после загрузки страницы.
+   Никаких зависимостей от zahar_boot.js и от кнопки.
+   Кнопка «Изысканіе въ эфиры» по-прежнему работает: wake() идемпотентен.
+   Хук вешается на window.ZAHAR_ASK (точка входа слоя чата).
    Диагностика: console.info печатает top-3 интента на каждый запрос,
    статус — window.zaharEmbedStatus()
-   ============================================================ */ 
+   ============================================================ */
 (function () {
   if (window.__zaharEmbedLoaded) return;
   window.__zaharEmbedLoaded = true;
 
-  var VERSION = 'правка №21 · эмбеддинги USER2-small (v3)';
+  var VERSION = 'правка №23 · эмбеддинги USER2-small (v3)';
 
   var CFG = {
     model: 'USER2-small-ONNX',        // папка в models/
     dim: 128,                         // MRL-урезание; 0 = полные 384
     threshold: 0.72,                  // порог top-1 (подобрать на тестах)
     margin: 0.03,                     // отрыв от top-2
-    tfUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0'
+    tfUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0',
+    autoWakeMs: 20000                 // №23: будильник — 20 секунд
   };
 
   var state = { status: 'idle', extractor: null, index: null, last: null, error: null, loading: null };
@@ -191,7 +190,7 @@
     return false;
   }
 
-  /* правка №21: хук вешается на ZAHAR_ASK — настоящую точку входа слоя */
+  /* хук вешается на ZAHAR_ASK — настоящую точку входа слоя */
   function hookChat() {
     if (typeof window.ZAHAR_ASK !== 'function' || window.ZAHAR_ASK.__zaharEmbed) return false;
     var original = window.ZAHAR_ASK;
@@ -225,6 +224,15 @@
   }
   tryHook(0);
 
+  /* ---------- правка №23: будильник вшит в файл ----------
+     Через autoWakeMs после загрузки страницы модель просыпается сама.
+     Если страница загрузилась раньше, чем скрипт (маловероятно) —
+     будильник всё равно тикает от момента исполнения файла. */
+  setTimeout(function () {
+    console.info('[zahar_embed] будильникъ №23: время просыпаться');
+    wake();
+  }, CFG.autoWakeMs);
+
   /* ---------- кнопка «Изысканіе въ эфиры» ---------- */
   try {
     document.addEventListener('click', function (ev) {
@@ -242,7 +250,7 @@
       error: state.error,
       intents: state.index ? state.index.length : INTENTS.length,
       last: state.last,
-      cfg: { threshold: CFG.threshold, margin: CFG.margin, dim: CFG.dim }
+      cfg: { threshold: CFG.threshold, margin: CFG.margin, dim: CFG.dim, autoWakeMs: CFG.autoWakeMs }
     };
   };
 })();
