@@ -1,11 +1,17 @@
 /* ============================================================
-   zahar_embed.js — правка №25: семантический роутер на эмбеддингах.
+   zahar_embed.js — правка №26: семантический роутер на эмбеддингах.
+   ГЛАВНОЕ (№26): в norm() добавлен перевод ятя (ѣ) в «е» — раньше фразы слоя
+   «внѣ моей компетенціи» и «сіе слово не встрѣчалось» после нормализации
+   сохраняли ять и не совпадали со списком «мимо»-фраз (баг №24/№25).
+   (№23): будильник — модель просыпается сама через 20 секунд после загрузки.
+   (№24/№25): диагностика «слой ответил самъ» и расширенный список «мимо»-фраз.
    Библиотека: @huggingface/transformers v3 (ModernBERT поддержка).
    Подключать ПОСЛЕ zahar_chat.js (обычным тегом, не type="module"):
      <script src="zahar/zahar_embed.js"></script>
-   Модель просыпается сама через 20 секундъ (будильникъ №25),
+   Модель просыпается по кнопке «Изысканіе въ эфиры»:
+     - элемент с атрибутом data-zahar-embed (или .zahar-embed-wake)
      - либо вручную: ZAHAR_EMBED_WAKE()
-     - либо по кнопке: элемент с атрибутом data-zahar-embed (или .zahar-embed-wake)
+     - либо автоматически через AUTO_WAKE_MS в zahar_boot.js
    ИЗМЕНЕНО (№21): хук теперь вешается на window.ZAHAR_ASK —
    настоящую точку входа слоя чата (раньше вешали на window.chat,
    которой у Захара нет, поэтому роутер молчал).
@@ -16,7 +22,7 @@
   if (window.__zaharEmbedLoaded) return;
   window.__zaharEmbedLoaded = true;
 
-  var VERSION = 'правка №25 · эмбеддинги USER2-small (v3)';
+  var VERSION = 'правка №26 · эмбеддинги USER2-small (v3)';
 
   var CFG = {
     model: 'USER2-small-ONNX',        // папка в models/
@@ -31,7 +37,7 @@
   /* --- нормализация: та же, что в слое (ять/ъ/ь/і под модель не идут) --- */
   function norm(s) {
     return String(s || '').toLowerCase()
-      .replace(/ё/g, 'е').replace(/[ъь]/g, '')
+      .replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '')
       .replace(/[іi]/g, 'и').replace(/ѳ/g, 'ф')
       .replace(/[^a-zа-я0-9\s]/g, ' ')
       .replace(/\s+/g, ' ').trim();
@@ -198,7 +204,7 @@
       var args = arguments;
       var r = original.apply(this, args);
       var handle = function (res) {
-        try { if (typeof res === 'string' && res) console.info('[zahar_embed] слой ответил самъ: ' + res); } catch (e) {}
+        try { if (typeof res === 'string') console.info('[zahar_embed] слой ответил самъ: ' + res); } catch (e) {}
         if (!isMiss(res, q)) return res;
         return semanticMatch(q).then(function (m) {
           if (m) {
@@ -225,9 +231,9 @@
   }
   tryHook(0);
 
-  /* ---------- правка №25: будильникъ — модель просыпается сама ---------- */
+  /* ---------- будильник №26: просыпание без кнопки ---------- */
   setTimeout(function () {
-    try { console.info('[zahar_embed] будильникъ №25: время просыпаться'); } catch (e) {}
+    console.info('[zahar_embed] будильникъ №26: время просыпаться');
     wake();
   }, 20000);
 
