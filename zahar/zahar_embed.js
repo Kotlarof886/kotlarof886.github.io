@@ -1,10 +1,5 @@
 /* ============================================================
-   zahar_embed.js — правка №26: семантический роутер на эмбеддингах.
-   ГЛАВНОЕ (№26): в norm() добавлен перевод ятя (ѣ) в «е» — раньше фразы слоя
-   «внѣ моей компетенціи» и «сіе слово не встрѣчалось» после нормализации
-   сохраняли ять и не совпадали со списком «мимо»-фраз (баг №24/№25).
-   (№23): будильник — модель просыпается сама через 20 секунд после загрузки.
-   (№24/№25): диагностика «слой ответил самъ» и расширенный список «мимо»-фраз.
+   zahar_embed.js — правка №27: семантический роутер на эмбеддингах.
    Библиотека: @huggingface/transformers v3 (ModernBERT поддержка).
    Подключать ПОСЛЕ zahar_chat.js (обычным тегом, не type="module"):
      <script src="zahar/zahar_embed.js"></script>
@@ -12,7 +7,7 @@
      - элемент с атрибутом data-zahar-embed (или .zahar-embed-wake)
      - либо вручную: ZAHAR_EMBED_WAKE()
      - либо автоматически через AUTO_WAKE_MS в zahar_boot.js
-   ИЗМЕНЕНО (№21): хук теперь вешается на window.ZAHAR_ASK —
+   ИЗМЕНЕНО (№27): хук теперь вешается на window.ZAHAR_ASK —
    настоящую точку входа слоя чата (раньше вешали на window.chat,
    которой у Захара нет, поэтому роутер молчал).
    Диагностика: console.info печатает top-3 интента на каждый запрос,
@@ -22,7 +17,7 @@
   if (window.__zaharEmbedLoaded) return;
   window.__zaharEmbedLoaded = true;
 
-  var VERSION = 'правка №26 · эмбеддинги USER2-small (v3)';
+  var VERSION = 'правка №27 · эмбеддинги USER2-small (v3)';
 
   var CFG = {
     model: 'USER2-small-ONNX',        // папка в models/
@@ -185,7 +180,7 @@
   }
 
   /* ---------- вшивание в слой: эмбеддинги срабатывают только на «мимо» ---------- */
-  var NOTFOUND_RE = /такого слова|лексикон|не понимаю|не понял|не разумею|не ведаю о чем|не встречалось|вне моей компетенции|адъютант/;
+  var NOTFOUND_RE = /такого слова|лексикон|не понимаю|не понял|не разумею|не ведаю|не встреча|вне моей компетенции|адютант/;
 
   function isMiss(res, q) {
     if (res === undefined || res === null || res === '') return true;
@@ -196,7 +191,7 @@
     return false;
   }
 
-  /* правка №21: хук вешается на ZAHAR_ASK — настоящую точку входа слоя */
+  /* правка №27: хук вешается на ZAHAR_ASK — настоящую точку входа слоя */
   function hookChat() {
     if (typeof window.ZAHAR_ASK !== 'function' || window.ZAHAR_ASK.__zaharEmbed) return false;
     var original = window.ZAHAR_ASK;
@@ -204,14 +199,13 @@
       var args = arguments;
       var r = original.apply(this, args);
       var handle = function (res) {
-        try { if (typeof res === 'string') console.info('[zahar_embed] слой ответил самъ: ' + res); } catch (e) {}
-        if (!isMiss(res, q)) return res;
+        try { console.info('[zahar_embed] слой ответил самъ: ' + String(res).slice(0, 120)); } catch (e) {}
         return semanticMatch(q).then(function (m) {
           if (m) {
             var out = runIntent(m.id, q);
-            return (out !== null && out !== undefined) ? out : res;
+            if (out !== null && out !== undefined) return out; // семантика уверена — отвечает роутер
           }
-          return res; // слой отвечает как раньше
+          return res; // семантики нет или не уверена — слой отвечает как раньше
         });
       };
       if (r && typeof r.then === 'function') return r.then(handle);
@@ -231,9 +225,9 @@
   }
   tryHook(0);
 
-  /* ---------- будильник №26: просыпание без кнопки ---------- */
+  /* правка №27: будильникъ — модель просыпается сама через 20 секунд */
   setTimeout(function () {
-    console.info('[zahar_embed] будильникъ №26: время просыпаться');
+    console.info('[zahar_embed] будильникъ №27: время просыпаться');
     wake();
   }, 20000);
 
