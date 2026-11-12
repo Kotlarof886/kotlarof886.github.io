@@ -13,7 +13,7 @@
 (function () {
 'use strict';
 
-const VERSION = 'правка №37';
+const VERSION = 'правка №44';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -62,6 +62,13 @@ function grabNameFromUser(text) {
   if (m && !STOP.test(m[1])) zaharSetName(m[1]);
 }
 
+window.zaharSetStation = function (st) {
+  if (!st) return;
+  mem.notebook.station = String(st).trim().slice(0, 40);
+  saveMem();
+  console.log(TAG, 'тетрадка: станция записана —', mem.notebook.station);
+};
+
 window.zaharNoteUser = function (text) {
   grabNameFromUser(text);
   mem.tape.push({ who: 'собеседник', text: String(text || '').slice(0, 120) });
@@ -108,19 +115,19 @@ const INTENTS = [
   { name: 'wire', examples: ['депеша пришла', 'телеграмма ушла', 'морзянка по ночам', 'аппарат стучит', 'точка тире'],
     responses: ['Депеши идут, точка-тире не подводят. Аппарат Юза — говорун, люблю его.'] },
   { name: 'money', examples: ['сколько жалованье', 'зарплата телеграфиста', 'рубль копейка', 'сколько стоит пуд муки'],
-    responses: ['Жалованье 27 рублей в месяц, {A}. На рубль — чаю на неделю и керосин в придачу.'] },
+    responses: ['Жалованье тридцать — тридцать пять рублей, {A}. На ружье коплю — Тихон Дмитриевич весной обещал взять на глухариный ток.'] },
   { name: 'weather', examples: ['какая погода', 'мороз крепчает', 'метель пошла', 'дождь зарядил'],
     responses: ['Погоду сказывает барометр: стрелка к «ясно» поднимается — к холоду.'] },
   { name: 'river', examples: ['обь река', 'ледоход когда', 'пароход идет', 'выйти на берег'],
     responses: ['Обь — матушка-река. Ледоход в конце апреля, пароходы — с мая.'] },
   { name: 'city', examples: ['барнаул какой', 'город ночью', 'ярмарка когда', 'где погулять'],
-    responses: ['Барнаул стоит на Оби, сереброплавильный завод — сердце его.'] },
+    responses: ['Барнаул стоит на Оби. Завод наш сереброплавильный с 1893 года закрыт — домны остыли, а город жив.'] },
   { name: 'samovar', examples: ['самовар меди', 'чайник поставить', 'кипяток свежий'],
     responses: ['Самовар углей просит, а не керосину. Медный — от деда, звон держит.'] },
   { name: 'birds', examples: ['каких птиц встречал', 'глухарь поет', 'снегирь прилетел', 'тетерев токует'],
     responses: ['Глухарь на токовищах, тетерев по березам, снегирь к кормушке прилетает.'] },
   { name: 'train', examples: ['поезд когда', 'железная дорога', 'станция поезда', 'гудок слышал'],
-    responses: ['Железная дорога приходит в Барнаул, станция — гудок на весь город.'] },
+    responses: ['Рельсы пока до Кривощёкова дошли. К нам дорога ещё не пришла.'] },
   { name: 'market', examples: ['рынок по средам', 'торговые ряды', 'купец скупает', 'лавка открыта'],
     responses: ['Торговые ряды по средам, купец Первухин пшеницу скупает.'] },
   { name: 'night', examples: ['ночь глубокая', 'не спится', 'поздно уже', 'бессонница'],
@@ -130,14 +137,21 @@ const INTENTS = [
   { name: 'news', examples: ['что пишут в газетах', 'новости есть', 'слухи по городу', 'газета свежая'],
     responses: ['Газеты приходят недельной давности, зато слухи — свежее утреннего хлеба.'] },
   { name: 'greeting', examples: ['здравствуйте захар', 'привет тебе', 'добрый день', 'доброй ночи'],
-    responses: ['Здравия желаю, {A}! Захар, телеграфист, к услугам.'] },
+    responses: ['Здравия желаю и вам, {A}! Телеграф Барнаул готов к приему сообщения. С какой станции депеша?'] },
   { name: 'name', examples: ['как вас зовут', 'кто вы такой', 'как тебя зовут', 'представьтесь'],
-    responses: ['Захар я, телеграфист второго разряда, при Обской станции с 1893 года.'] }
+    responses: ['Захар Давыдович Кузнецов, девятнадцати лет. Младший телеграфист Барнаульской станции — служу неполный год, при аппарате Юза.'] }
 ];
 
 function fillRep(rep) {
-  return rep.replace(/\{N\}/g, mem.notebook.name || 'сударь')
+  let out = rep.replace(/\{N\}/g, mem.notebook.name || 'сударь')
             .replace(/\{A\}/g, 'сударь');
+  try {
+    if (window.ZAHAR_USER_GENDER === 'f') {
+      const map = [['сударём','сударынёй'],['сударем','сударынёй'],['сударя','сударыню'],['сударю','сударыне'],['сударей','сударыней'],['сударь','сударыня']];
+      for (const p of map) out = out.split(p[0]).join(p[1]);
+    }
+  } catch (e) {}
+  return out;
 }
 
 const lastUsed = {};
@@ -265,7 +279,7 @@ window.zaharEmbedStatus = function () {
     модель: state.ready ? 'на мѣстѣ' : 'не проснулась',
     интентовъ: INTENTS.length,
     лента: mem.tape.length,
-    тетрадка: mem.notebook.name || 'имя ещё не записано'
+    тетрадка: (mem.notebook.name || 'имя ещё не записано') + ' / станция: ' + (mem.notebook.station || 'не записана')
   };
 };
 
@@ -282,6 +296,10 @@ function tryHook() {
       const t = String(text || '');
       zaharNoteUser(t);
       if (!state.ready) return orig.call(this, text);
+      if (!(mem.notebook && mem.notebook.station)) {
+        console.log(TAG, 'рамка не завершена (станция не записана) — семантика молчит, слой отвечает');
+        return orig.call(this, text);
+      }
       const q = normalize(zaharEnrichQuery(t));
       const t0 = nowMs();
       return embed(q).then(vec => {
@@ -290,6 +308,10 @@ function tryHook() {
         const hit = match(q);
         if (!hit) {
           console.log(TAG, 'семантика пропустила (за ' + Math.round(nowMs() - t0) + ' мс) — слой отвечает самъ');
+          return orig.call(this, text);
+        }
+        if (hit.name === 'weather') {
+          console.log(TAG, 'погода — отдает слою (живые данные)');
           return orig.call(this, text);
         }
         zaharNoteTopic(hit.name);
