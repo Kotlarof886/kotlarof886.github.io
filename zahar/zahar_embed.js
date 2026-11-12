@@ -1,17 +1,18 @@
 /* ============================================================
-   zahar_embed.js — правка №35: «библиотека ветки 3 — ModernBERT по-настоящему»
+   zahar_embed.js — правка №36: «секундомер и отклик»
    Дата сборки: 12.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
    №31 загрузчик библиотеки через динамический import() ·
    №32 модель грузится с локальных файлов, без huggingface.co ·
    №33 имя модели USER2-small-ONNX · №34 путь ../models/ от корня сайта ·
-   №35 библиотека ветки 3 (ModernBERT), dtype q8
+   №35 библиотека ветки 3 (ModernBERT), dtype q8 ·
+   №36 секундомер, прогревъ, открытая передача ответа слою
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №35';
+const VERSION = 'правка №36';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -234,6 +235,9 @@ async function wake() {
     }
     state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { dtype: 'q8' });
     await buildIndex();
+    const tW = performance.now();
+    await embed(normalize('здравствуйте захар'));
+    console.log(TAG, 'прогревъ: первый счёт за ' + Math.round(performance.now() - tW) + ' мс — дальше быстрее');
     state.ready = true;
     console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
   } catch (e) {
@@ -267,15 +271,28 @@ function tryHook() {
       if (state.ready) {
         try {
           const q = normalize(zaharEnrichQuery(t));
+          const tQ = performance.now();
           embed(q).then(vec => {
+            console.log(TAG, 'эмбеддингъ за ' + Math.round(performance.now() - tQ) + ' мс');
             state.lastVec = vec;
             const hit = match(q);
             if (hit) {
               zaharNoteTopic(hit.name);
               const rep = fillRep(pick(hit.intent));
+              console.log(TAG, 'семантика отработала за ' + Math.round(performance.now() - tQ) + ' мс');
               console.log(TAG, 'семантика отвечает:', rep);
               zaharNoteZahar(rep);
-              if (typeof cb === 'function') { try { cb(rep); } catch (e) {} }
+              if (typeof cb === 'function') {
+                console.log(TAG, 'передаю слою: cb на мѣстѣ, аргументовъ у него ' + cb.length);
+                try {
+                  cb(rep);
+                  console.log(TAG, 'ответъ переданъ слою — если морзянка стучитъ дальше, слой ждётъ ответъ не черезъ cb');
+                } catch (e) {
+                  console.error(TAG, 'слой отвергъ ответъ:', e && e.message ? e.message : e);
+                }
+              } else {
+                console.warn(TAG, 'слой не далъ cb — ответъ остался въ консоли');
+              }
               return rep;
             }
             console.log(TAG, 'слой ответил самъ');
