@@ -1,5 +1,5 @@
 /* ============================================================
-   zahar_embed.js — правка №36: «секундомер и отклик»
+   zahar_embed.js — правка №37: «ответ возвращается обещаніемъ»
    Дата сборки: 12.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
@@ -7,12 +7,13 @@
    №32 модель грузится с локальных файлов, без huggingface.co ·
    №33 имя модели USER2-small-ONNX · №34 путь ../models/ от корня сайта ·
    №35 библиотека ветки 3 (ModernBERT), dtype q8 ·
-   №36 секундомер, прогревъ, открытая передача ответа слою
+   №36 секундомер и прогрев · №37 хук отдаёт ответ обещаніемъ
+   (контракт слоя: ZAHAR_ASK возвращает строку или Promise)
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №36';
+const VERSION = 'правка №37';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -147,6 +148,10 @@ function pick(intent) {
   return rs[i];
 }
 
+function nowMs() {
+  return (window.performance && performance.now) ? performance.now() : Date.now();
+}
+
 /* ---------- загрузчик библиотеки (правка №31) ---------- */
 async function loadLibrary() {
   if (state.lib) return state.lib;
@@ -216,7 +221,6 @@ function match(text) {
 
 /* ---------- пробуждение ---------- */
 const scriptBase = (document.currentScript && document.currentScript.src) || location.href;
-const modelDirAbs = new URL(CFG.modelDir, scriptBase).href;
 
 async function wake() {
   if (state.ready || state.waking) return;
@@ -235,11 +239,15 @@ async function wake() {
     }
     state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { dtype: 'q8' });
     await buildIndex();
-    const tW = performance.now();
-    await embed(normalize('здравствуйте захар'));
-    console.log(TAG, 'прогревъ: первый счёт за ' + Math.round(performance.now() - tW) + ' мс — дальше быстрее');
     state.ready = true;
     console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
+    /* прогрев (правка №36): первый счёт не должен платить за инициализацию */
+    try {
+      const t1 = nowMs();
+      embed(normalize('прогревъ аппарата')).then(function () {
+        console.log(TAG, 'прогревъ: первый счёт за ' + Math.round(nowMs() - t1) + ' мс');
+      }).catch(function () {});
+    } catch (e) {}
   } catch (e) {
     console.error(TAG, 'пробуждение не удалось:', e && e.message ? e.message : e);
   } finally {
@@ -261,54 +269,46 @@ window.zaharEmbedStatus = function () {
   };
 };
 
-/* ---------- хук на ZAHAR_ASK (правка №21, сохранена) ---------- */
+/* ---------- хук на ZAHAR_ASK (правки №21 → №36 → №37) ----------
+   Контракт слоя (zahar_chat.js, install()): ZAHAR_ASK обязана
+   ВЕРНУТЬ строку или Promise. Раньше уверенная ветка лишь звала
+   cb(rep) и возвращала undefined — страница получала пустоту,
+   морзянка стучала вечно. Теперь ответ уходит обещанием наружу,
+   а cb остаётся как дополнительный канал (если слой его дал). */
 function tryHook() {
   if (typeof window.ZAHAR_ASK === 'function' && !window.ZAHAR_ASK.__zahar_patched) {
     const orig = window.ZAHAR_ASK;
     const wrapped = function (text, cb) {
       const t = String(text || '');
       zaharNoteUser(t);
-      if (state.ready) {
-        try {
-          const q = normalize(zaharEnrichQuery(t));
-          const tQ = performance.now();
-          embed(q).then(vec => {
-            console.log(TAG, 'эмбеддингъ за ' + Math.round(performance.now() - tQ) + ' мс');
-            state.lastVec = vec;
-            const hit = match(q);
-            if (hit) {
-              zaharNoteTopic(hit.name);
-              const rep = fillRep(pick(hit.intent));
-              console.log(TAG, 'семантика отработала за ' + Math.round(performance.now() - tQ) + ' мс');
-              console.log(TAG, 'семантика отвечает:', rep);
-              zaharNoteZahar(rep);
-              if (typeof cb === 'function') {
-                console.log(TAG, 'передаю слою: cb на мѣстѣ, аргументовъ у него ' + cb.length);
-                try {
-                  cb(rep);
-                  console.log(TAG, 'ответъ переданъ слою — если морзянка стучитъ дальше, слой ждётъ ответъ не черезъ cb');
-                } catch (e) {
-                  console.error(TAG, 'слой отвергъ ответъ:', e && e.message ? e.message : e);
-                }
-              } else {
-                console.warn(TAG, 'слой не далъ cb — ответъ остался въ консоли');
-              }
-              return rep;
-            }
-            console.log(TAG, 'слой ответил самъ');
-            return orig.call(this, text, cb);
-          });
-          return;
-        } catch (e) {
-          console.warn(TAG, 'семантика споткнулась, слой отвечает сам:', e && e.message);
+      if (!state.ready) return orig.call(this, text);
+      const q = normalize(zaharEnrichQuery(t));
+      const t0 = nowMs();
+      return embed(q).then(vec => {
+        console.log(TAG, 'эмбеддингъ за ' + Math.round(nowMs() - t0) + ' мс');
+        state.lastVec = vec;
+        const hit = match(q);
+        if (!hit) {
+          console.log(TAG, 'семантика пропустила (за ' + Math.round(nowMs() - t0) + ' мс) — слой отвечает самъ');
+          return orig.call(this, text);
         }
-      }
-      console.log(TAG, 'слой ответил самъ');
-      return orig.call(this, text, cb);
+        zaharNoteTopic(hit.name);
+        const rep = fillRep(pick(hit.intent));
+        console.log(TAG, 'семантика отработала за ' + Math.round(nowMs() - t0) + ' мс');
+        console.log(TAG, 'семантика отвечает:', rep);
+        zaharNoteZahar(rep);
+        if (typeof cb === 'function') {
+          try { cb(rep); } catch (e) { console.warn(TAG, 'cb отверг ответ:', e && e.message); }
+        }
+        return rep;
+      }).catch(e => {
+        console.warn(TAG, 'семантика споткнулась, слой отвечает сам:', e && e.message ? e.message : e);
+        return orig.call(this, text);
+      });
     };
     wrapped.__zahar_patched = true;
     window.ZAHAR_ASK = wrapped;
-    console.log(TAG, 'хук на ZAHAR_ASK всталъ');
+    console.log(TAG, 'хук на ZAHAR_ASK всталъ (контракт №37: ответ — обещаніемъ)');
     return true;
   }
   return false;
