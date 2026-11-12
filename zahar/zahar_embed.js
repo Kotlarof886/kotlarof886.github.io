@@ -1,14 +1,15 @@
 /* ============================================================
-   zahar_embed.js — правка №31: «модель грузится по-настоящему»
+   zahar_embed.js — правка №32: «модель ищет своих, а не huggingface»
    Дата сборки: 12.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
-   №31 загрузчик библиотеки через динамический import()
+   №31 загрузчик библиотеки через динамический import() ·
+   №32 модель грузится с локальных файлов, без huggingface.co
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №31';
+const VERSION = 'правка №32';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -18,6 +19,8 @@ const CFG = {
   libraryUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2',
   libraryUrlFallback: 'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js',
   modelDir: 'models/user2-small/',
+  modelName: 'user2-small',
+  topK: 3,
   quantized: true
 };
 
@@ -218,7 +221,16 @@ async function wake() {
   console.log(TAG, 'Захаръ просыпается… (модель грузится)');
   try {
     const T = await loadLibrary();
-    state.pipe = await T.pipeline('feature-extraction', modelDirAbs, { quantized: CFG.quantized });
+    const env = T.env || (T.default && T.default.env) || null;
+    if (env) {
+      env.allowLocalModels = true;
+      env.allowRemoteModels = false;   // на huggingface.co не ходим — модель у нас
+      env.localModelPath = new URL('models/', scriptBase).href;
+      console.log(TAG, 'локальные модели по адресу:', env.localModelPath);
+    } else {
+      console.warn(TAG, 'env недоступен — возможно, модель не найдётся локально');
+    }
+    state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { quantized: CFG.quantized });
     await buildIndex();
     state.ready = true;
     console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
@@ -248,7 +260,7 @@ function tryHook() {
     const orig = window.ZAHAR_ASK;
     const wrapped = function (text, cb) {
       const t = String(text || '');
-      noteUser(t);
+      zaharNoteUser(t);
       if (state.ready) {
         try {
           const q = normalize(zaharEnrichQuery(t));
