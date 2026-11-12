@@ -1,24 +1,25 @@
 /* ============================================================
-   zahar_embed.js — правка №34: «склад моделей от корня сайта»
+   zahar_embed.js — правка №35: «библиотека ветки 3 — ModernBERT по-настоящему»
    Дата сборки: 12.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
    №31 загрузчик библиотеки через динамический import() ·
    №32 модель грузится с локальных файлов, без huggingface.co ·
-   №33 имя модели USER2-small-ONNX · №34 путь ../models/ от корня сайта
+   №33 имя модели USER2-small-ONNX · №34 путь ../models/ от корня сайта ·
+   №35 библиотека ветки 3 (ModernBERT), dtype q8
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №34';
+const VERSION = 'правка №35';
 const TAG = '[zahar_embed]';
 
 const CFG = {
   wakeDelay: 20000,          // будильник: модель просыпается сама
   threshold: 0.72,           // порог уверенности
   margin: 0.015,             // зазор до второго интента
-  libraryUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2',
-  libraryUrlFallback: 'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js',
+  libraryUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1',
+  libraryUrlFallback: 'https://unpkg.com/@huggingface/transformers@3.3.1/dist/transformers.min.js',
   modelDir: '../models/USER2-small-ONNX/',
   modelName: 'USER2-small-ONNX',
   topK: 3,
@@ -231,7 +232,7 @@ async function wake() {
     } else {
       console.warn(TAG, 'env недоступен — возможно, модель не найдётся локально');
     }
-    state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { quantized: CFG.quantized });
+    state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { dtype: 'q8' });
     await buildIndex();
     state.ready = true;
     console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
@@ -242,6 +243,7 @@ async function wake() {
   }
 }
 window.zaharWake = wake;
+window.ZAHAR_EMBED_WAKE = wake;  // будильник zahar_boot.js идёт через ту же охраняемую wake
 
 /* ---------- контроль ---------- */
 window.zaharEmbedStatus = function () {
