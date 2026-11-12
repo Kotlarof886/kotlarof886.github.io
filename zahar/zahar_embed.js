@@ -1,16 +1,16 @@
 /* ============================================================
-   zahar_embed.js — правка №33: «путь к модели — туда, где она лежит»
+   zahar_embed.js — правка №34: «склад моделей от корня сайта»
    Дата сборки: 12.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
    №31 загрузчик библиотеки через динамический import() ·
    №32 модель грузится с локальных файлов, без huggingface.co ·
-   №33 путь к модели исправлен: ../models/USER2-small-ONNX/
+   №33 имя модели USER2-small-ONNX · №34 путь ../models/ от корня сайта
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №33';
+const VERSION = 'правка №34';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -226,7 +226,7 @@ async function wake() {
     if (env) {
       env.allowLocalModels = true;
       env.allowRemoteModels = false;   // на huggingface.co не ходим — модель у нас
-      env.localModelPath = new URL('models/', scriptBase).href;
+      env.localModelPath = new URL('../models/', scriptBase).href;
       console.log(TAG, 'локальные модели по адресу:', env.localModelPath);
     } else {
       console.warn(TAG, 'env недоступен — возможно, модель не найдётся локально');
