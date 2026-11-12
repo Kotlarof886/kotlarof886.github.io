@@ -1,15 +1,16 @@
 /* ============================================================
-   zahar_embed.js — правка №32: «модель ищет своих, а не huggingface»
+   zahar_embed.js — правка №33: «путь к модели — туда, где она лежит»
    Дата сборки: 12.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
    №31 загрузчик библиотеки через динамический import() ·
-   №32 модель грузится с локальных файлов, без huggingface.co
+   №32 модель грузится с локальных файлов, без huggingface.co ·
+   №33 путь к модели исправлен: ../models/USER2-small-ONNX/
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №32';
+const VERSION = 'правка №33';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -18,8 +19,8 @@ const CFG = {
   margin: 0.015,             // зазор до второго интента
   libraryUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2',
   libraryUrlFallback: 'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js',
-  modelDir: 'models/user2-small/',
-  modelName: 'user2-small',
+  modelDir: '../models/USER2-small-ONNX/',
+  modelName: 'USER2-small-ONNX',
   topK: 3,
   quantized: true
 };
