@@ -1,320 +1,298 @@
 /* ============================================================
-   zahar_embed.js — семантический роутеръ Захара
-   правка №30: память — лента (6 реплик) + тетрадка (localStorage)
-   Накоплено: №23 будильникъ · №26 ять въ нормализаціи ·
-              №27 семантика на каждый вопросъ · №28 зазоръ 0.015
+   zahar_embed.js — правка №31: «модель грузится по-настоящему»
+   Дата сборки: 12.11.2026
+   Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
+   на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
+   №31 загрузчик библиотеки через динамический import()
    ============================================================ */
 (function () {
-  'use strict';
+'use strict';
 
-  const VERSION = 'правка №30';
+const VERSION = 'правка №31';
+const TAG = '[zahar_embed]';
 
-  /* ---------------- настройки ---------------- */
-  const CFG = {
-    modelDir: 'zahar/models/USER2-small',
-    threshold: 0.72,   // ниже него тема не считается узнанной
-    margin: 0.015,     // победитель обязан оторваться от второго
-    wakeDelay: 20000,  // будильникъ, мс
-    tapeMax: 6         // сколько реплик держит лента
-  };
+const CFG = {
+  wakeDelay: 20000,          // будильник: модель просыпается сама
+  threshold: 0.72,           // порог уверенности
+  margin: 0.015,             // зазор до второго интента
+  libraryUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2',
+  libraryUrlFallback: 'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js',
+  modelDir: 'models/user2-small/',
+  quantized: true
+};
 
-  /* ---------------- нормализация (№26: ять до очистки) ---------------- */
-  function norm(s) {
-    s = String(s).toLowerCase();
-    s = s.replace(/[ёѣ]/g, 'е')
-         .replace(/[ії]/g, 'и')
-         .replace(/ѳ/g, 'ф')
-         .replace(/ѵ/g, 'в')
-         .replace(/[ъь]/g, '');
-    s = s.replace(/[^a-zа-я0-9\s]/g, ' ');
-    return s.replace(/\s+/g, ' ').trim();
-  }
+const state = { lib: null, pipe: null, ready: false, waking: false, index: [] };
 
-  /* отказныя фразы слоя — в нормализованном виде (№27) */
-  const MISS = /такого слова|лексикон|не понимаю|не разумею|не встреча|вне моей компетенции|адютант/;
+/* ---------- память (правка №30) ---------- */
+const MEM_KEY = 'zahar_memory_v1';
+const TAPE_MAX = 6;
 
-  /* ---------------- 18 интентов ---------------- */
-  const INTENTS = [
-    { name: 'greeting', examples: ['здравствуй', 'добрый день', 'приветствую вас', 'здорово живешь'] },
-    { name: 'farewell', examples: ['до свидания', 'прощайте', 'пора идти', 'доброй ночи'] },
-    { name: 'name',     examples: ['меня зовут максим', 'мое имя алексей', 'позволь представиться'] },
-    { name: 'sad',      examples: ['душа не на месте', 'мне грустно', 'тоскливо мне', 'соскучился по дому', 'на душе муторно', 'тоска одолела'] },
-    { name: 'fish',     examples: ['как ловится нельма', 'рыбалка на оби', 'что клевало сегодня', 'таймень водится'] },
-    { name: 'hunt',     examples: ['белку видел в тайге', 'ходил на охоту', 'соболь промышляю', 'капканы ставил'] },
-    { name: 'birds',    examples: ['каких птиц встречал', 'глухарь токует', 'снегирь прилетел', 'куропатка в поле'] },
-    { name: 'tea',      examples: ['какой чай пьешь', 'самовар кипит', 'чаю захотелось', 'пошел бы за чаем'] },
-    { name: 'weather',  examples: ['какая погода', 'мороз крепчает', 'метель заметает', 'дождь идет'] },
-    { name: 'wire',     examples: ['как идут депеши', 'телеграфная линия цела', 'морзянка стучит', 'аппарат барахлит'] },
-    { name: 'money',    examples: ['сколько это стоит', 'почем теперь мука', 'заплатить рубль', 'расплатиться с тобой'] },
-    { name: 'merchant', examples: ['купцы приехали', 'барышник торгуется', 'ярмарка открылась'] },
-    { name: 'road',     examples: ['как дорога', 'по тракту ехал', 'до барнаула добраться'] },
-    { name: 'night',    examples: ['не спится', 'ночь долгая', 'дежурство ночью'] },
-    { name: 'health',   examples: ['как здоровье', 'голова болит', 'недомогаю сегодня'] },
-    { name: 'thanks',   examples: ['спасибо', 'благодарю вас', 'премного благодарен'] },
-    { name: 'river',    examples: ['обь разлилась', 'лед на оби встал', 'пароход на оби'] },
-    { name: 'history',  examples: ['какой ныне год', 'что в газетах пишут', 'про государя слышал'] }
-  ];
+const mem = { tape: [], notebook: {} };
+try { Object.assign(mem, JSON.parse(localStorage.getItem(MEM_KEY) || '{}')); } catch (e) {}
+mem.tape = Array.isArray(mem.tape) ? mem.tape.slice(-TAPE_MAX) : [];
+mem.notebook = mem.notebook || {};
 
-  const RESPONSES = {
-    greeting: [
-      'Здравия желаю, {N}! На связи Захар, телеграфист Обской станции. Слушаю вас.',
-      'Здорово живете, {N}! Аппарат в порядке, самовар тоже. Что передать?'
-    ],
-    farewell: [
-      'Прощайте, {N}. Линия работает круглосуточно — заходите, как телеграф зашумит.'
-    ],
-    name: [
-      'Приятно познакомиться, {N}! Записал в тетрадку — память депешная, цепкая.'
-    ],
-    sad: [
-      'Тоска, говорите? Три лекарства здешние знаю: горячий чай, дело, да Обь на закате. Помогает — проверено на себе.',
-      'Понимаю, {N}. Здесь от тоски лечатся просто: до станции дойти, да по воде взглядом пройтись. Обь вылечивает не сразу, но верно.'
-    ],
-    fish: [
-      'Нельма — лучшая рыба в Оби, серебром отливающая. На блесну берет осторожно, под самой поверхностью.',
-      'Рыбный промысел нынче сытный: нельма, стерлядь, щока. Купцы берут бочками, не торгуются.'
-    ],
-    hunt: [
-      'Белка нынче промыслом идет, шкурка чистая. Купцы берут охотно — сезон в разгаре.',
-      'В тайге нынче промысел добрый, {N}. Соболь ходит по верховьям, ружье и капканы — верные товарищи.'
-    ],
-    birds: [
-      'Птиц здесь вдоволь: глухарь токует на моховых болотах, рябчик под осинами держится. Курушка таежная, а песня своя.',
-      'Из птиц примечаю глухаря да рябчика; зимой снегирь к станции прилетает — краса на снегу.'
-    ],
-    tea: [
-      'Самовар у меня не гаснет. Чай пью вприкуску, как вся Сибирь: сахар в зубах, а жидкость горячая.',
-      'Чаю, {N}? Ставлю тотчас. Вприкуску или с сахаром — как изволите?'
-    ],
-    weather: [
-      'Погода нынче переменчива. Утром иней был, к полудню оттепель — барометр суетится.',
-      'Мороз крепчает, {N}. По приметам — к устойчивой зиме. Лед на Оби встанет скоро.'
-    ],
-    wire: [
-      'Депеши идут исправно. Морзянка стучит в наушниках, как сердце линии — сбоев не было.',
-      'Линия тянута верно, столбы сухие. Депеши по Оби обходятся быстрее, чем по тракту.'
-    ],
-    money: [
-      'Расценки здешние крутятся, как Обь в половодье. За пуд муки — гривенник с полушкой, а за подробности — спрашивайте прямо.'
-    ],
-    merchant: [
-      'Купцы приезжают с осени, торгуются до слез. Барышник здешний — что медведь: ревет, а сам боится.'
-    ],
-    road: [
-      'Тракт до Барнаула держится, хотя колеи разбиты. По осенней грязи — только телеграфные столбы сухие.'
-    ],
-    night: [
-      'Ночь — мое время, {N}. Станция пустая, аппарат тихий, и Обь шумит под окном. Хорошая пора для писем.'
-    ],
-    health: [
-      'Здоровье депешное: руки в мозолях от ключа, глаза в полосках от ленты. А в остальном — не жалуюсь.'
-    ],
-    thanks: [
-      'Служу трудом, {N}. Не за что — пишите еще: бумага дорога, а собеседник дороже.'
-    ],
-    river: [
-      'Обь — госпожа. Разливается широко, льдом встает в ноябре, а пароходы ходят по ней до самых заморозков.'
-    ],
-    history: [
-      'Ныне 1896 год, {N}. В газетах пишут о коронации, а у нас в Сибири — больше о рыбном промысле.'
-    ]
-  };
+function saveMem() {
+  try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch (e) {}
+}
 
-  /* ---------------- память: лента + тетрадка (№30) ---------------- */
-  const MEM_KEY = 'zahar_memory_v1';
-  const mem = { tape: [], notebook: {} };
-  try { Object.assign(mem, JSON.parse(localStorage.getItem(MEM_KEY) || '{}')); } catch (e) { /* пустая тетрадка */ }
-  mem.tape = Array.isArray(mem.tape) ? mem.tape.slice(-CFG.tapeMax) : [];
-  mem.notebook = mem.notebook || {};
+window.zaharMemory = function () { return mem; };
 
-  function memSave() {
-    try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch (e) {}
-  }
+window.zaharSetName = function (name) {
+  if (!name) return;
+  name = String(name).trim().replace(/[^А-ЯЁа-яё-]/g, '');
+  if (!name) return;
+  mem.notebook.name = name;
+  saveMem();
+  console.log(TAG, 'тетрадка: имя записано —', name);
+};
 
-  window.zaharMemory = function () { return mem; };
+const STOP = /(белк|чай|обь|нельм|купец|сударь|депеш|медвед|телеграф)/i;
 
-  const NAME_STOP = /(белк|чай|обь|нельм|купец|сударь|депеш|медвед|телеграф|сир|барин)/i;
+function grabNameFromUser(text) {
+  if (mem.notebook.name) return;
+  const m = String(text || '').match(/(?:меня зовут|мо[ёe] имя)\s+([А-ЯЁ][а-яё]{1,20})/i);
+  if (m && !STOP.test(m[1])) zaharSetName(m[1]);
+}
 
-  window.zaharSetName = function (name) {
-    if (!name) return;
-    name = String(name).trim().replace(/[^А-ЯЁа-яё-]/g, '');
-    if (!name || NAME_STOP.test(name)) return;
-    mem.notebook.name = name;
-    memSave();
-    console.log('[zahar_embed] тетрадка: имя записано — ' + name);
-  };
+window.zaharNoteUser = function (text) {
+  grabNameFromUser(text);
+  mem.tape.push({ who: 'собеседник', text: String(text || '').slice(0, 120) });
+  mem.tape = mem.tape.slice(-TAPE_MAX);
+  saveMem();
+};
 
-  function grabNameFromUser(text) {
-    if (mem.notebook.name) return;
-    const m = String(text || '').match(/(?:меня зовут|мо[ёе] имя)\s+([А-ЯЁ][а-яё]{1,20})/i);
-    if (m) zaharSetName(m[1]);
-  }
+window.zaharNoteZahar = function (text) {
+  mem.tape.push({ who: 'захар', text: String(text || '').slice(0, 120) });
+  mem.tape = mem.tape.slice(-TAPE_MAX);
+  saveMem();
+};
 
-  function grabNameFromLayer(text) {
-    if (mem.notebook.name) return;
-    const m = String(text || '').match(/[Пп]риятно познакомиться[,.!]?\s*([А-ЯЁ][а-яё]{1,20})/);
-    if (m && !NAME_STOP.test(m[1])) zaharSetName(m[1]);
-  }
+let lastConfident = null;
+window.zaharNoteTopic = function (topic) { if (topic) lastConfident = topic; };
 
-  window.zaharNoteUser = function (text) {
-    grabNameFromUser(text);
-    mem.tape.push({ who: 'собеседник', text: String(text || '').slice(0, 120) });
-    mem.tape = mem.tape.slice(-CFG.tapeMax);
-    memSave();
-  };
+window.zaharEnrichQuery = function (text) {
+  if (!lastConfident) return text;
+  const short = String(text).trim().split(/\s+/).length <= 4;
+  return short ? lastConfident + ' ' + text : text;
+};
 
-  window.zaharNoteZahar = function (text) {
-    grabNameFromLayer(text);
-    mem.tape.push({ who: 'захар', text: String(text || '').slice(0, 120) });
-    mem.tape = mem.tape.slice(-CFG.tapeMax);
-    memSave();
-  };
+/* ---------- нормализация (правка №26: ять и і ДО очистки) ---------- */
+function normalize(text) {
+  let s = String(text || '').toLowerCase();
+  s = s.replace(/ѣ/g, 'е').replace(/і/g, 'и').replace(/ѳ/g, 'ф').replace(/ѵ/g, 'и');
+  s = s.replace(/[^a-zа-яё0-9\s]/g, ' ');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
 
-  /* опора для коротких вопросов: последняя уверенная тема */
-  let lastTopicText = null;
-  window.zaharNoteTopic = function (topicText) { if (topicText) lastTopicText = topicText; };
+/* ---------- 18 интентов ---------- */
+const INTENTS = [
+  { name: 'fish', examples: ['как ловится нельма', 'нельма клюет', 'рыбалка на оби', 'поймал тайменя', 'где ловить рыбу'],
+    responses: ['Нельма — лучшая рыба в Оби, серебром отливающая. Ловится на перемёт и на спиннинг, {N}. Самое то — утренние зори.'] },
+  { name: 'hunt', examples: ['белку видел в тайге', 'охота на соболя', 'ружье купил', 'капканы ставить', 'белка промыслом идет'],
+    responses: ['Белка нынче ходит промыслом — шкурка дороже меди. Соболиный след видели у Каргополовых угодьев.'] },
+  { name: 'tea', examples: ['налей чаю', 'попить чаю', 'чай с сахаром', 'самовар кипит', 'чай вприкуску'],
+    responses: ['Самовар в искре, чай вприкуску — вот и весь вечерний устав, {N}.',
+                'Чаю? Извольте: кипяток свежий, с сахаром — но я бы вприкуску, честнее вкус.'] },
+  { name: 'sad', examples: ['душа не на месте сегодня', 'тоскливо мне сегодня', 'соскучился по дому', 'на душе муторно', 'грусть накатила'],
+    responses: ['Тоска, говорите? Три лекарства здешние знаю: горячий чай, дело, да Обь на закате. Помогает — проверено на себе.',
+                'Понимаю, {N}. Тоска в телеграфной будке — гость частый. Лечится делом и дорожкой вдоль Оби.'] },
+  { name: 'wire', examples: ['депеша пришла', 'телеграмма ушла', 'морзянка по ночам', 'аппарат стучит', 'точка тире'],
+    responses: ['Депеши идут, точка-тире не подводят. Аппарат Юза — говорун, люблю его.'] },
+  { name: 'money', examples: ['сколько жалованье', 'зарплата телеграфиста', 'рубль копейка', 'сколько стоит пуд муки'],
+    responses: ['Жалованье 27 рублей в месяц, {A}. На рубль — чаю на неделю и керосин в придачу.'] },
+  { name: 'weather', examples: ['какая погода', 'мороз крепчает', 'метель пошла', 'дождь зарядил'],
+    responses: ['Погоду сказывает барометр: стрелка к «ясно» поднимается — к холоду.'] },
+  { name: 'river', examples: ['обь река', 'ледоход когда', 'пароход идет', 'выйти на берег'],
+    responses: ['Обь — матушка-река. Ледоход в конце апреля, пароходы — с мая.'] },
+  { name: 'city', examples: ['барнаул какой', 'город ночью', 'ярмарка когда', 'где погулять'],
+    responses: ['Барнаул стоит на Оби, сереброплавильный завод — сердце его.'] },
+  { name: 'samovar', examples: ['самовар меди', 'чайник поставить', 'кипяток свежий'],
+    responses: ['Самовар углей просит, а не керосину. Медный — от деда, звон держит.'] },
+  { name: 'birds', examples: ['каких птиц встречал', 'глухарь поет', 'снегирь прилетел', 'тетерев токует'],
+    responses: ['Глухарь на токовищах, тетерев по березам, снегирь к кормушке прилетает.'] },
+  { name: 'train', examples: ['поезд когда', 'железная дорога', 'станция поезда', 'гудок слышал'],
+    responses: ['Железная дорога приходит в Барнаул, станция — гудок на весь город.'] },
+  { name: 'market', examples: ['рынок по средам', 'торговые ряды', 'купец скупает', 'лавка открыта'],
+    responses: ['Торговые ряды по средам, купец Первухин пшеницу скупает.'] },
+  { name: 'night', examples: ['ночь глубокая', 'не спится', 'поздно уже', 'бессонница'],
+    responses: ['Ночь для телеграфиста — время рабочее. Депеши не спят, и я не спю.'] },
+  { name: 'letters', examples: ['письмо отправить', 'почта когда', 'открытка стоит', 'конверт купить'],
+    responses: ['Почта ходит через Томск дважды в неделю. Письмо — три копейки, открыточка — две.'] },
+  { name: 'news', examples: ['что пишут в газетах', 'новости есть', 'слухи по городу', 'газета свежая'],
+    responses: ['Газеты приходят недельной давности, зато слухи — свежее утреннего хлеба.'] },
+  { name: 'greeting', examples: ['здравствуйте захар', 'привет тебе', 'добрый день', 'доброй ночи'],
+    responses: ['Здравия желаю, {A}! Захар, телеграфист, к услугам.'] },
+  { name: 'name', examples: ['как вас зовут', 'кто вы такой', 'как тебя зовут', 'представьтесь'],
+    responses: ['Захар я, телеграфист второго разряда, при Обской станции с 1893 года.'] }
+];
 
-  window.zaharEnrichQuery = function (text) {
-    if (!lastTopicText) return text;
-    const words = String(text).trim().split(/\s+/).filter(Boolean);
-    return words.length <= 4 ? lastTopicText + ' ' + text : text;
-  };
+function fillRep(rep) {
+  return rep.replace(/\{N\}/g, mem.notebook.name || 'сударь')
+            .replace(/\{A\}/g, 'сударь');
+}
 
-  console.log('[zahar_embed] память готова: лента ' + mem.tape.length +
-    ', в тетрадке: ' + (mem.notebook.name || 'имя еще не записано'));
+const lastUsed = {};
+function pick(intent) {
+  const rs = intent.responses;
+  const i = (lastUsed[intent.name] || 0) % rs.length;
+  lastUsed[intent.name] = i + 1;
+  return rs[i];
+}
 
-  /* ---------------- статус (для консоли) ---------------- */
-  const status = { version: VERSION, awake: false, last: null };
-  window.zaharEmbedStatus = function () { return status; };
-
-  /* ---------------- модель и индекс ---------------- */
-  let embedder = null, waking = false;
-  const centroids = {};
-  const rot = {};
-
-  function dot(a, b) {
-    let s = 0;
-    for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-    return s;
-  }
-
-  async function vec(text) {
-    const out = await embedder(text, { pooling: 'mean', normalize: true });
-    return Array.from(out.data);
-  }
-
-  async function buildIndex() {
-    const t0 = performance.now();
-    for (const it of INTENTS) {
-      const vs = [];
-      for (const ex of it.examples) vs.push(await vec(norm(ex)));
-      const c = new Array(vs[0].length).fill(0);
-      for (const v of vs) for (let i = 0; i < c.length; i++) c[i] += v[i];
-      for (let i = 0; i < c.length; i++) c[i] /= vs.length;
-      const m = Math.sqrt(c.reduce((s, x) => s + x * x, 0)) || 1;
-      centroids[it.name] = c.map(x => x / m);
-    }
-    console.log('[zahar_embed] индекс готов: ' + INTENTS.length + ' интентов за ' +
-      Math.round(performance.now() - t0) + ' мс');
-  }
-
-  async function wake() {
-    if (embedder || waking) return;
-    waking = true;
-    console.log('[zahar_embed] Захар просыпается… (модель грузится)');
+/* ---------- загрузчик библиотеки (правка №31) ---------- */
+async function loadLibrary() {
+  if (state.lib) return state.lib;
+  const urls = [CFG.libraryUrl, CFG.libraryUrlFallback];
+  let lastErr = null;
+  for (const u of urls) {
     try {
-      if (!window.transformers) {
-        await new Promise(function (res, rej) {
-          const s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
-          s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
-        });
-      }
-      embedder = await window.transformers.pipeline('feature-extraction', CFG.modelDir);
-      await buildIndex();
-      status.awake = true;
-      console.log('[zahar_embed] Захар проснулся: семантический роутер на месте');
+      console.log(TAG, 'грузим библиотеку через import():', u);
+      const mod = await import(u);
+      state.lib = mod.default || mod;
+      window.transformers = state.lib;
+      return state.lib;
     } catch (e) {
-      waking = false;
-      console.log('[zahar_embed] пробуждение не удалось: ' + (e && e.message));
+      lastErr = e;
+      console.warn(TAG, 'этот адрес не отработал:', u, e && e.message);
     }
   }
-  window.zaharWake = wake;
+  throw lastErr || new Error('библиотека не загрузилась');
+}
 
-  /* ---------------- семантический разбор ---------------- */
-  async function route(text) {
-    const v = await vec(norm(text));
-    const scores = INTENTS.map(it => ({ name: it.name, score: dot(v, centroids[it.name]) }));
-    scores.sort((a, b) => b.score - a.score);
-    const top3 = scores.slice(0, 3);
-    status.last = top3;
-    return top3;
-  }
+/* ---------- эмбеддинги ---------- */
+async function embed(text) {
+  const out = await state.pipe(text, { pooling: 'mean', normalize: true });
+  return Array.from(out.data);
+}
 
-  function respond(name) {
-    const list = RESPONSES[name] || ['Сие вне моей компетенции, обратитесь к адъютанту.'];
-    const i = rot[name] || 0;
-    rot[name] = (i + 1) % list.length;
-    return list[i].replace(/\{N\}/g, mem.notebook.name || 'сударь');
-  }
+function cosine(a, b) {
+  let s = 0, la = 0, lb = 0;
+  for (let i = 0; i < a.length; i++) { s += a[i] * b[i]; la += a[i] * a[i]; lb += b[i] * b[i]; }
+  return s / (Math.sqrt(la) * Math.sqrt(lb) || 1);
+}
 
-  /* ---------------- хук: перехват реплик ---------------- */
-  let origAsk = null;
-  ['zaharAsk', 'zaharRespond', 'zaharSay', 'zaharChatAsk'].some(function (n) {
-    if (typeof window[n] === 'function') { origAsk = window[n]; window[n] = handle; return true; }
-    return false;
-  });
-
-  function layerAsk(text) {
-    if (origAsk) return origAsk(text);
-    console.log('[zahar_embed] слой чата не найден: добавьте zahar_chat.js до этого файла');
-    return 'Аппарат молчит, сударь. Слой чата не подключен.';
-  }
-
-  async function handle(text) {
-    text = String(text || '').trim();
-    if (!text) return;
-
-    zaharNoteUser(text);
-
-    let top3 = null;
-    if (status.awake) {
-      const q = zaharEnrichQuery(text);
-      top3 = await route(q);
-      console.log('[zahar_embed] top-3: ' +
-        top3.map(t => t.name + ' ' + t.score.toFixed(3)).join(' · '));
+async function buildIndex() {
+  state.index = [];
+  for (const it of INTENTS) {
+    const vecs = [];
+    const seen = new Set();
+    for (const ex of it.examples) {
+      const n = normalize(ex);
+      if (seen.has(n)) continue;
+      seen.add(n);
+      vecs.push(await embed(n));
     }
+    state.index.push({ name: it.name, intent: it, vecs });
+  }
+  console.log(TAG, 'индексъ готовъ: ' + INTENTS.length + ' интентовъ');
+}
 
-    const win = top3 && top3[0].score >= CFG.threshold &&
-                top3[1] && (top3[0].score - top3[1].score) >= CFG.margin;
+function match(text) {
+  const scored = [];
+  for (const item of state.index) {
+    let best = -1;
+    for (const v of item.vecs) {
+      const s = cosine(state.lastVec, v);
+      if (s > best) best = s;
+    }
+    scored.push({ name: item.name, intent: item.intent, score: best });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, CFG.topK);
+  console.log(TAG, 'top-3: ' + top.map(t => t.name + ' ' + t.score.toFixed(3)).join(' · '));
+  const w = scored[0], r = scored[1];
+  if (w.score >= CFG.threshold && w.score - r.score >= CFG.margin) return w;
+  if (w.score >= CFG.threshold) console.log(TAG, 'мимо зазора: ' + w.name + ' ' + w.score.toFixed(3) + ' против ' + r.name + ' ' + r.score.toFixed(3));
+  return null;
+}
 
-    let answer;
-    if (win) {
-      zaharNoteTopic(text);
-      answer = respond(top3[0].name);
-    } else {
-      answer = layerAsk(text);
-      console.log('[zahar_embed] слой ответил сам: ' + answer);
-      if (top3 && top3[0].score >= CFG.threshold && top3[1]) {
-        console.log('[zahar_embed] мимо зазора: ' + top3[0].name + ' ' +
-          top3[0].score.toFixed(3) + ' против ' + top3[1].name + ' ' +
-          top3[1].score.toFixed(3));
+/* ---------- пробуждение ---------- */
+const scriptBase = (document.currentScript && document.currentScript.src) || location.href;
+const modelDirAbs = new URL(CFG.modelDir, scriptBase).href;
+
+async function wake() {
+  if (state.ready || state.waking) return;
+  state.waking = true;
+  console.log(TAG, 'Захаръ просыпается… (модель грузится)');
+  try {
+    const T = await loadLibrary();
+    state.pipe = await T.pipeline('feature-extraction', modelDirAbs, { quantized: CFG.quantized });
+    await buildIndex();
+    state.ready = true;
+    console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
+  } catch (e) {
+    console.error(TAG, 'пробуждение не удалось:', e && e.message ? e.message : e);
+  } finally {
+    state.waking = false;
+  }
+}
+window.zaharWake = wake;
+
+/* ---------- контроль ---------- */
+window.zaharEmbedStatus = function () {
+  return {
+    version: VERSION,
+    библиотека: state.lib ? 'загружена (import())' : 'не загружена',
+    модель: state.ready ? 'на мѣстѣ' : 'не проснулась',
+    интентовъ: INTENTS.length,
+    лента: mem.tape.length,
+    тетрадка: mem.notebook.name || 'имя ещё не записано'
+  };
+};
+
+/* ---------- хук на ZAHAR_ASK (правка №21, сохранена) ---------- */
+function tryHook() {
+  if (typeof window.ZAHAR_ASK === 'function' && !window.ZAHAR_ASK.__zahar_patched) {
+    const orig = window.ZAHAR_ASK;
+    const wrapped = function (text, cb) {
+      const t = String(text || '');
+      noteUser(t);
+      if (state.ready) {
+        try {
+          const q = normalize(zaharEnrichQuery(t));
+          embed(q).then(vec => {
+            state.lastVec = vec;
+            const hit = match(q);
+            if (hit) {
+              zaharNoteTopic(hit.name);
+              const rep = fillRep(pick(hit.intent));
+              console.log(TAG, 'семантика отвечает:', rep);
+              zaharNoteZahar(rep);
+              if (typeof cb === 'function') { try { cb(rep); } catch (e) {} }
+              return rep;
+            }
+            console.log(TAG, 'слой ответил самъ');
+            return orig.call(this, text, cb);
+          });
+          return;
+        } catch (e) {
+          console.warn(TAG, 'семантика споткнулась, слой отвечает сам:', e && e.message);
+        }
       }
-    }
-
-    if (answer) {
-      if (MISS.test(norm(answer))) grabNameFromLayer(answer);
-      zaharNoteZahar(answer);
-    }
-    return answer;
+      console.log(TAG, 'слой ответил самъ');
+      return orig.call(this, text, cb);
+    };
+    wrapped.__zahar_patched = true;
+    window.ZAHAR_ASK = wrapped;
+    console.log(TAG, 'хук на ZAHAR_ASK всталъ');
+    return true;
   }
+  return false;
+}
 
-  /* ---------------- будильник (№23) ---------------- */
-  setTimeout(function () {
-    console.log('[zahar_embed] будильник №30: время просыпаться');
-    wake();
-  }, CFG.wakeDelay);
+let hookTries = 0;
+const hookTimer = setInterval(function () {
+  if (tryHook() || ++hookTries > 40) clearInterval(hookTimer);
+}, 500);
 
-  console.log('[zahar_embed] ' + VERSION + ' загружена: память — лента + тетрадка');
+/* ---------- будильник (правка №21) ---------- */
+setTimeout(function () {
+  console.log(TAG, 'будильникъ ' + VERSION + ': время просыпаться');
+  wake();
+}, CFG.wakeDelay);
+
+console.log(TAG, VERSION + ' загружена: память готова — лента ' + mem.tape.length +
+  ', в тетрадке: ' + (mem.notebook.name || 'имя ещё не записано'));
 })();
