@@ -13,7 +13,7 @@
 (function () {
 'use strict';
 
-const VERSION = 'правка №45';
+const VERSION = 'правка №44';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -236,9 +236,6 @@ function match(text) {
 /* ---------- пробуждение ---------- */
 const scriptBase = (document.currentScript && document.currentScript.src) || location.href;
 
-/* 45: упорный будильник — если памяти не хватило, пробуждение перезапускается */
-const WAKE_RETRY = { tries: 0, max: 5, delay: 30000 };
-
 async function wake() {
   if (state.ready || state.waking) return;
   state.waking = true;
@@ -251,14 +248,12 @@ async function wake() {
       env.allowRemoteModels = false;   // на huggingface.co не ходим — модель у нас
       env.localModelPath = new URL('../models/', scriptBase).href;
       console.log(TAG, 'локальные модели по адресу:', env.localModelPath);
-      try { if (env.backends && env.backends.onnx && env.backends.onnx.wasm) { env.backends.onnx.wasm.numThreads = 1; env.backends.onnx.wasm.proxy = false; } } catch (eT) {}
     } else {
       console.warn(TAG, 'env недоступен — возможно, модель не найдётся локально');
     }
     state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { dtype: 'q8' });
     await buildIndex();
     state.ready = true;
-    WAKE_RETRY.tries = 0;
     console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
     /* прогрев (правка №36): первый счёт не должен платить за инициализацию */
     try {
@@ -269,13 +264,6 @@ async function wake() {
     } catch (e) {}
   } catch (e) {
     console.error(TAG, 'пробуждение не удалось:', e && e.message ? e.message : e);
-    if (WAKE_RETRY.tries < WAKE_RETRY.max) {
-      WAKE_RETRY.tries++;
-      console.warn(TAG, 'будильникъ перезапустится черезъ ' + (WAKE_RETRY.delay / 1000) + ' сек (попытка ' + (WAKE_RETRY.tries + 1) + ' изъ ' + (WAKE_RETRY.max + 1) + ')');
-      setTimeout(function () { try { wake(); } catch (eW) {} }, WAKE_RETRY.delay);
-    } else {
-      console.warn(TAG, 'пять попытокъ исчерпано — будильникъ молчитъ до вызова zaharWake()');
-    }
   } finally {
     state.waking = false;
   }
@@ -289,7 +277,6 @@ window.zaharEmbedStatus = function () {
     version: VERSION,
     библиотека: state.lib ? 'загружена (import())' : 'не загружена',
     модель: state.ready ? 'на мѣстѣ' : 'не проснулась',
-    попытокъПробужденія: WAKE_RETRY.tries,
     интентовъ: INTENTS.length,
     лента: mem.tape.length,
     тетрадка: (mem.notebook.name || 'имя ещё не записано') + ' / станция: ' + (mem.notebook.station || 'не записана')
