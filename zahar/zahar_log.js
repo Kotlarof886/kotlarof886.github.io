@@ -1,15 +1,12 @@
 /* ============================================================
-   zahar_log.js v3 — журнальная лента (почта → kotlarof@yandex.ru)
-   v3: честный крючокъ. Разгадка пустого буфера: zahar_boot.js грузит
-   мозгъ динамически ПОСЛЕ загрузки страницы; мозгъ не имѣетъ защиты
-   от повторного запуска и пересоздаетъ дверь ZAHAR_ASK начисто —
-   журнальная обертка (v1/v2) и хук embed срезались. Теперь сторожъ
-   журнала каждые 800 мс проверяетъ дверь и перехватываетъ заново,
-   кто бы ни пересоздалъ ея: присваиваніемъ, defineProperty или delete.
-   Дедупликация: одна депеша не пишется дважды за 2,5 сек.
-   Статусъ честный: дверьОбернута и перехватовДвери — измеряются.
+   zahar_log.js v4 — журнальная лента (почта → kotlarof@yandex.ru)
+   v3: дверной крючокъ переживаетъ подмену (defineProperty + сторожъ,
+   разъ въ 800 мс перехватывает дверь заново, кто бы ни пересоздалъ).
+   v4: дедупликация с выравниванием переносов и окном 10 секунд —
+   двойные реплики Захара (съ переносами и безъ) исчезли изъ журнала.
+   Пишутся и депеша гостя, и отвѣт (включая обещанія).
    API: zaharLogStatus(), zaharLogFlush()
-   Подключать ПОСЛЕ zahar_chat.js (лучше последнимъ, после ether).
+   Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, после zahar_ether.js).
    ============================================================ */
 (function () {
   if (window.__zaharLogLoaded) return;
@@ -25,6 +22,7 @@
   var BUF = [];
   var idleTimer = null, hideTimer = null;
   var recaps = 0;
+  var guardFrozen = false;
   var lastKey = '', lastAt = 0;
 
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -34,11 +32,12 @@
       ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
   function persist() {
-    try { localStorage.setItem('zahar_log_v3', JSON.stringify(BUF)); } catch (e) {}
+    try { localStorage.setItem('zahar_log_v4', JSON.stringify(BUF)); } catch (e) {}
   }
   function restore() {
     try {
-      var s = localStorage.getItem('zahar_log_v3') || localStorage.getItem('zahar_log_v2') || localStorage.getItem('zahar_log_v1');
+      var s = localStorage.getItem('zahar_log_v4') || localStorage.getItem('zahar_log_v3') ||
+              localStorage.getItem('zahar_log_v2') || localStorage.getItem('zahar_log_v1');
       if (s) { var a = JSON.parse(s); if (Array.isArray(a)) BUF = a; }
     } catch (e) {}
   }
@@ -47,9 +46,11 @@
     if (text == null) return;
     text = String(text).trim();
     if (!text) return;
+    /* v4: дедупликация — выравниваем переносы, окно 10 секунд */
+    var flat = text.replace(/\s+/g, ' ').trim();
+    var key = who + '|' + flat;
     var now = Date.now();
-    var key = who + '|' + text;
-    if (key === lastKey && now - lastAt < 2500) { lastAt = now; return; }
+    if (key === lastKey && now - lastAt < 10000) { lastAt = now; return; }
     lastKey = key; lastAt = now;
     BUF.push({ t: stamp(), who: who, text: text });
     if (BUF.length > CFG.maxBuf) BUF.splice(0, BUF.length - CFG.maxBuf);
@@ -133,7 +134,7 @@
     }
   }
 
-  var guardFrozen = false;
+  /* --- сторож v3: дверь проверяется каждые 800 мс --- */
   function installDoor() {
     if (doorMarked()) return;
     if (!capture()) { guardFrozen = true; return; }
@@ -141,8 +142,10 @@
     try { console.log('[zahar_log] дверьъ ZAHAR_ASK перехвачена (разъ ' + recaps + ')'); } catch (e) {}
   }
   if (capture()) recaps = 1;
-  try { console.log('[zahar_log] v3: журнальная лента на линіи'); } catch (e) {}
-  setInterval(function () { if (!guardFrozen) installDoor(); }, 800);
+  try { console.log('[zahar_log] v4: журнальная лента на линіи, крючокъ на двери'); } catch (e) {}
+  setInterval(function () {
+    if (!guardFrozen) installDoor();
+  }, 800);
 
   /* --- отправка (FormSubmit, почта) --- */
   function payloadFor(reason, body) {
@@ -168,7 +171,7 @@
     if (!body) return false;
     var url = 'https://formsubmit.co/ajax/' + CFG.email;
     var cleared = false;
-    function finish(ok) { if (ok && !cleared) { cleared = true; BUF = []; lastKey = ''; persist(); } }
+    function finish(ok) { if (ok && !cleared) { cleared = true; BUF = []; persist(); } }
     try {
       fetch(url, {
         method: 'POST',

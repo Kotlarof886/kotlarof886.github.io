@@ -5,10 +5,6 @@
    v2.14: точный словарный поискъ (подстрочный бонусъ ключамъ отъ 6 буквъ),
    зачинъ повтора «Про X, значитъ», страховка пуловъ, помѣхи-отказы.
    v2.15: ять (ѣ) приравненъ къ «е»; мѣстоимена въ стопѣ; полъ на выходе пуловъ.
-   v2.16: дисциплина скоринга (стоп-слова в ключахъ, токены отъ 3 буквъ,
-   многотокенный ключъ требуетъ точного совпаденія); дверь защищена отъ
-   повторного запуска (boot перезагружалъ мозгъ и сносилъ цепочку); полъ
-   конвертируется на выходе всего мозга, включая фразовые пулы.
    Подключать ПОСЛЕДНИМ, после:
      zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js
    ============================================================ */
@@ -24,7 +20,8 @@ try { ZAHAR_WIKI_CACHE = JSON.parse(localStorage.getItem('zahar_wiki_v1') || '{}
 
 /* ---------- нормализация и стемминг ---------- */
 var ZAHAR_STOP = {};
-'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без не ни при чем за зачем когда где куда'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
+'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
+'не ни при тут чем за зачем когда где куда почему разве если будто все всё весь вся от до ведь мол де'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; }); /* v2.16 */
 'я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее ёе их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
 
 function zaharNorm(s) {
@@ -325,23 +322,27 @@ function zaharFindEntry(query) {
   if (typeof ENTRIES === 'undefined' || !Array.isArray(ENTRIES)) return null;
   var q = zaharNorm(query);
   if (!q) return null;
+  /* v2.16: токены короче 3 букв не считаются; стоп-слова фильтруются и в ключах */
   var qt = q.split(' ').filter(function (t) { return t && t.length >= 3 && !ZAHAR_STOP[t]; }).map(zaharStem);
   var best = null, bestScore = 0;
   for (var i = 0; i < ENTRIES.length; i++) {
     var e = ENTRIES[i];
     var kw = zaharNorm(e.w || '');
     if (!kw) continue;
-    var kt = kw.split(' ').map(zaharStem).filter(function (t) { return t && t.length >= 3 && !ZAHAR_STOP[t]; });
-    var score = 0, matched = 0, exactHit = false;
-    for (var a = 0; a < kt.length; a++) {
-      for (var b = 0; b < qt.length; b++) {
-        if (zaharTokensMatch(kt[a], qt[b])) { score += 2; matched++; if (kt[a] === qt[b]) exactHit = true; }
+    var kwHead = zaharNorm(String(e.w || '').replace(/\s*\(.*$/, '').replace(/[.,;!?»]+$/, '')) || kw; /* v2.16: заголовок статьи безъ примечаній въ скобкахъ */
+    var kt = kwHead.split(' ').filter(function (t) { return t && t.length >= 3 && !ZAHAR_STOP[t]; }).map(zaharStem);
+    var score = 0;
+    if (kt.length) {
+      var matched = 0;
+      for (var a = 0; a < kt.length; a++) {
+        for (var b = 0; b < qt.length; b++) {
+          if (zaharTokensMatch(kt[a], qt[b])) { score += 2; matched++; break; }
+        }
       }
+      /* v2.16: многословному ключу нужен хотя бы второй совпавший токен */
+      if (kt.length > 1 && matched < 2) score = 0;
     }
-    if (kw.length >= 6 && new RegExp('(^|[^а-я])' + kw + '($|[^а-я])').test(q)) score += 2;
-    /* v2.16: многословному ключу безъ точного совпаденія нужны два токена —
-       одно «хвостик»-совпаденіе статью не тянетъ (урокъ Гната и «же ву занъ при») */
-    if (kt.length > 1 && matched === 1 && !exactHit) continue;
+    if (kw.length >= 6 && kt.length && new RegExp('(^|[^а-я])' + kw + '($|[^а-я])').test(q)) score += 2;
     if (score > bestScore) { bestScore = score; best = e; }
   }
   return bestScore >= 2 ? best : null;
@@ -567,21 +568,25 @@ zaharDictLoad();
 zaharMemoryLoad();
 zaharMergeAll();
 
-/* экспорт наружу (v2.16) */
-/* дверь защищена: boot перезагружает мозгъ — повторная установка не сносит
-   цепочку (слой и журналъ держатъ обертки поверхъ двери) */
-if (!window.__zaharBrainDoorSet) {
-  var __zaharAskRaw = ZAHAR_ASK;
-  window.ZAHAR_ASK = function (raw) {
-    var r = __zaharAskRaw(raw);
-    if (r && typeof r.then === 'function') {
-      return r.then(function (v) { return (typeof v === 'string') ? zaharOut(v) : v; });
-    }
-    return (typeof r === 'string') ? zaharOut(r) : r;
-  };
-  window.__zaharBrainDoorSet = true;
+/* v2.16: конвертация пола на выходе мозга — любые пулы говорят при даме «сударыня» */
+function zaharFemizeOut(s) {
+  if (window.ZAHAR_USER_GENDER !== 'f') return s;
+  return String(s)
+    .replace(/(^|[^а-яё])сударь([^а-яё]|$)/gi, '$1сударыня$2')
+    .replace(/(^|[^а-яё])сударю([^а-яё]|$)/gi, '$1сударыне$2')
+    .replace(/(^|[^а-яё])незнакомцемъ([^а-яё]|$)/gi, '$1незнакомкой$2');
+}
+/* экспорт наружу; v2.16: дверь защищена от перезапуска boot'ом */
+if (typeof window.ZAHAR_ASK === 'function' && window.ZAHAR_ASK.__zaharBrainDoor) {
+  try { console.log('[zahar_brain] повторная загрузка — дверь не трогаю'); } catch (e) {}
 } else {
-  try { console.info('[zahar_brain] повторная загрузка — дверь не трогаю, цепочка цѣла'); } catch (e) {}
+  var _zaharDoor = function (raw) {
+    var r = ZAHAR_ASK(raw);
+    if (r && typeof r.then === 'function') return r.then(zaharFemizeOut);
+    return zaharFemizeOut(r);
+  };
+  try { Object.defineProperty(_zaharDoor, '__zaharBrainDoor', { value: true }); } catch (e) { _zaharDoor.__zaharBrainDoor = true; }
+  window.ZAHAR_ASK = _zaharDoor;
 }
 window.ZAHAR_TEACH_WORD = zaharTeachWordText;
 window.ZAHAR_TEACH_REPLICA = zaharTeachReplicaText;
