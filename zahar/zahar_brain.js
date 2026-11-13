@@ -1,10 +1,14 @@
 /* ============================================================
-   Захаръ — мозгъ v2.15 (Барнаулъ, 1896; личность вшита целиком)
+   Захаръ — мозгъ v2.16 (Барнаулъ, 1896; личность вшита целиком)
    №44: лексикон въ зачинахъ убранъ (кромѣ редкихъ словъ); согласіе
    (да/давай/расскажи/хорошо/ок/валяй/подробнее) открываетъ записку вторую
    v2.14: точный словарный поискъ (подстрочный бонусъ ключамъ отъ 6 буквъ),
    зачинъ повтора «Про X, значитъ», страховка пуловъ, помѣхи-отказы.
    v2.15: ять (ѣ) приравненъ къ «е»; мѣстоимена въ стопѣ; полъ на выходе пуловъ.
+   v2.16: дисциплина скоринга (стоп-слова в ключахъ, токены отъ 3 буквъ,
+   многотокенный ключъ требуетъ точного совпаденія); дверь защищена отъ
+   повторного запуска (boot перезагружалъ мозгъ и сносилъ цепочку); полъ
+   конвертируется на выходе всего мозга, включая фразовые пулы.
    Подключать ПОСЛЕДНИМ, после:
      zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js
    ============================================================ */
@@ -20,7 +24,7 @@ try { ZAHAR_WIKI_CACHE = JSON.parse(localStorage.getItem('zahar_wiki_v1') || '{}
 
 /* ---------- нормализация и стемминг ---------- */
 var ZAHAR_STOP = {};
-'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
+'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без не ни при чем за зачем когда где куда'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
 'я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее ёе их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
 
 function zaharNorm(s) {
@@ -321,20 +325,23 @@ function zaharFindEntry(query) {
   if (typeof ENTRIES === 'undefined' || !Array.isArray(ENTRIES)) return null;
   var q = zaharNorm(query);
   if (!q) return null;
-  var qt = q.split(' ').filter(function (t) { return t && !ZAHAR_STOP[t]; }).map(zaharStem);
+  var qt = q.split(' ').filter(function (t) { return t && t.length >= 3 && !ZAHAR_STOP[t]; }).map(zaharStem);
   var best = null, bestScore = 0;
   for (var i = 0; i < ENTRIES.length; i++) {
     var e = ENTRIES[i];
     var kw = zaharNorm(e.w || '');
     if (!kw) continue;
-    var kt = kw.split(' ').map(zaharStem);
-    var score = 0;
+    var kt = kw.split(' ').map(zaharStem).filter(function (t) { return t && t.length >= 3 && !ZAHAR_STOP[t]; });
+    var score = 0, matched = 0, exactHit = false;
     for (var a = 0; a < kt.length; a++) {
       for (var b = 0; b < qt.length; b++) {
-        if (zaharTokensMatch(kt[a], qt[b])) score += 2;
+        if (zaharTokensMatch(kt[a], qt[b])) { score += 2; matched++; if (kt[a] === qt[b]) exactHit = true; }
       }
     }
     if (kw.length >= 6 && new RegExp('(^|[^а-я])' + kw + '($|[^а-я])').test(q)) score += 2;
+    /* v2.16: многословному ключу безъ точного совпаденія нужны два токена —
+       одно «хвостик»-совпаденіе статью не тянетъ (урокъ Гната и «же ву занъ при») */
+    if (kt.length > 1 && matched === 1 && !exactHit) continue;
     if (score > bestScore) { bestScore = score; best = e; }
   }
   return bestScore >= 2 ? best : null;
@@ -560,8 +567,22 @@ zaharDictLoad();
 zaharMemoryLoad();
 zaharMergeAll();
 
-/* экспорт наружу */
-window.ZAHAR_ASK = ZAHAR_ASK;
+/* экспорт наружу (v2.16) */
+/* дверь защищена: boot перезагружает мозгъ — повторная установка не сносит
+   цепочку (слой и журналъ держатъ обертки поверхъ двери) */
+if (!window.__zaharBrainDoorSet) {
+  var __zaharAskRaw = ZAHAR_ASK;
+  window.ZAHAR_ASK = function (raw) {
+    var r = __zaharAskRaw(raw);
+    if (r && typeof r.then === 'function') {
+      return r.then(function (v) { return (typeof v === 'string') ? zaharOut(v) : v; });
+    }
+    return (typeof r === 'string') ? zaharOut(r) : r;
+  };
+  window.__zaharBrainDoorSet = true;
+} else {
+  try { console.info('[zahar_brain] повторная загрузка — дверь не трогаю, цепочка цѣла'); } catch (e) {}
+}
 window.ZAHAR_TEACH_WORD = zaharTeachWordText;
 window.ZAHAR_TEACH_REPLICA = zaharTeachReplicaText;
 window.ZAHAR_BATCH = zaharBatchTeach;
