@@ -211,34 +211,67 @@
       ': ' + numWords(h12) + ' ' + formOf(h12, 'час', 'часа', 'часов') + ' ' + numWordsFem(m) + ' ' +
       formOf(m, 'минута', 'минуты', 'минут') + ' ' + part + ', ' + nmOr() + '.';
   }
-  /* ===== 45: календарь 1896 года (новый счёт) ===== */
-  var HOL_1896 = {
-    '1-1': 'Новый годъ', '1-7': 'Рождество Христово', '1-14': 'Старый Новый годъ',
-    '2-9': 'Масленица (начало)', '2-15': 'Сретеніе Господне', '2-16': 'Прощеное воскресенье',
-    '3-29': 'Вербное воскресенье', '4-5': 'Пасха Христова', '4-7': 'Благовещеніе',
-    '4-14': 'Радоница (поминовеніе)', '5-14': 'Вознесеніе Господне',
-    '5-24': 'Троица (День Святыя Троицы)', '5-25': 'Духов день',
-    '5-26': 'Коронація Государя Императора',
-    '7-8': 'Петръ и Февронія', '8-14': 'Медовый Спасъ', '8-19': 'Яблочный Спасъ',
-    '8-29': 'Ореховый Спасъ', '9-21': 'Рождество Богородицы',
-    '9-27': 'Воздвиженіе Креста', '10-14': 'Покровъ Пресвятыя Богородицы',
-    '11-4': 'Казанская икона Богоматери', '11-14': 'Кузьминки (Косьма и Даміанъ — тёзки кузнецовъ!)',
-    '12-4': 'Введеніе во храмъ', '12-19': 'Никола Зимній'
-  };
-  function holidayOn(mo, d) { return HOL_1896[mo + '-' + d] || null; }
-  function answerHoliday() {
-    var now = new Date();
-    var today = holidayOn(now.getMonth() + 1, now.getDate());
-    if (today) return fill('Нынче, {A}, праздник: ' + today + '. Спрашивайте — про него и разскажу.');
-    var best = null, bestDays = 1e9, keys = Object.keys(HOL_1896), i;
-    for (i = 0; i < keys.length; i++) {
-      var pr = keys[i].split('-'), mm = +pr[0], dd = +pr[1];
-      var dt = new Date(now.getFullYear(), mm - 1, dd);
-      if (dt < new Date(now.getFullYear(), now.getMonth(), now.getDate())) dt = new Date(now.getFullYear() + 1, mm - 1, dd);
-      var diff = Math.round((dt - now) / 86400000);
-      if (diff < bestDays) { bestDays = diff; best = HOL_1896[keys[i]]; }
+  /* 45: календарь праздников 1896 года, по новому счёту (Спасы 14/19/29 августа) */
+  var HOLIDAYS_1896 = [
+    { m: 1, d: 19, name: 'Крещение Господне' },
+    { m: 2, d: 9, name: 'Масленица' },
+    { m: 2, d: 15, name: 'Сретение Господне' },
+    { m: 3, d: 29, name: 'Вербное воскресенье' },
+    { m: 4, d: 5, name: 'Пасха Христова' },
+    { m: 4, d: 7, name: 'Благовещение' },
+    { m: 4, d: 12, name: 'Красная горка' },
+    { m: 5, d: 14, name: 'Вознесение Господне' },
+    { m: 5, d: 24, name: 'День Св. Троицы' },
+    { m: 5, d: 26, name: 'Коронация государя императора' },
+    { m: 6, d: 12, name: 'Петров день' },
+    { m: 7, d: 7, name: 'Иван Купала' },
+    { m: 8, d: 2, name: 'Ильин день' },
+    { m: 8, d: 14, name: 'Медовый Спас' },
+    { m: 8, d: 19, name: 'Яблочный Спас' },
+    { m: 8, d: 28, name: 'Успение Богородицы' },
+    { m: 8, d: 29, name: 'Ореховый Спас' },
+    { m: 9, d: 21, name: 'Рождество Богородицы' },
+    { m: 9, d: 27, name: 'Воздвижение Креста' },
+    { m: 10, d: 14, name: 'Покров' },
+    { m: 11, d: 4, name: 'Казанская икона Богородицы' },
+    { m: 11, d: 14, name: 'Кузьминки (Косьма и Дамиан — тёзки мои, кузнецы!)' },
+    { m: 12, d: 4, name: 'Введение во храм' },
+    { m: 12, d: 19, name: 'Никола Зимний' },
+    { m: 12, d: 25, name: 'Рождество Христово' }
+  ];
+  function holidayOf(mo, d) {
+    for (var i = 0; i < HOLIDAYS_1896.length; i++) {
+      var h = HOLIDAYS_1896[i];
+      if (h.m - 1 === mo && h.d === d) return h.name;
     }
-    return fill('Ближайшій праздник, {A}, — ' + best + ': дней ' + bestDays + '. Спрашивайте — ра скажу, что за праздник.');
+    return null;
+  }
+  function holidayNear(mo, d) {
+    var todayIdx = mo * 40 + d;
+    var best = null, bestK = 1e9;
+    for (var i = 0; i < HOLIDAYS_1896.length; i++) {
+      var h = HOLIDAYS_1896[i];
+      var idx = (h.m - 1) * 40 + h.d;
+      var k = idx - todayIdx;
+      if (k <= 0) k += 480;
+      if (k < bestK) { bestK = k; best = { name: h.name, k: k }; }
+    }
+    return best;
+  }
+  function daysWord(nn) {
+    return nn + (nn % 10 === 1 && nn % 100 !== 11 ? ' день' : (nn % 10 >= 2 && nn % 10 <= 4 && (nn % 100 < 12 || nn % 100 > 14)) ? ' дня' : ' дней');
+  }
+  function holidayReply() {
+    var now = new Date();
+    var mo = now.getMonth(), d = now.getDate();
+    var _hol = holidayOf(mo, d);
+    if (_hol) return fill('Нынче праздник: ' + _hol + ', {A}. Спросите — растолкую.');
+    var _n = holidayNear(mo, d);
+    if (_n) {
+      var _when = _n.k === 1 ? 'завтра' : 'через ' + daysWord(_n.k - 1);
+      return fill('Ближайший праздник — ' + _n.name + ': ' + _when + ', {A}. Спросите — растолкую.');
+    }
+    return fill('Праздников нынче не прописано, {A}. Спросите число — доложу.');
   }
   function answerDate() {
     var now = new Date();
@@ -246,26 +279,36 @@
     var d = now.getDate(), mo = now.getMonth();
     var wd = WD[new Date(y, mo, d).getDay()];
     var tail = pick(['Число казенное, не с меня спрос.', 'Календарь на стене не врет.', 'Депешируйте смело — число верное.']);
-    var _h45 = holidayOn(mo + 1, d), _h45n = holidayOn(mo + 1, d + 1), hol45 = '';
-    if (_h45) hol45 = ' И нынче праздник: ' + _h45 + '.';
-    else if (_h45n) hol45 = ' А завтра — ' + _h45n + '.';
-    return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '. ' + tail + hol45;
+    /* 45: праздник сегодня или завтра — упоминание в тему */
+    var _hol = holidayOf(mo, d);
+    if (_hol) tail = 'И нынче праздник: ' + _hol + '. Спросите — растолкую.';
+    else {
+      var _n = holidayNear(mo, d);
+      if (_n && _n.k === 1) tail = 'А завтра — ' + _n.name + '.';
+    }
+    return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '. ' + tail;
   }
 
   /* ---------- погода: полный пакет (градус, ветер, осадки) ---------- */
-  /* 45: хвост погоды зависит от градуса — при плюсе льда нет */
-  function wxTail(t) {
-    if (typeof t === 'number') {
-      if (t >= -2) return pick(['До льда на реке далеко — рыбка ходит бодро, {A}.', 'При таком тепле Обь не станет — вода живая, {A}.']);
-      if (t < -5) return pick(WX_TAIL);
-      return pick(['Кое-где на Оби закраины могут встать, приметьте.', 'Вечером вода по краям подмерзает — так по приметам, {A}.']);
-    }
-    return pick(WX_TAIL);
-  }
+  /* 45: хвост погоды — от градуса: плюс — «до льда далеко», минус — «под лёд» */
   var WX_TAIL = ['Мороз не беда — чай горячий спасает.',
-    'Такая погода рыбу под лед гонит, приметьте.',
     'На линии то дождь, то снег — провода гудут.',
-    'Гулять — да в шубе, {A}.'];
+    'Гулять — да в шубе, {A}.',
+    'Погода степная: ни жара, ни стужи.'];
+  var WX_TAIL_COLD = ['Такая погода рыбу под лед гонит, приметьте.',
+    'Мороз крепчает — до льда на Оби недолго.',
+    'Куткурит знатно: шуба не помешает.'];
+  var WX_TAIL_ICE = ['На Оби кое-где закраины могут встать — осторожнее у берега.',
+    'Погода шаткая: то лёд потянет, то полынья.'];
+  var WX_TAIL_WARM = ['До льда на реке далеко — рыбка ходит бодро.',
+    'Теплынь стоит — на линии и на реке раздолье.',
+    'При таком градусе удочку грех не сматывать на Обь.'];
+  function wxTailFor(t) {
+    if (t === null || t === undefined) return fill(pick(WX_TAIL));
+    if (t <= -5) return fill(pick(WX_TAIL_COLD));
+    if (t >= 2) return fill(pick(WX_TAIL_WARM));
+    return fill(pick(WX_TAIL_ICE));
+  }
   var OM_URL = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code';
   function fullCacheGet() {
     try {
@@ -373,12 +416,12 @@
            ' в секунду, ' + numWords(Math.round(d.ws * 3.37)) + ' ' + formOf(Math.round(d.ws * 3.37), 'верста', 'версты', 'верст') + ' в час)';
     }
     s += ', ' + precipWord(d);
-    return s + '. ' + wxTail(t);
+    return s + '. ' + wxTailFor(t);
   }
   function wxLineTempOnly(t) {
     var sign = t < 0 ? 'минус ' + numWords(-t) : (t === 0 ? 'ноль' : 'плюс ' + numWords(t));
     return 'Метеорная станция доносит: ' + sign + ' ' + formOf(t, 'градус', 'градуса', 'градусов') +
-      '. Ветра и осадков аппарат не телеграфирует. ' + wxTail(t);
+      '. Ветра и осадков аппарат не телеграфирует. ' + wxTailFor(t);
   }
   var WX_FAIL = ['Провода к метеостанции молчат, {A} — поди, обметало их снегом. По приметам так: воробьи нахохлились, к холоду.',
     'Приборы молчат, {A}: связь со станцией не идет. Гадаю по приметам: дым столбом — к морозу, ласточки низко — к дождю.'];
@@ -472,31 +515,27 @@
   }
   function introStep(n, q) {
     if (n === 'проверка' || n.indexOf('проверка') === 0) return null;
-    if (!FRAME.station && typeof window.zaharMemory === 'function') {
-      try { var _nb = (window.zaharMemory() || {}).notebook || {}; if (_nb.station) FRAME.station = _nb.station; } catch (e) {}
-    }
-    /* 45: узнавание после обновления страницы — имя или станция из тетрадки */
+    /* 45: узнавание после перезагрузки — тетрадка помнит имя и станцию;
+       Захар «забывает» внешне, но узнав маркер, подхватывает разговор */
     if (!FRAME.done && typeof window.zaharMemory === 'function') {
       try {
-        var _nb45 = (window.zaharMemory() || {}).notebook || {};
-        var _nm45 = _nb45.name, _st45 = _nb45.station;
-        if (_nm45 || _st45) {
-          var _hitN = _nm45 && q && new RegExp('(^|[^а-яё])' + String(_nm45).toLowerCase().replace(/[её]/g, '[её]') + '($|[^а-яё])', 'i').test(String(q).toLowerCase());
-          var _hitS = _st45 && n && new RegExp('(^|[^а-яё])' + String(_st45).toLowerCase().replace(/[её]/g, '[её]').replace(/[ъь]/g, '') + '($|[^а-яё])').test(n);
-          if (_hitN || _hitS) {
-            FRAME.done = true;
-            if (_nm45 && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nm45;
-            if (_st45 && !FRAME.station) FRAME.station = _st45;
-            var _who = (_nm45 || 'господинъ') + (_st45 ? ', станція ' + _st45 : '');
-            var _recog = [
-              'Ага — вижу въ журнале: ' + _who + '. Радъ слышать! Чемъ могу служить?',
-              'Журналъ не обманешь: ' + _who + ' — все въ прошлой бесѣдѣ записано. Слушаю депешу.',
-              'Смекаю: ' + _who + ' — тотъ самый! Ключъ вашъ слышу, извольте.'
-            ];
-            return fill(_recog[Math.floor(Math.random() * _recog.length)]);
-          }
+        var _nbz = (window.zaharMemory() || {}).notebook || {};
+        var _nameHit = _nbz.name && n.indexOf(String(_nbz.name).toLowerCase()) >= 0;
+        var _barBarn = /из\s+барнаул|от\s+барнаул/.test(n);
+        var _statHit = _nbz.station && !_barBarn && n.indexOf(String(_nbz.station).toLowerCase()) >= 0;
+        if (_nameHit || _statHit) {
+          FRAME.done = true;
+          if (_nbz.name && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbz.name;
+          if (_nbz.station && !FRAME.station) FRAME.station = String(_nbz.station).toLowerCase();
+          var _sv = _nbz.station || 'Барнаул';
+          if (_nameHit && _statHit) return fill(pick(['Ага — вижу въ журнале: {A} со станции ' + _sv + '. Радъ слышать! Чемъ могу служить?', 'Записано въ тетрадке: {A}, станція ' + _sv + '. Чемъ могу служить?', 'Слышу васъ, {A}! Со станции ' + _sv + ' пишете — радъ. Извольте депешу.']));
+          if (_nameHit) return fill(pick(['Вижу въ журнале: {A}. Радъ слышать! Чемъ могу служить?', 'Так-так, въ тетрадке {A} значится. Приветствую снова — извольте депешу.', '{A}, васъ знаю: имя въ журнале. Чемъ могу служить?']));
+          return fill(pick(['Со станции ' + _sv + ' пишете — записалъ въ журнале. Чемъ могу служить?', 'Станція ' + _sv + ' въ тетрадке есть. Здравия желаю! Извольте депешу.', 'Ага, станція ' + _sv + '. Слушаю депешу, сударь.']));
         }
       } catch (e) {}
+    }
+    if (!FRAME.station && typeof window.zaharMemory === 'function') {
+      try { var _nb = (window.zaharMemory() || {}).notebook || {}; if (_nb.station) FRAME.station = _nb.station; } catch (e) {}
     }
     var st = findStation(n);
     if (st) {
@@ -533,8 +572,10 @@
       if (/сухов/.test(n)) { FRAME.done = true; return fill('Отъ конторы Сухова, значитъ? Понялъ: подписи на депешахъ вашихъ нѣтъ, а станція здѣсь одна — стало быть, пишетъ контора Сухова. Такъ и запишу. Ну, извольте — слушаю.'); }
       var nm = grabName(q);
       if (nm) {
-        if (window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME.toLowerCase() !== nm.toLowerCase()) { window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm); return fill('Записалъ, ' + nm + ': буду звать васъ ' + nm + ', а прежнее имя изъ тетрадки выпишу. Съ какой станции пишете?'); }
-        if (!window.ZAHAR_USER_NAME) { window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm); }
+        /* 45: имя замещает прежнее; то же имя — «помню из тетрадки» */
+        if (window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME === nm) return fill('Помню, {A}: имя въ журнале съ прошлой бесѣды. Слушаю депешу.');
+        if (window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME !== nm) { window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm); return fill('Записалъ, {A}: буду звать васъ ' + nm + ', а прежнее имя изъ тетрадки выпишу. Слушаю депешу.'); }
+        window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm);
         if (!FRAME.station) return fill('Приятно познакомиться, ' + nm + '! Меня звать Захаръ, телеграфистъ. Съ какой станции пишете?');
         return null;
       }
@@ -562,7 +603,7 @@
     var out = String(s == null ? '' : s);
     var map = [['сударём','сударынёй'],['сударем','сударынёй'],['сударя','сударыню'],['сударю','сударыне'],['сударей','сударыней'],['сударь','сударыня']];
     for (var i = 0; i < map.length; i++) out = out.split(map[i][0]).join(map[i][1]);
-    return out.replace(/\s{2,}/g, ' ').trim();
+    return out;
   }
   /* ===== №44: пулы лора ===== */
   var LORE = {
@@ -577,7 +618,7 @@
     if (/трактир|шулюм|дианы/.test(n)) return fill(pick(LORE.traktir));
     if (/м ю|инкогнито/.test(n)) return fill(pick(LORE.myu));
     if (/какие станци|станци.*(знаешь|список)|лини/.test(n)) return fill(pick(LORE.lines));
-    if (/интерес|увлека|любимое дело/.test(n)) return fill(pick(LORE.interests));
+    if (/интерес|увлек|любимое дело|увлечени/.test(n)) return fill(pick(LORE.interests));
     return null;
   }
 
@@ -640,12 +681,14 @@ function tryName(raw) {
     return 'Имени вашего я не слыхал, ' + addr() + '. Представьтесь — и буду звать по имени.';
   }
   function nameReply(name) {
-    var _same = window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME.toLowerCase() === String(name).toLowerCase();
+    var _prev = window.ZAHAR_USER_NAME;
     window.ZAHAR_USER_NAME = name;
-    /* 39: имя и в общую тетрадку — переживет перезагрузку; 45: новое замещает прежнее */
+    /* 45: то же имя — помню; новое — замещает прежнее */
+    if (_prev && _prev === name) return name + ', васъ помню: имя въ журнале съ прошлой бесѣды. Слушаю депешу.';
+    if (_prev && _prev !== name) return 'Записалъ, ' + name + ': буду звать васъ ' + name + ', а прежнее имя изъ тетрадки выпишу. Слушаю депешу.';
+    /* 39: имя и в общую тетрадку — переживет перезагрузку */
     if (typeof window.zaharSetName === 'function') { try { window.zaharSetName(name); } catch (e) {} }
     lastCounter = true;
-    if (_same) return 'Помню: имя въ журнале съ прошлой бесѣды, ' + name + '. Слушаю депешу.';
     return 'Приятно познакомиться, ' + name + '! Записал в тетрадку — память депешная, цепкая. ' + counterText();
   }
   function detectGender(q) {
@@ -666,10 +709,9 @@ function tryName(raw) {
     { q: 'А вы чай горячий нынче отведали, {N}? Самовар у меня не зря топится.', topic: 'tea' }
   ];
   var lastCounter = false, counterTopic = null, askNameDone = false, lastTopic = null, awaitingJob = false;
-  var counterCooldown = 0; /* 45: после встречного — пауза */
+  var counterCooldown = 0; /* 45: тишина встречных на N ходов */
   function counterText() {
     var c;
-    if (counterCooldown > 0) { counterCooldown--; lastCounter = true; return ''; }
     if (!window.ZAHAR_USER_NAME && !askNameDone) { askNameDone = true; counterTopic = null; lastCounter = true; return 'Как вас величать, кстати?'; }
     var _ci = Math.floor(Math.random() * COUNTERS.length);
     if (COUNTERS.length > 1 && _ci === counterText._last) _ci = (_ci + 1) % COUNTERS.length;
@@ -677,11 +719,14 @@ function tryName(raw) {
     c = COUNTERS[_ci];
     counterTopic = c.topic;
     lastCounter = true;
+    counterCooldown = 3; /* 45: после встречного — три хода тишины */
     return fill(c.q);
   }
   function maybeCounter(s) {
+    /* 45: кулдаун — встречный не лезет после каждой депеши */
+    if (counterCooldown > 0) { counterCooldown--; return s; }
     if (lastCounter) { lastCounter = false; return s; }
-    if (Math.random() < 0.4) { var _c = counterText(); if (_c) { counterCooldown = 2; return s + ' ' + _c; } return s; }
+    if (Math.random() < 0.4) return s + ' ' + counterText();
     return s;
   }
   var NELMA_TELL = 'А зря не слыхали, {A}! Нельма — благородный сиг, лучшая рыба великой Оби: серебром в льду отливает, до солидного веса дорастает. Старожилы помнят, как нельма неводами целыми ходила; ныне ее пореже, и цена ей дороже. Уха из нее — навариста и духонна.';
@@ -1072,7 +1117,6 @@ function tryName(raw) {
     { re: /(до\s*свидан|прощай|всего доброго|до встречи|бывай|покид|(^|[^а-я])пока(?:[^а-я]|$))/,
       run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { re: /(попил|попивал|выпил|любите чай|любишь чай|про чай|о чае|чай)/, run: function () { return fill(pick(TEA)); } },
-    { re: /(какой праздник|какие праздники|праздник нынче|каков праздник)/, run: answerHoliday },
     { re: /(день|числ|дат|календар|какой год|какой месяц)/, run: answerDate },
     { re: /(кто ты|кто вы|ты кто|(тебя|вас)\s+(?:как[ъь]?\s+)?[зз]ову?т[а-я]*|зову?[ть]?\s+(тебя|вас)|твое имя|как твое имя|как фамилия|твоя фамилия|представ)/,
       run: function () {
@@ -1108,7 +1152,8 @@ function tryName(raw) {
     { re: /(сколк[а-я]* лет|сколк[а-я]* тебе|сколько годов|возраст|лет тебе)/, run: ageRun },
     { re: /(что ты делаешь|что делаешь|что поделываешь|чем занят|чем занятой|занимаеш)/, run: function () { return fill(pick(DEEDS)); }, topic: 'deed' },
     { re: /(что умеешь|что можешь|какие навыки)/, run: function () { return fill(pick(CAN_DO)); } },
-    { re: /(любимая еда|любимое блюдо|что ешь|любимая пища|(?:люби|нравит)[а-я]*.{0,24}(?:рыб|[её]д|кушат|ух[аи])|(?:рыб|ух[аи])[а-я]*.{0,24}(?:люби|нравит))/, run: function () { counterCooldown = 2; return fill(pick(FOOD)); } },
+    /* 45: еда — в любом обороте («любишь рыбу есть», «рыбу любишь»), встречный молчит */
+    { re: /(любимая еда|любимое блюдо|что ешь|любимая пища|(люби|нрав|уваж)\S*\s+(?:[а-я]+\s+)?(рыб|ух)|(рыб|ух)\S*\s+(?:[а-я]+\s+)?(люби|нрав|любим))/, run: function () { counterCooldown = 1; return fill(pick(FOOD)); } },
     { re: /(сладк|сладост|конфет|пряник|варень|карамел|шоколад|печенье)/, run: function () { return fill(pick(SWEET)); } },
     /* 44a: «твоя правда» — идиома, а не слово из словаря */
     { re: /(твоя|ваша)\s+правда/, run: function () { return fill('Твоя правда, {A}: так оно и есть. Слушаю депешу — извольте.'); } },
@@ -1120,7 +1165,7 @@ function tryName(raw) {
         return fill('Нравится, {A}: слово что надо — в тетрадку записал. А к делу — извольте депешу.');
       }, topic: 'like' },
     { re: /(нравится.*работ|любишь.*работ|работа нравится|как.*работа)/, run: function () { return fill(pick(WORK_LIKE)); } },
-    { re: /(занимаешься|увлеч|хобби|любимое заняти)/, run: function () { return fill(pick(HOBBY)); } },
+    { re: /(занимаешься|увлека|хобби|любимое заняти)/, run: function () { return fill(pick(HOBBY)); } },
     { re: /(женат|семья|жена|холост)/, run: function () { return fill(pick(FAMILY)); } },
     { re: /(начальство|начальник|шеф|люту|пережив)/, run: function () { return fill(pick(SYMPATHY)); } },
     { re: /(я\s+(из|в|во)\s+барнаул|я\s+из\s+города)/, run: function () { return fill(pick(LANDSMAN)); } },
@@ -1436,6 +1481,10 @@ function chat(raw) {
     }
     /* 43: погода и градус — прежде счетчиков */
     if (/(погод|пагод|сколк[а-я]* градус|температур|метель)/.test(n)) { awaitingJob = false; return answerWeather(); }
+    /* 45: еда — в любом обороте, прежде счетчиков; встречный молчит */
+    if (/(любимая еда|любимое блюдо|что ешь|что ел|любимая пища|(люби|нрав|уваж)\S*\s+(?:[а-я]+\s+)?(рыб|ух)|(рыб|ух)\S*\s+(?:[а-я]+\s+)?(люби|нрав|любим))/.test(n)) { awaitingJob = false; counterCooldown = 1; return fill(pick(FOOD)); }
+    /* 45: «какой праздник» — календарь 1896 года */
+    if (/(какой праздник|что за праздник|какой нынче праздник)/.test(n)) { awaitingJob = false; return holidayReply(); }
     if (counterTopic && n.split(' ').length <= 6 &&
         !/\?|погод|который час|сколк[а-я]* врем|на часах|сколк[а-я]* сейчас|числ|кто ты|зовут|знае|известн|расскажи|проверка|учил|тайг|свидан|проща|градус|метель|температур|мое имя/.test(n)) {
       var cr = counterReply(n);
