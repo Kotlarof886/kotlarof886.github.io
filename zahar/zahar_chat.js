@@ -211,16 +211,57 @@
       ': ' + numWords(h12) + ' ' + formOf(h12, 'час', 'часа', 'часов') + ' ' + numWordsFem(m) + ' ' +
       formOf(m, 'минута', 'минуты', 'минут') + ' ' + part + ', ' + nmOr() + '.';
   }
+  /* ===== 45: календарь 1896 года (новый счёт) ===== */
+  var HOL_1896 = {
+    '1-1': 'Новый годъ', '1-7': 'Рождество Христово', '1-14': 'Старый Новый годъ',
+    '2-9': 'Масленица (начало)', '2-15': 'Сретеніе Господне', '2-16': 'Прощеное воскресенье',
+    '3-29': 'Вербное воскресенье', '4-5': 'Пасха Христова', '4-7': 'Благовещеніе',
+    '4-14': 'Радоница (поминовеніе)', '5-14': 'Вознесеніе Господне',
+    '5-24': 'Троица (День Святыя Троицы)', '5-25': 'Духов день',
+    '5-26': 'Коронація Государя Императора',
+    '7-8': 'Петръ и Февронія', '8-14': 'Медовый Спасъ', '8-19': 'Яблочный Спасъ',
+    '8-29': 'Ореховый Спасъ', '9-21': 'Рождество Богородицы',
+    '9-27': 'Воздвиженіе Креста', '10-14': 'Покровъ Пресвятыя Богородицы',
+    '11-4': 'Казанская икона Богоматери', '11-14': 'Кузьминки (Косьма и Даміанъ — тёзки кузнецовъ!)',
+    '12-4': 'Введеніе во храмъ', '12-19': 'Никола Зимній'
+  };
+  function holidayOn(mo, d) { return HOL_1896[mo + '-' + d] || null; }
+  function answerHoliday() {
+    var now = new Date();
+    var today = holidayOn(now.getMonth() + 1, now.getDate());
+    if (today) return fill('Нынче, {A}, праздник: ' + today + '. Спрашивайте — про него и разскажу.');
+    var best = null, bestDays = 1e9, keys = Object.keys(HOL_1896), i;
+    for (i = 0; i < keys.length; i++) {
+      var pr = keys[i].split('-'), mm = +pr[0], dd = +pr[1];
+      var dt = new Date(now.getFullYear(), mm - 1, dd);
+      if (dt < new Date(now.getFullYear(), now.getMonth(), now.getDate())) dt = new Date(now.getFullYear() + 1, mm - 1, dd);
+      var diff = Math.round((dt - now) / 86400000);
+      if (diff < bestDays) { bestDays = diff; best = HOL_1896[keys[i]]; }
+    }
+    return fill('Ближайшій праздник, {A}, — ' + best + ': дней ' + bestDays + '. Спрашивайте — ра скажу, что за праздник.');
+  }
   function answerDate() {
     var now = new Date();
     var y = window.ZAHAR_CHAT_1896 ? 1896 : now.getFullYear();
     var d = now.getDate(), mo = now.getMonth();
     var wd = WD[new Date(y, mo, d).getDay()];
     var tail = pick(['Число казенное, не с меня спрос.', 'Календарь на стене не врет.', 'Депешируйте смело — число верное.']);
-    return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '. ' + tail;
+    var _h45 = holidayOn(mo + 1, d), _h45n = holidayOn(mo + 1, d + 1), hol45 = '';
+    if (_h45) hol45 = ' И нынче праздник: ' + _h45 + '.';
+    else if (_h45n) hol45 = ' А завтра — ' + _h45n + '.';
+    return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '. ' + tail + hol45;
   }
 
   /* ---------- погода: полный пакет (градус, ветер, осадки) ---------- */
+  /* 45: хвост погоды зависит от градуса — при плюсе льда нет */
+  function wxTail(t) {
+    if (typeof t === 'number') {
+      if (t >= -2) return pick(['До льда на реке далеко — рыбка ходит бодро, {A}.', 'При таком тепле Обь не станет — вода живая, {A}.']);
+      if (t < -5) return pick(WX_TAIL);
+      return pick(['Кое-где на Оби закраины могут встать, приметьте.', 'Вечером вода по краям подмерзает — так по приметам, {A}.']);
+    }
+    return pick(WX_TAIL);
+  }
   var WX_TAIL = ['Мороз не беда — чай горячий спасает.',
     'Такая погода рыбу под лед гонит, приметьте.',
     'На линии то дождь, то снег — провода гудут.',
@@ -332,12 +373,12 @@
            ' в секунду, ' + numWords(Math.round(d.ws * 3.37)) + ' ' + formOf(Math.round(d.ws * 3.37), 'верста', 'версты', 'верст') + ' в час)';
     }
     s += ', ' + precipWord(d);
-    return s + '. ' + fill(pick(WX_TAIL));
+    return s + '. ' + wxTail(t);
   }
   function wxLineTempOnly(t) {
     var sign = t < 0 ? 'минус ' + numWords(-t) : (t === 0 ? 'ноль' : 'плюс ' + numWords(t));
     return 'Метеорная станция доносит: ' + sign + ' ' + formOf(t, 'градус', 'градуса', 'градусов') +
-      '. Ветра и осадков аппарат не телеграфирует. ' + fill(pick(WX_TAIL));
+      '. Ветра и осадков аппарат не телеграфирует. ' + wxTail(t);
   }
   var WX_FAIL = ['Провода к метеостанции молчат, {A} — поди, обметало их снегом. По приметам так: воробьи нахохлились, к холоду.',
     'Приборы молчат, {A}: связь со станцией не идет. Гадаю по приметам: дым столбом — к морозу, ласточки низко — к дождю.'];
@@ -434,6 +475,29 @@
     if (!FRAME.station && typeof window.zaharMemory === 'function') {
       try { var _nb = (window.zaharMemory() || {}).notebook || {}; if (_nb.station) FRAME.station = _nb.station; } catch (e) {}
     }
+    /* 45: узнавание после обновления страницы — имя или станция из тетрадки */
+    if (!FRAME.done && typeof window.zaharMemory === 'function') {
+      try {
+        var _nb45 = (window.zaharMemory() || {}).notebook || {};
+        var _nm45 = _nb45.name, _st45 = _nb45.station;
+        if (_nm45 || _st45) {
+          var _hitN = _nm45 && q && new RegExp('(^|[^а-яё])' + String(_nm45).toLowerCase().replace(/[её]/g, '[её]') + '($|[^а-яё])', 'i').test(String(q).toLowerCase());
+          var _hitS = _st45 && n && new RegExp('(^|[^а-яё])' + String(_st45).toLowerCase().replace(/[её]/g, '[её]').replace(/[ъь]/g, '') + '($|[^а-яё])').test(n);
+          if (_hitN || _hitS) {
+            FRAME.done = true;
+            if (_nm45 && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nm45;
+            if (_st45 && !FRAME.station) FRAME.station = _st45;
+            var _who = (_nm45 || 'господинъ') + (_st45 ? ', станція ' + _st45 : '');
+            var _recog = [
+              'Ага — вижу въ журнале: ' + _who + '. Радъ слышать! Чемъ могу служить?',
+              'Журналъ не обманешь: ' + _who + ' — все въ прошлой бесѣдѣ записано. Слушаю депешу.',
+              'Смекаю: ' + _who + ' — тотъ самый! Ключъ вашъ слышу, извольте.'
+            ];
+            return fill(_recog[Math.floor(Math.random() * _recog.length)]);
+          }
+        }
+      } catch (e) {}
+    }
     var st = findStation(n);
     if (st) {
       if (FRAME.station !== st) {
@@ -469,6 +533,7 @@
       if (/сухов/.test(n)) { FRAME.done = true; return fill('Отъ конторы Сухова, значитъ? Понялъ: подписи на депешахъ вашихъ нѣтъ, а станція здѣсь одна — стало быть, пишетъ контора Сухова. Такъ и запишу. Ну, извольте — слушаю.'); }
       var nm = grabName(q);
       if (nm) {
+        if (window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME.toLowerCase() !== nm.toLowerCase()) { window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm); return fill('Записалъ, ' + nm + ': буду звать васъ ' + nm + ', а прежнее имя изъ тетрадки выпишу. Съ какой станции пишете?'); }
         if (!window.ZAHAR_USER_NAME) { window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm); }
         if (!FRAME.station) return fill('Приятно познакомиться, ' + nm + '! Меня звать Захаръ, телеграфистъ. Съ какой станции пишете?');
         return null;
@@ -497,7 +562,7 @@
     var out = String(s == null ? '' : s);
     var map = [['сударём','сударынёй'],['сударем','сударынёй'],['сударя','сударыню'],['сударю','сударыне'],['сударей','сударыней'],['сударь','сударыня']];
     for (var i = 0; i < map.length; i++) out = out.split(map[i][0]).join(map[i][1]);
-    return out;
+    return out.replace(/\s{2,}/g, ' ').trim();
   }
   /* ===== №44: пулы лора ===== */
   var LORE = {
@@ -575,10 +640,12 @@ function tryName(raw) {
     return 'Имени вашего я не слыхал, ' + addr() + '. Представьтесь — и буду звать по имени.';
   }
   function nameReply(name) {
+    var _same = window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME.toLowerCase() === String(name).toLowerCase();
     window.ZAHAR_USER_NAME = name;
-    /* 39: имя и в общую тетрадку — переживет перезагрузку */
+    /* 39: имя и в общую тетрадку — переживет перезагрузку; 45: новое замещает прежнее */
     if (typeof window.zaharSetName === 'function') { try { window.zaharSetName(name); } catch (e) {} }
     lastCounter = true;
+    if (_same) return 'Помню: имя въ журнале съ прошлой бесѣды, ' + name + '. Слушаю депешу.';
     return 'Приятно познакомиться, ' + name + '! Записал в тетрадку — память депешная, цепкая. ' + counterText();
   }
   function detectGender(q) {
@@ -599,8 +666,10 @@ function tryName(raw) {
     { q: 'А вы чай горячий нынче отведали, {N}? Самовар у меня не зря топится.', topic: 'tea' }
   ];
   var lastCounter = false, counterTopic = null, askNameDone = false, lastTopic = null, awaitingJob = false;
+  var counterCooldown = 0; /* 45: после встречного — пауза */
   function counterText() {
     var c;
+    if (counterCooldown > 0) { counterCooldown--; lastCounter = true; return ''; }
     if (!window.ZAHAR_USER_NAME && !askNameDone) { askNameDone = true; counterTopic = null; lastCounter = true; return 'Как вас величать, кстати?'; }
     var _ci = Math.floor(Math.random() * COUNTERS.length);
     if (COUNTERS.length > 1 && _ci === counterText._last) _ci = (_ci + 1) % COUNTERS.length;
@@ -612,7 +681,7 @@ function tryName(raw) {
   }
   function maybeCounter(s) {
     if (lastCounter) { lastCounter = false; return s; }
-    if (Math.random() < 0.4) return s + ' ' + counterText();
+    if (Math.random() < 0.4) { var _c = counterText(); if (_c) { counterCooldown = 2; return s + ' ' + _c; } return s; }
     return s;
   }
   var NELMA_TELL = 'А зря не слыхали, {A}! Нельма — благородный сиг, лучшая рыба великой Оби: серебром в льду отливает, до солидного веса дорастает. Старожилы помнят, как нельма неводами целыми ходила; ныне ее пореже, и цена ей дороже. Уха из нее — навариста и духонна.';
@@ -1003,6 +1072,7 @@ function tryName(raw) {
     { re: /(до\s*свидан|прощай|всего доброго|до встречи|бывай|покид|(^|[^а-я])пока(?:[^а-я]|$))/,
       run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { re: /(попил|попивал|выпил|любите чай|любишь чай|про чай|о чае|чай)/, run: function () { return fill(pick(TEA)); } },
+    { re: /(какой праздник|какие праздники|праздник нынче|каков праздник)/, run: answerHoliday },
     { re: /(день|числ|дат|календар|какой год|какой месяц)/, run: answerDate },
     { re: /(кто ты|кто вы|ты кто|(тебя|вас)\s+(?:как[ъь]?\s+)?[зз]ову?т[а-я]*|зову?[ть]?\s+(тебя|вас)|твое имя|как твое имя|как фамилия|твоя фамилия|представ)/,
       run: function () {
@@ -1038,7 +1108,7 @@ function tryName(raw) {
     { re: /(сколк[а-я]* лет|сколк[а-я]* тебе|сколько годов|возраст|лет тебе)/, run: ageRun },
     { re: /(что ты делаешь|что делаешь|что поделываешь|чем занят|чем занятой|занимаеш)/, run: function () { return fill(pick(DEEDS)); }, topic: 'deed' },
     { re: /(что умеешь|что можешь|какие навыки)/, run: function () { return fill(pick(CAN_DO)); } },
-    { re: /(любимая еда|любимое блюдо|что ешь|любимая пища)/, run: function () { return fill(pick(FOOD)); } },
+    { re: /(любимая еда|любимое блюдо|что ешь|любимая пища|(?:люби|нравит)[а-я]*.{0,24}(?:рыб|[её]д|кушат|ух[аи])|(?:рыб|ух[аи])[а-я]*.{0,24}(?:люби|нравит))/, run: function () { counterCooldown = 2; return fill(pick(FOOD)); } },
     { re: /(сладк|сладост|конфет|пряник|варень|карамел|шоколад|печенье)/, run: function () { return fill(pick(SWEET)); } },
     /* 44a: «твоя правда» — идиома, а не слово из словаря */
     { re: /(твоя|ваша)\s+правда/, run: function () { return fill('Твоя правда, {A}: так оно и есть. Слушаю депешу — извольте.'); } },
@@ -1050,7 +1120,7 @@ function tryName(raw) {
         return fill('Нравится, {A}: слово что надо — в тетрадку записал. А к делу — извольте депешу.');
       }, topic: 'like' },
     { re: /(нравится.*работ|любишь.*работ|работа нравится|как.*работа)/, run: function () { return fill(pick(WORK_LIKE)); } },
-    { re: /(занимаешься|увлека|хобби|любимое заняти)/, run: function () { return fill(pick(HOBBY)); } },
+    { re: /(занимаешься|увлеч|хобби|любимое заняти)/, run: function () { return fill(pick(HOBBY)); } },
     { re: /(женат|семья|жена|холост)/, run: function () { return fill(pick(FAMILY)); } },
     { re: /(начальство|начальник|шеф|люту|пережив)/, run: function () { return fill(pick(SYMPATHY)); } },
     { re: /(я\s+(из|в|во)\s+барнаул|я\s+из\s+города)/, run: function () { return fill(pick(LANDSMAN)); } },
