@@ -1,6 +1,6 @@
 /* ============================================================
    zahar_embed.js — правка №37: «ответ возвращается обещаніемъ»
-   Дата сборки: 12.11.2026
+   Дата сборки: 13.11.2026
    Внутри: №21 будильник/автопробуждение · №26 ять и і · №27 семантика
    на каждый вопрос · №28 зазор 0.015 · №30 память (лента + тетрадка) ·
    №31 загрузчик библиотеки через динамический import() ·
@@ -9,15 +9,20 @@
    №35 библиотека ветки 3 (ModernBERT), dtype q8 ·
    №36 секундомер и прогрев · №37 хук отдаёт ответ обещаніемъ
    (контракт слоя: ZAHAR_ASK возвращает строку или Promise)
+   №45: пробужденіе съ повторами — если браузеру не хватило памяти
+        («failed to allocate a buffer»), будильникъ перезапускается
+        до 5 разъ съ шагомъ 30 сек; WASM-поток прибитъ къ одному.
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №44';
+const VERSION = 'правка №45';
 const TAG = '[zahar_embed]';
 
 const CFG = {
   wakeDelay: 20000,          // будильник: модель просыпается сама
+  wakeRetries: 5,            // повторов будильника, если память не далась
+  wakeRetryMs: 30000,        // шаг перезапуска: 30 секунд
   threshold: 0.72,           // порог уверенности
   margin: 0.015,             // зазор до второго интента
   libraryUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1',
@@ -233,13 +238,15 @@ function match(text) {
   return null;
 }
 
-/* ---------- пробуждение ---------- */
+/* ---------- пробуждение (№45: повторами) ---------- */
 const scriptBase = (document.currentScript && document.currentScript.src) || location.href;
+
+let wakeTries = 0;
 
 async function wake() {
   if (state.ready || state.waking) return;
   state.waking = true;
-  console.log(TAG, 'Захаръ просыпается… (модель грузится)');
+  console.log(TAG, 'Захаръ просыпается… (модель грузится, попытка ' + (wakeTries + 1) + ')');
   try {
     const T = await loadLibrary();
     const env = T.env || (T.default && T.default.env) || null;
@@ -247,6 +254,15 @@ async function wake() {
       env.allowLocalModels = true;
       env.allowRemoteModels = false;   // на huggingface.co не ходим — модель у нас
       env.localModelPath = new URL('../models/', scriptBase).href;
+      /* №45: WASM прибит к одному потоку и без прокси — так сессия
+         требует меньше памяти и меньше шансов на «allocate a buffer» */
+      try {
+        if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
+          env.backends.onnx.wasm.numThreads = 1;
+          env.backends.onnx.wasm.proxy = false;
+          console.log(TAG, 'WASM: одинъ потокъ, безъ прокси');
+        }
+      } catch (e) {}
       console.log(TAG, 'локальные модели по адресу:', env.localModelPath);
     } else {
       console.warn(TAG, 'env недоступен — возможно, модель не найдётся локально');
@@ -254,6 +270,7 @@ async function wake() {
     state.pipe = await T.pipeline('feature-extraction', CFG.modelName, { dtype: 'q8' });
     await buildIndex();
     state.ready = true;
+    wakeTries = 0;
     console.log(TAG, 'Захаръ проснулсяъ: семантическій роутеръ на мѣстѣ');
     /* прогрев (правка №36): первый счёт не должен платить за инициализацию */
     try {
@@ -264,6 +281,14 @@ async function wake() {
     } catch (e) {}
   } catch (e) {
     console.error(TAG, 'пробуждение не удалось:', e && e.message ? e.message : e);
+    if (wakeTries < CFG.wakeRetries) {
+      wakeTries++;
+      console.log(TAG, 'будильникъ перезапустится черезъ ' + Math.round(CFG.wakeRetryMs / 1000) +
+        ' сек (попытка ' + (wakeTries + 1) + ' изъ ' + (CFG.wakeRetries + 1) + ')');
+      setTimeout(function () { wake(); }, CFG.wakeRetryMs);
+    } else {
+      console.warn(TAG, 'пять попытокъ не удались — семантика спитъ, слой отвечает самъ');
+    }
   } finally {
     state.waking = false;
   }
@@ -277,6 +302,7 @@ window.zaharEmbedStatus = function () {
     version: VERSION,
     библиотека: state.lib ? 'загружена (import())' : 'не загружена',
     модель: state.ready ? 'на мѣстѣ' : 'не проснулась',
+    попытокъ: wakeTries,
     интентовъ: INTENTS.length,
     лента: mem.tape.length,
     тетрадка: (mem.notebook.name || 'имя ещё не записано') + ' / станция: ' + (mem.notebook.station || 'не записана')
