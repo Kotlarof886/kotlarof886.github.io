@@ -1,5 +1,6 @@
 /* ============================================================
-   ПРАВКА №38+№39 (версия слоя: правка №21), сборка 12.11.2026.
+   ПРАВКА №49 (сборка 13.11.2026): мозг получает депешу как есть + ограда;
+   «я сударыня», «давно» одним словом, имя по капсу через cap().
    №38: numWordsFem — «одна минута», «две минуты», «двадцать одна минута»;
         {N} вместо {A} в SHORTS и прощаниях.
    №39: раскладка (cj,thb → собери); «сколько время / сколько на часах»;
@@ -1383,6 +1384,10 @@ function tryName(raw) {
   counterReply = function (n) {
     var r = _counterReply(n);
     if (r) return r;
+    if (counterTopic && /(^|[^а-я])(давно|долго|годами)([^а-я]|$)/.test(n)) {
+      counterTopic = null; lastCounter = true;
+      return fill('Дело старое, {A}: рука набита — это сразу слышно. Похвально.');
+    }
     var t = counterTopic;
     if (t && THEMED_ANSWERS[t]) {
       counterTopic = null; lastCounter = false;
@@ -1476,9 +1481,13 @@ function chat(raw) {
       window.ZAHAR_USER_GENDER = 'f';
       return fill('Виноватъ: званіе перепуталъ. Буду звать васъ сударыней — извольте, говорить стану какъ съ дамой.');
     }
-    var _nsw48 = q.match(/я\s+не\s+[а-яё]+\s+а\s+([А-ЯЁ][а-яё]+)/);
+    if (/я\s+сударын/.test(n)) {
+      window.ZAHAR_USER_GENDER = 'f';
+      return fill('Помню, {A}: званіе ваше я записалъ — и держу въ тетрадкѣ. Виноватъ, коль смутилъ.');
+    }
+    var _nsw48 = n.match(/я\s+не\s+[а-яё]+\s+а\s+([а-яё]+)/);
     if (_nsw48 && window.ZAHAR_USER_NAME && norm(_nsw48[1]) !== norm(window.ZAHAR_USER_NAME)) {
-      var _nn48 = _nsw48[1], _old48 = window.ZAHAR_USER_NAME;
+      var _nn48 = cap(_nsw48[1]), _old48 = window.ZAHAR_USER_NAME;
       window.ZAHAR_USER_NAME = _nn48;
       if (/(а|я)$/.test(_nn48.toLowerCase())) window.ZAHAR_USER_GENDER = 'f';
       if (typeof window.zaharSetName === 'function') window.zaharSetName(_nn48);
@@ -1617,7 +1626,10 @@ function chat(raw) {
     window.ZAHAR_ASK = function (q) {
       var h = null;
       try { h = chat(q); } catch (e) { warn('сбой слоя: ' + e); h = null; }
-      if (h === null || h === undefined) return stripSafe(_ask.call(this, polite(q)));
+      if (h === null || h === undefined) {
+        try { return stripSafe(_ask.call(this, q)); }
+        catch (e2) { warn('сбой линіи: ' + e2); return 'Помѣха на линіи, сударь. Повторите депешу — аппаратъ вторую попытку держитъ.'; }
+      }
       if (typeof h.then === 'function') return h.then(femizeOut);
       return femizeOut(h);
     };
