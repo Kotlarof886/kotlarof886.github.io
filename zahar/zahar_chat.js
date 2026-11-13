@@ -66,7 +66,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №26';
+  var VERSION = 'правка №45';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -211,67 +211,31 @@
       ': ' + numWords(h12) + ' ' + formOf(h12, 'час', 'часа', 'часов') + ' ' + numWordsFem(m) + ' ' +
       formOf(m, 'минута', 'минуты', 'минут') + ' ' + part + ', ' + nmOr() + '.';
   }
-  /* 45: календарь праздников 1896 года, по новому счёту (Спасы 14/19/29 августа) */
-  var HOLIDAYS_1896 = [
-    { m: 1, d: 19, name: 'Крещение Господне' },
-    { m: 2, d: 9, name: 'Масленица' },
-    { m: 2, d: 15, name: 'Сретение Господне' },
-    { m: 3, d: 29, name: 'Вербное воскресенье' },
-    { m: 4, d: 5, name: 'Пасха Христова' },
-    { m: 4, d: 7, name: 'Благовещение' },
-    { m: 4, d: 12, name: 'Красная горка' },
-    { m: 5, d: 14, name: 'Вознесение Господне' },
-    { m: 5, d: 24, name: 'День Св. Троицы' },
-    { m: 5, d: 26, name: 'Коронация государя императора' },
-    { m: 6, d: 12, name: 'Петров день' },
-    { m: 7, d: 7, name: 'Иван Купала' },
-    { m: 8, d: 2, name: 'Ильин день' },
-    { m: 8, d: 14, name: 'Медовый Спас' },
-    { m: 8, d: 19, name: 'Яблочный Спас' },
-    { m: 8, d: 28, name: 'Успение Богородицы' },
-    { m: 8, d: 29, name: 'Ореховый Спас' },
-    { m: 9, d: 21, name: 'Рождество Богородицы' },
-    { m: 9, d: 27, name: 'Воздвижение Креста' },
-    { m: 10, d: 14, name: 'Покров' },
-    { m: 11, d: 4, name: 'Казанская икона Богородицы' },
-    { m: 11, d: 14, name: 'Кузьминки (Косьма и Дамиан — тёзки мои, кузнецы!)' },
-    { m: 12, d: 4, name: 'Введение во храм' },
-    { m: 12, d: 19, name: 'Никола Зимний' },
-    { m: 12, d: 25, name: 'Рождество Христово' }
+  /* 45: праздники 1896 года — единый новый счёт */
+  var HOL1896 = [
+    [1, 1, 'Новый годъ'], [1, 6, 'Крещеніе Господне'], [2, 2, 'Сретеніе Господне'],
+    [2, 9, 'Масленица — первый день'], [3, 25, 'Благовѣщеніе'], [3, 29, 'Вербное воскресенье'],
+    [4, 5, 'Пасха'], [5, 14, 'Вознесеніе Господне'], [5, 24, 'День Святыя Троицы'],
+    [5, 26, 'Коронація Государя Императора'], [6, 7, 'Ивановъ день (Купала)'], [8, 2, 'Ильинъ день'],
+    [8, 14, 'Медовый Спасъ'], [8, 19, 'Яблочный Спасъ'], [8, 28, 'Успеніе Богородицы'], [8, 29, 'Ореховый Спасъ'],
+    [10, 14, 'Покровъ'], [11, 14, 'Кузьминки (Косьма и Даміанъ)'], [12, 4, 'Введеніе во храмъ'], [12, 25, 'Рождество Христово']
   ];
-  function holidayOf(mo, d) {
-    for (var i = 0; i < HOLIDAYS_1896.length; i++) {
-      var h = HOLIDAYS_1896[i];
-      if (h.m - 1 === mo && h.d === d) return h.name;
-    }
+  function holBy(m, d) {
+    for (var i = 0; i < HOL1896.length; i++) if (HOL1896[i][0] === m && HOL1896[i][1] === d) return HOL1896[i][2];
     return null;
   }
-  function holidayNear(mo, d) {
-    var todayIdx = mo * 40 + d;
-    var best = null, bestK = 1e9;
-    for (var i = 0; i < HOLIDAYS_1896.length; i++) {
-      var h = HOLIDAYS_1896[i];
-      var idx = (h.m - 1) * 40 + h.d;
-      var k = idx - todayIdx;
-      if (k <= 0) k += 480;
-      if (k < bestK) { bestK = k; best = { name: h.name, k: k }; }
+  function holidayNearest45() {
+    var today = new Date();
+    var base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    for (var k = 0; k < 60; k++) {
+      var dt = new Date(base.getFullYear(), base.getMonth(), base.getDate() + k);
+      var nm = holBy(dt.getMonth() + 1, dt.getDate());
+      if (nm) {
+        if (k === 0) return 'Нынче праздник: ' + nm + ', ' + nmOr() + '. Спрашивайте, что за он — растолкую.';
+        return 'Ближайший праздник — ' + nm + ': через ' + numWords(k) + ' ' + formOf(k, 'день', 'дня', 'дней') + ', ' + nmOr() + '. Даты у меня въ тетрадке.';
+      }
     }
-    return best;
-  }
-  function daysWord(nn) {
-    return nn + (nn % 10 === 1 && nn % 100 !== 11 ? ' день' : (nn % 10 >= 2 && nn % 10 <= 4 && (nn % 100 < 12 || nn % 100 > 14)) ? ' дня' : ' дней');
-  }
-  function holidayReply() {
-    var now = new Date();
-    var mo = now.getMonth(), d = now.getDate();
-    var _hol = holidayOf(mo, d);
-    if (_hol) return fill('Нынче праздник: ' + _hol + ', {A}. Спросите — растолкую.');
-    var _n = holidayNear(mo, d);
-    if (_n) {
-      var _when = _n.k === 1 ? 'завтра' : 'через ' + daysWord(_n.k - 1);
-      return fill('Ближайший праздник — ' + _n.name + ': ' + _when + ', {A}. Спросите — растолкую.');
-    }
-    return fill('Праздников нынче не прописано, {A}. Спросите число — доложу.');
+    return 'Въ календаре моемъ праздниковъ на два мѣсяца впередъ не значится, ' + nmOr() + '.';
   }
   function answerDate() {
     var now = new Date();
@@ -279,35 +243,30 @@
     var d = now.getDate(), mo = now.getMonth();
     var wd = WD[new Date(y, mo, d).getDay()];
     var tail = pick(['Число казенное, не с меня спрос.', 'Календарь на стене не врет.', 'Депешируйте смело — число верное.']);
-    /* 45: праздник сегодня или завтра — упоминание в тему */
-    var _hol = holidayOf(mo, d);
-    if (_hol) tail = 'И нынче праздник: ' + _hol + '. Спросите — растолкую.';
-    else {
-      var _n = holidayNear(mo, d);
-      if (_n && _n.k === 1) tail = 'А завтра — ' + _n.name + '.';
+    var holTxt = '';
+    if (window.ZAHAR_CHAT_1896) {
+      var hd45 = holBy(mo + 1, d);
+      var dt45 = new Date(y, mo, d + 1);
+      var ht45 = holBy(dt45.getMonth() + 1, dt45.getDate());
+      if (hd45) holTxt = ' И нынче праздник: ' + hd45 + '.';
+      else if (ht45) holTxt = ' А завтра — ' + ht45 + '.';
     }
-    return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '. ' + tail;
+    return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '.' + holTxt + ' ' + tail;
   }
 
   /* ---------- погода: полный пакет (градус, ветер, осадки) ---------- */
-  /* 45: хвост погоды — от градуса: плюс — «до льда далеко», минус — «под лёд» */
   var WX_TAIL = ['Мороз не беда — чай горячий спасает.',
+    'Такая погода рыбу под лед гонит, приметьте.',
     'На линии то дождь, то снег — провода гудут.',
-    'Гулять — да в шубе, {A}.',
-    'Погода степная: ни жара, ни стужи.'];
-  var WX_TAIL_COLD = ['Такая погода рыбу под лед гонит, приметьте.',
-    'Мороз крепчает — до льда на Оби недолго.',
-    'Куткурит знатно: шуба не помешает.'];
-  var WX_TAIL_ICE = ['На Оби кое-где закраины могут встать — осторожнее у берега.',
-    'Погода шаткая: то лёд потянет, то полынья.'];
-  var WX_TAIL_WARM = ['До льда на реке далеко — рыбка ходит бодро.',
-    'Теплынь стоит — на линии и на реке раздолье.',
-    'При таком градусе удочку грех не сматывать на Обь.'];
-  function wxTailFor(t) {
-    if (t === null || t === undefined) return fill(pick(WX_TAIL));
-    if (t <= -5) return fill(pick(WX_TAIL_COLD));
-    if (t >= 2) return fill(pick(WX_TAIL_WARM));
-    return fill(pick(WX_TAIL_ICE));
+    'Гулять — да в шубе, {A}.'];
+  /* 45: хвост погоды — от градуса, а не вслепую */
+  var WX_TAIL_WARM = ['До льда на реке далеко — рыбка ходит бодро, приметьте.'];
+  var WX_TAIL_NEAR0 = ['На реке кое-где закраины могут встать — берегитесь речки.'];
+  function wxTailByTemp(t) {
+    if (t === null || t === undefined || isNaN(t)) return fill(pick(WX_TAIL));
+    if (t >= 1) return fill(pick(WX_TAIL_WARM));
+    if (t > -5) return fill(pick(WX_TAIL_NEAR0));
+    return fill(pick(WX_TAIL));
   }
   var OM_URL = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code';
   function fullCacheGet() {
@@ -416,12 +375,12 @@
            ' в секунду, ' + numWords(Math.round(d.ws * 3.37)) + ' ' + formOf(Math.round(d.ws * 3.37), 'верста', 'версты', 'верст') + ' в час)';
     }
     s += ', ' + precipWord(d);
-    return s + '. ' + wxTailFor(t);
+    return s + '. ' + wxTailByTemp(t);
   }
   function wxLineTempOnly(t) {
     var sign = t < 0 ? 'минус ' + numWords(-t) : (t === 0 ? 'ноль' : 'плюс ' + numWords(t));
     return 'Метеорная станция доносит: ' + sign + ' ' + formOf(t, 'градус', 'градуса', 'градусов') +
-      '. Ветра и осадков аппарат не телеграфирует. ' + wxTailFor(t);
+      '. Ветра и осадков аппарат не телеграфирует. ' + wxTailByTemp(t);
   }
   var WX_FAIL = ['Провода к метеостанции молчат, {A} — поди, обметало их снегом. По приметам так: воробьи нахохлились, к холоду.',
     'Приборы молчат, {A}: связь со станцией не идет. Гадаю по приметам: дым столбом — к морозу, ласточки низко — к дождю.'];
@@ -514,26 +473,24 @@
     return null;
   }
   function introStep(n, q) {
-    if (n === 'проверка' || n.indexOf('проверка') === 0) return null;
-    /* 45: узнавание после перезагрузки — тетрадка помнит имя и станцию;
-       Захар «забывает» внешне, но узнав маркер, подхватывает разговор */
-    if (!FRAME.done && typeof window.zaharMemory === 'function') {
-      try {
-        var _nbz = (window.zaharMemory() || {}).notebook || {};
-        var _nameHit = _nbz.name && n.indexOf(String(_nbz.name).toLowerCase()) >= 0;
-        var _barBarn = /из\s+барнаул|от\s+барнаул/.test(n);
-        var _statHit = _nbz.station && !_barBarn && n.indexOf(String(_nbz.station).toLowerCase()) >= 0;
-        if (_nameHit || _statHit) {
-          FRAME.done = true;
-          if (_nbz.name && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbz.name;
-          if (_nbz.station && !FRAME.station) FRAME.station = String(_nbz.station).toLowerCase();
-          var _sv = _nbz.station || 'Барнаул';
-          if (_nameHit && _statHit) return fill(pick(['Ага — вижу въ журнале: {A} со станции ' + _sv + '. Радъ слышать! Чемъ могу служить?', 'Записано въ тетрадке: {A}, станція ' + _sv + '. Чемъ могу служить?', 'Слышу васъ, {A}! Со станции ' + _sv + ' пишете — радъ. Извольте депешу.']));
-          if (_nameHit) return fill(pick(['Вижу въ журнале: {A}. Радъ слышать! Чемъ могу служить?', 'Так-так, въ тетрадке {A} значится. Приветствую снова — извольте депешу.', '{A}, васъ знаю: имя въ журнале. Чемъ могу служить?']));
-          return fill(pick(['Со станции ' + _sv + ' пишете — записалъ въ журнале. Чемъ могу служить?', 'Станція ' + _sv + ' въ тетрадке есть. Здравия желаю! Извольте депешу.', 'Ага, станція ' + _sv + '. Слушаю депешу, сударь.']));
-        }
-      } catch (e) {}
+    /* 45: узнавание после перезагрузки — сверяемся с тетрадкой */
+    if (!FRAME.done) {
+      var rn45 = window.ZAHAR_USER_NAME || null;
+      var rs45 = null;
+      try { var _nb45 = (typeof window.zaharMemory === 'function' ? (window.zaharMemory() || {}) : {}); rs45 = (_nb45.notebook && _nb45.notebook.station) || null; } catch (e45) {}
+      if (!rs45 && FRAME.station) rs45 = FRAME.station;
+      var lands45 = /(^|[^а-я])(из|от|с)\s+барнаул/.test(n);
+      var hitN = !!rn45 && n.indexOf(String(rn45).toLowerCase().replace(/ё/g,'е').replace(/[ъь]/g,'')) >= 0;
+      var hitS = !!rs45 && n.indexOf(String(rs45).toLowerCase().replace(/ё/g,'е').replace(/[ъь]/g,'')) >= 0;
+      if (hitN || (hitS && !lands45)) {
+        FRAME.done = true;
+        if (!FRAME.station && rs45) FRAME.station = rs45;
+        var lead45 = pick(['Ага — вижу въ журнале: ', 'Записка въ тетрадке цѣла: ', 'Кажись, мы уже знались — ']);
+        var mid45 = (hitN && hitS) ? (rn45 + ', станція ' + rs45) : (hitN ? rn45 : ('станція ' + rs45));
+        return fill(lead45 + mid45 + '. Радъ слышать! Чемъ могу служить?');
+      }
     }
+    if (n === 'проверка' || n.indexOf('проверка') === 0) return null;
     if (!FRAME.station && typeof window.zaharMemory === 'function') {
       try { var _nb = (window.zaharMemory() || {}).notebook || {}; if (_nb.station) FRAME.station = _nb.station; } catch (e) {}
     }
@@ -572,12 +529,17 @@
       if (/сухов/.test(n)) { FRAME.done = true; return fill('Отъ конторы Сухова, значитъ? Понялъ: подписи на депешахъ вашихъ нѣтъ, а станція здѣсь одна — стало быть, пишетъ контора Сухова. Такъ и запишу. Ну, извольте — слушаю.'); }
       var nm = grabName(q);
       if (nm) {
-        /* 45: имя замещает прежнее; то же имя — «помню из тетрадки» */
-        if (window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME === nm) return fill('Помню, {A}: имя въ журнале съ прошлой бесѣды. Слушаю депешу.');
-        if (window.ZAHAR_USER_NAME && window.ZAHAR_USER_NAME !== nm) { window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm); return fill('Записалъ, {A}: буду звать васъ ' + nm + ', а прежнее имя изъ тетрадки выпишу. Слушаю депешу.'); }
-        window.ZAHAR_USER_NAME = nm; if (typeof window.zaharSetName === 'function') window.zaharSetName(nm);
-        if (!FRAME.station) return fill('Приятно познакомиться, ' + nm + '! Меня звать Захаръ, телеграфистъ. Съ какой станции пишете?');
-        return null;
+        var prev45 = window.ZAHAR_USER_NAME;
+        var same45 = prev45 && norm(prev45) === norm(nm);
+        if (!same45) {
+          window.ZAHAR_USER_NAME = nm;
+          if (typeof window.zaharSetName === 'function') window.zaharSetName(nm);
+          lastCounter = true;
+          return fill('Записалъ, ' + nm + ': буду звать васъ ' + nm + (prev45 ? ', а прежнее имя (' + prev45 + ') изъ тетрадки выпишу' : '') + '. ' + (FRAME.station ? 'Ну, извольте — слушаю.' : 'Съ какой станции пишете?'));
+        }
+        if (!FRAME.station) return fill('Помню: имя въ журнале съ прошлой бесѣды, ' + nm + '. Съ какой станции пишете?');
+        lastCounter = true;
+        return fill('Помню: имя въ журнале съ прошлой бесѣды, ' + nm + '. Ну, извольте — слушаю.');
       }
       if (/^(здравству|здравия|добрый|доброе|доброй|привет|приветствую|мо[еи] почтен)/.test(n)) {
         if (/^привет/.test(n)) { FRAME.greeted = true; return fill('Приветствую, {A}. При казенной линии так не приветствуют — извольте «здравствуйте». С какой станции депеша?'); }
@@ -603,7 +565,7 @@
     var out = String(s == null ? '' : s);
     var map = [['сударём','сударынёй'],['сударем','сударынёй'],['сударя','сударыню'],['сударю','сударыне'],['сударей','сударыней'],['сударь','сударыня']];
     for (var i = 0; i < map.length; i++) out = out.split(map[i][0]).join(map[i][1]);
-    return out;
+    return out.replace(/ {2,}/g, ' ');
   }
   /* ===== №44: пулы лора ===== */
   var LORE = {
@@ -618,7 +580,7 @@
     if (/трактир|шулюм|дианы/.test(n)) return fill(pick(LORE.traktir));
     if (/м ю|инкогнито/.test(n)) return fill(pick(LORE.myu));
     if (/какие станци|станци.*(знаешь|список)|лини/.test(n)) return fill(pick(LORE.lines));
-    if (/интерес|увлек|любимое дело|увлечени/.test(n)) return fill(pick(LORE.interests));
+    if (/интерес|увлек|любимое дело/.test(n)) return fill(pick(LORE.interests));
     return null;
   }
 
@@ -681,15 +643,16 @@ function tryName(raw) {
     return 'Имени вашего я не слыхал, ' + addr() + '. Представьтесь — и буду звать по имени.';
   }
   function nameReply(name) {
-    var _prev = window.ZAHAR_USER_NAME;
+    var prev45 = window.ZAHAR_USER_NAME;
+    var same45 = prev45 && norm(prev45) === norm(name);
     window.ZAHAR_USER_NAME = name;
-    /* 45: то же имя — помню; новое — замещает прежнее */
-    if (_prev && _prev === name) return name + ', васъ помню: имя въ журнале съ прошлой бесѣды. Слушаю депешу.';
-    if (_prev && _prev !== name) return 'Записалъ, ' + name + ': буду звать васъ ' + name + ', а прежнее имя изъ тетрадки выпишу. Слушаю депешу.';
     /* 39: имя и в общую тетрадку — переживет перезагрузку */
     if (typeof window.zaharSetName === 'function') { try { window.zaharSetName(name); } catch (e) {} }
     lastCounter = true;
-    return 'Приятно познакомиться, ' + name + '! Записал в тетрадку — память депешная, цепкая. ' + counterText();
+    if (same45) return 'Помню: имя въ журнале съ прошлой бесѣды, ' + name + '! ' + counterText();
+    return prev45
+      ? 'Записалъ, ' + name + ': буду звать васъ ' + name + ', а прежнее имя (' + prev45 + ') изъ тетрадки выпишу. ' + counterText()
+      : 'Приятно познакомиться, ' + name + '! Записал в тетрадку — память депешная, цепкая. ' + counterText();
   }
   function detectGender(q) {
     if (window.ZAHAR_USER_GENDER) return;
@@ -708,8 +671,7 @@ function tryName(raw) {
     { q: 'Как слышно у вас, {N}? Помехи не грызут линию?', topic: 'kray' },
     { q: 'А вы чай горячий нынче отведали, {N}? Самовар у меня не зря топится.', topic: 'tea' }
   ];
-  var lastCounter = false, counterTopic = null, askNameDone = false, lastTopic = null, awaitingJob = false;
-  var counterCooldown = 0; /* 45: тишина встречных на N ходов */
+  var lastCounter = false, counterTopic = null, askNameDone = false, lastTopic = null, awaitingJob = false, counterCd45 = 0;
   function counterText() {
     var c;
     if (!window.ZAHAR_USER_NAME && !askNameDone) { askNameDone = true; counterTopic = null; lastCounter = true; return 'Как вас величать, кстати?'; }
@@ -719,14 +681,12 @@ function tryName(raw) {
     c = COUNTERS[_ci];
     counterTopic = c.topic;
     lastCounter = true;
-    counterCooldown = 3; /* 45: после встречного — три хода тишины */
     return fill(c.q);
   }
   function maybeCounter(s) {
-    /* 45: кулдаун — встречный не лезет после каждой депеши */
-    if (counterCooldown > 0) { counterCooldown--; return s; }
     if (lastCounter) { lastCounter = false; return s; }
-    if (Math.random() < 0.4) return s + ' ' + counterText();
+    if (counterCd45 > 0) { counterCd45--; return s; }
+    if (Math.random() < 0.4) { counterCd45 = 3; return s + ' ' + counterText(); }
     return s;
   }
   var NELMA_TELL = 'А зря не слыхали, {A}! Нельма — благородный сиг, лучшая рыба великой Оби: серебром в льду отливает, до солидного веса дорастает. Старожилы помнят, как нельма неводами целыми ходила; ныне ее пореже, и цена ей дороже. Уха из нее — навариста и духонна.';
@@ -1152,8 +1112,8 @@ function tryName(raw) {
     { re: /(сколк[а-я]* лет|сколк[а-я]* тебе|сколько годов|возраст|лет тебе)/, run: ageRun },
     { re: /(что ты делаешь|что делаешь|что поделываешь|чем занят|чем занятой|занимаеш)/, run: function () { return fill(pick(DEEDS)); }, topic: 'deed' },
     { re: /(что умеешь|что можешь|какие навыки)/, run: function () { return fill(pick(CAN_DO)); } },
-    /* 45: еда — в любом обороте («любишь рыбу есть», «рыбу любишь»), встречный молчит */
-    { re: /(любимая еда|любимое блюдо|что ешь|любимая пища|(люби|нрав|уваж)\S*\s+(?:[а-я]+\s+)?(рыб|ух)|(рыб|ух)\S*\s+(?:[а-я]+\s+)?(люби|нрав|любим))/, run: function () { counterCooldown = 1; return fill(pick(FOOD)); } },
+    { re: /как(ой|ая)\s+(сейчас\s+)?праздник|ближайш[а-я]*\s+праздник/, run: holidayNearest45 },
+    { re: /(любимая еда|любимое блюдо|что ешь|любимая пища)/, run: function () { return fill(pick(FOOD)); } },
     { re: /(сладк|сладост|конфет|пряник|варень|карамел|шоколад|печенье)/, run: function () { return fill(pick(SWEET)); } },
     /* 44a: «твоя правда» — идиома, а не слово из словаря */
     { re: /(твоя|ваша)\s+правда/, run: function () { return fill('Твоя правда, {A}: так оно и есть. Слушаю депешу — извольте.'); } },
@@ -1165,7 +1125,7 @@ function tryName(raw) {
         return fill('Нравится, {A}: слово что надо — в тетрадку записал. А к делу — извольте депешу.');
       }, topic: 'like' },
     { re: /(нравится.*работ|любишь.*работ|работа нравится|как.*работа)/, run: function () { return fill(pick(WORK_LIKE)); } },
-    { re: /(занимаешься|увлека|хобби|любимое заняти)/, run: function () { return fill(pick(HOBBY)); } },
+    { re: /(занимаешься|увлек|хобби|любимое заняти)/, run: function () { return fill(pick(HOBBY)); } },
     { re: /(женат|семья|жена|холост)/, run: function () { return fill(pick(FAMILY)); } },
     { re: /(начальство|начальник|шеф|люту|пережив)/, run: function () { return fill(pick(SYMPATHY)); } },
     { re: /(я\s+(из|в|во)\s+барнаул|я\s+из\s+города)/, run: function () { return fill(pick(LANDSMAN)); } },
@@ -1466,6 +1426,11 @@ function chat(raw) {
     if (_lore) return maybeCounter(_lore);
     /* 43: прощание — прежде подхвата словаря и счетчиков */
     if (/(до\s*свидан|досвидан|прощай|всего доброго|до встречи|(^|[^а-я])пока(?:[^а-я]|$))/.test(n)) { lastCounter = true; return fill(pick(FAREWELL)); }
+    /* 45: еда в любом обороте — прежде подхвата и счётчиков */
+    if (/(любиш|нрав|обожа)[\s\S]{0,24}(рыб|ух|ед[ау]|кушат|есть|трапез)/.test(n) || /(рыб|ух|каш|мяс)[\s\S]{0,24}(люб|нрав)/.test(n) || /(^|[^а-я])что\s+(ты\s+)?(ел|ешь|едите)/.test(n)) {
+      lastCounter = true;
+      return fill(pick(FOOD));
+    }
     var ref0 = refLookup(q, n);
     if (ref0) return fill(ref0);
     var mnt0 = mentionReply(q, n);
@@ -1481,10 +1446,6 @@ function chat(raw) {
     }
     /* 43: погода и градус — прежде счетчиков */
     if (/(погод|пагод|сколк[а-я]* градус|температур|метель)/.test(n)) { awaitingJob = false; return answerWeather(); }
-    /* 45: еда — в любом обороте, прежде счетчиков; встречный молчит */
-    if (/(любимая еда|любимое блюдо|что ешь|что ел|любимая пища|(люби|нрав|уваж)\S*\s+(?:[а-я]+\s+)?(рыб|ух)|(рыб|ух)\S*\s+(?:[а-я]+\s+)?(люби|нрав|любим))/.test(n)) { awaitingJob = false; counterCooldown = 1; return fill(pick(FOOD)); }
-    /* 45: «какой праздник» — календарь 1896 года */
-    if (/(какой праздник|что за праздник|какой нынче праздник)/.test(n)) { awaitingJob = false; return holidayReply(); }
     if (counterTopic && n.split(' ').length <= 6 &&
         !/\?|погод|который час|сколк[а-я]* врем|на часах|сколк[а-я]* сейчас|числ|кто ты|зовут|знае|известн|расскажи|проверка|учил|тайг|свидан|проща|градус|метель|температур|мое имя/.test(n)) {
       var cr = counterReply(n);
