@@ -4,6 +4,8 @@
    разъ въ 800 мс перехватывает дверь заново, кто бы ни пересоздалъ).
    v4: дедупликация с выравниванием переносов и окном 10 секунд —
    двойные реплики Захара (съ переносами и безъ) исчезли изъ журнала.
+   v5: дедупликация Захара по ядру реплики (первые 40 знаков, окно 60 сек) —
+   ответы съ хвостомъ «Впрочемъ…» и безъ него склеиваются въ одинъ входъ.
    Пишутся и депеша гостя, и отвѣт (включая обещанія).
    API: zaharLogStatus(), zaharLogFlush()
    Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, после zahar_ether.js).
@@ -46,11 +48,15 @@
     if (text == null) return;
     text = String(text).trim();
     if (!text) return;
-    /* v4: дедупликация — выравниваем переносы, окно 10 секунд */
+    /* v5: дедупликация — по ядру реплики (первые 40 знаков, окно 60 сек):
+       ответы с хвостом «Впрочемъ…» и без него склеиваются в один вход.
+       Гость — по полному тексту, окно 10 секунд, как в v4. */
     var flat = text.replace(/\s+/g, ' ').trim();
-    var key = who + '|' + flat;
     var now = Date.now();
-    if (key === lastKey && now - lastAt < 10000) { lastAt = now; return; }
+    var core = (who === 'zakhar') ? flat.slice(0, 40) : flat;
+    var win = (who === 'zakhar') ? 60000 : 10000;
+    var key = who + '|' + core;
+    if (key === lastKey && now - lastAt < win) { lastAt = now; return; }
     lastKey = key; lastAt = now;
     BUF.push({ t: stamp(), who: who, text: text });
     if (BUF.length > CFG.maxBuf) BUF.splice(0, BUF.length - CFG.maxBuf);

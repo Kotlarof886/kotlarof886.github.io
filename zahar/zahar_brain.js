@@ -1,5 +1,5 @@
 /* ============================================================
-   Захаръ — мозгъ v2.17 (чинъ рекурсіи двери) (Барнаулъ, 1896; личность вшита целиком)
+   Захаръ — мозгъ v2.18 (память цѣлыми словами) (Барнаулъ, 1896; личность вшита целиком)
    №44: лексикон въ зачинахъ убранъ (кромѣ редкихъ словъ); согласіе
    (да/давай/расскажи/хорошо/ок/валяй/подробнее) открываетъ записку вторую
    v2.14: точный словарный поискъ (подстрочный бонусъ ключамъ отъ 6 буквъ),
@@ -7,6 +7,8 @@
    v2.15: ять (ѣ) приравненъ къ «е»; мѣстоимена въ стопѣ; полъ на выходе пуловъ.
    v2.17: дверь мозга зоветъ внутреннюю функцию по ссылке (_zaharInner) —
    рекурсия двери (v2.16) устранена; остальное безъ измѣненій.
+   v2.18: память репликъ — вхожденіе цѣлымъ словомъ («родители» больше не «ели»);
+   «что такое X» при неизвѣстномъ X — честный отказ съ приглашеніемъ научить.
    Подключать ПОСЛЕДНИМ, после:
      zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js
    ============================================================ */
@@ -350,6 +352,18 @@ function zaharFindEntry(query) {
   return bestScore >= 2 ? best : null;
 }
 
+/* v2.18: вхождение целым словом (границы — не буквы кириллицы) */
+function zaharWordHit(hay, needle) {
+  var idx = hay.indexOf(needle);
+  while (idx >= 0) {
+    var before = idx === 0 ? ' ' : hay.charAt(idx - 1);
+    var after = (idx + needle.length >= hay.length) ? ' ' : hay.charAt(idx + needle.length);
+    if (!/[а-яё0-9]/.test(before) && !/[а-яё0-9]/.test(after)) return true;
+    idx = hay.indexOf(needle, idx + 1);
+  }
+  return false;
+}
+
 /* ---------- реплики из памяти ---------- */
 function zaharFindReplica(query) {
   var q = zaharNorm(query);
@@ -359,7 +373,7 @@ function zaharFindReplica(query) {
     for (var j = 0; j < m.q.length; j++) {
       var nq = zaharNorm(m.q[j]);
       if (!nq) continue;
-      if (nq === q || q.indexOf(nq) >= 0 || (nq.indexOf(q) >= 0 && q.length > 4)) return m;
+      if (nq === q || zaharWordHit(q, nq) || (zaharWordHit(nq, q) && q.length > 4)) return m;
     }
   }
   return null;
