@@ -9,8 +9,13 @@
    сама через 20 секунд после загрузки страницы.
    ============================================================ */
 (function () {
+    /* №51: полный порядок, как требует шапка мозга:
+       словарь → words.js → фразы → мозг → слой → эмбеддинги.
+       Отказ одного файла не валит всю цепочку — пишется предупреждение. */
     var FILES = [
     'zahar/zahar_dict.js',
+    'zahar/words.js',
+    'zahar/zahar_phrases.js',
     'zahar/zahar_brain.js',
     'zahar/zahar_chat.js',
     'zahar/zahar_embed.js'
@@ -24,7 +29,10 @@
       var s = document.createElement('script');
       s.src = src;
       s.onload = function () { res(); };
-      s.onerror = function () { rej(new Error('не грузится: ' + src)); };
+      s.onerror = function () {
+        console.warn('[zahar_boot] файлъ не загрузился (цепочка продолжается): ' + src);
+        res();
+      };
       document.head.appendChild(s);
     });
   }

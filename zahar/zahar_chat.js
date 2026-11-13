@@ -1671,4 +1671,68 @@ function chat(raw) {
     return { файл: VERSION, установлен: !!window.__zaharChatInstalled, имя: window.ZAHAR_USER_NAME,
              пол: window.ZAHAR_USER_GENDER, возраст: window.ZAHAR_USER_AGE, год1896: window.ZAHAR_CHAT_1896 };
   };
+  /* №51: выходъ пуловъ наружу — обучающая станція показывает родную рѣчь
+     во вкладкѣ «Речь Захара». Сам слой не тронутъ: только экспортъ. */
+  try {
+    var _pools = {};
+    try { if (Array.isArray(IDENTITY)) _pools.IDENTITY = IDENTITY; } catch (e0) {}
+    try { if (Array.isArray(GREETS)) _pools.GREETS = GREETS; } catch (e1) {}
+    try { if (Array.isArray(FAREWELL)) _pools.FAREWELL = FAREWELL; } catch (e2) {}
+    try { if (Array.isArray(HOW_ARE)) _pools.HOW_ARE = HOW_ARE; } catch (e3) {}
+    try { if (Array.isArray(HEALTH)) _pools.HEALTH = HEALTH; } catch (e4) {}
+    try { if (Array.isArray(NEWS)) _pools.NEWS = NEWS; } catch (e5) {}
+    try { if (Array.isArray(MOOD)) _pools.MOOD = MOOD; } catch (e6) {}
+    try { if (Array.isArray(BORED)) _pools.BORED = BORED; } catch (e7) {}
+    try { if (Array.isArray(TIRED)) _pools.TIRED = TIRED; } catch (e8) {}
+    try { if (Array.isArray(MEALS)) _pools.MEALS = MEALS; } catch (e9) {}
+    try { if (Array.isArray(MORSE)) _pools.MORSE = MORSE; } catch (e10) {}
+    try { if (Array.isArray(WIRES)) _pools.WIRES = WIRES; } catch (e11) {}
+    try { if (Array.isArray(NEWSPAPERS)) _pools.NEWSPAPERS = NEWSPAPERS; } catch (e12) {}
+    try { if (Array.isArray(FAIR)) _pools.FAIR = FAIR; } catch (e13) {}
+    try { if (Array.isArray(SEASON)) _pools.SEASON = SEASON; } catch (e14) {}
+    try { if (Array.isArray(FRIENDS)) _pools.FRIENDS = FRIENDS; } catch (e15) {}
+    try { if (Array.isArray(MUSHROOMS)) _pools.MUSHROOMS = MUSHROOMS; } catch (e16) {}
+    try { if (Array.isArray(COAT_ADVICE)) _pools.COAT_ADVICE = COAT_ADVICE; } catch (e17) {}
+    try { if (Array.isArray(STUDY_SELF)) _pools.STUDY_SELF = STUDY_SELF; } catch (e18) {}
+    try { if (Array.isArray(BEAST_SELF)) _pools.BEAST_SELF = BEAST_SELF; } catch (e19) {}
+    try { if (Array.isArray(FACTORY)) _pools.FACTORY = FACTORY; } catch (e20) {}
+    try { if (Array.isArray(STEZA)) _pools.STEZA = STEZA; } catch (e21) {}
+    try { if (Array.isArray(SCIFI)) _pools.SCIFI = SCIFI; } catch (e22) {}
+    try { if (Array.isArray(SCIENCE)) _pools.SCIENCE = SCIENCE; } catch (e23) {}
+    try { if (Array.isArray(BAGEL)) _pools.BAGEL = BAGEL; } catch (e24) {}
+    try { if (Array.isArray(LEARNED)) _pools.LEARNED = LEARNED; } catch (e25) {}
+    try { if (Array.isArray(WHY_TG)) _pools.WHY_TG = WHY_TG; } catch (e26) {}
+    try { if (Array.isArray(WHERE_LIVE)) _pools.WHERE_LIVE = WHERE_LIVE; } catch (e27) {}
+    try { if (Array.isArray(WHERE_FROM)) _pools.WHERE_FROM = WHERE_FROM; } catch (e28) {}
+    try { if (Array.isArray(CITY_WHICH)) _pools.CITY_WHICH = CITY_WHICH; } catch (e29) {}
+    try { if (Array.isArray(LANDSMAN)) _pools.LANDSMAN = LANDSMAN; } catch (e30) {}
+    try { if (Array.isArray(TRANSIT)) _pools.TRANSIT = TRANSIT; } catch (e31) {}
+    try { if (Array.isArray(WORK_WHERE)) _pools.WORK_WHERE = WORK_WHERE; } catch (e32) {}
+    try { if (Array.isArray(BARN_CONFIRM)) _pools.BARN_CONFIRM = BARN_CONFIRM; } catch (e33) {}
+    try { if (Array.isArray(CAN_DO)) _pools.CAN_DO = CAN_DO; } catch (e34) {}
+    try { if (Array.isArray(FOOD)) _pools.FOOD = FOOD; } catch (e35) {}
+    try { if (Array.isArray(SWEET)) _pools.SWEET = SWEET; } catch (e36) {}
+    try { if (Array.isArray(BOOKS)) _pools.BOOKS = BOOKS; } catch (e37) {}
+    try { if (Array.isArray(WRITER)) _pools.WRITER = WRITER; } catch (e38) {}
+    try { if (Array.isArray(WORK_LIKE)) _pools.WORK_LIKE = WORK_LIKE; } catch (e39) {}
+    try { if (Array.isArray(DEEDS)) _pools.DEEDS = DEEDS; } catch (e40) {}
+    try { if (Array.isArray(ABOUT_USER)) _pools.ABOUT_USER = ABOUT_USER; } catch (e41) {}
+    try { if (Array.isArray(JOB_TRADE)) _pools.JOB_TRADE = JOB_TRADE; } catch (e42) {}
+    try { if (Array.isArray(JOB_RAIL)) _pools.JOB_RAIL = JOB_RAIL; } catch (e43) {}
+    try { if (Array.isArray(JOB_FOLLOW)) _pools.JOB_FOLLOW = JOB_FOLLOW; } catch (e44) {}
+    try { if (Array.isArray(AGE_REACT)) _pools.AGE_REACT = AGE_REACT; } catch (e45) {}
+    try { if (Array.isArray(AGE_SELF46)) _pools.AGE_SELF46 = AGE_SELF46; } catch (e46) {}
+    try { if (Array.isArray(AGE_KID)) _pools.AGE_KID = AGE_KID; } catch (e47) {}
+    try { if (Array.isArray(OLDER_YOUNGER)) _pools.OLDER_YOUNGER = OLDER_YOUNGER; } catch (e48) {}
+    try { if (Array.isArray(SYMPATHY)) _pools.SYMPATHY = SYMPATHY; } catch (e49) {}
+    try { if (Array.isArray(TEA)) _pools.TEA = TEA; } catch (e50) {}
+    try { if (Array.isArray(APPEAR)) _pools.APPEAR = APPEAR; } catch (e51) {}
+    try { if (Array.isArray(HOBBY)) _pools.HOBBY = HOBBY; } catch (e52) {}
+    try { if (Array.isArray(PARENTS)) _pools.PARENTS = PARENTS; } catch (e53) {}
+    try { if (Array.isArray(FAMILY)) _pools.FAMILY = FAMILY; } catch (e54) {}
+    try { if (Array.isArray(SHORTS)) _pools.SHORTS = SHORTS; } catch (e55) {}
+    try { if (Array.isArray(TAIGA_SELF)) _pools.TAIGA_SELF = TAIGA_SELF; } catch (e56) {}
+    try { if (Array.isArray(WX_FAIL)) _pools.WX_FAIL = WX_FAIL; } catch (e57) {}
+    window.ZAHAR_CHAT_POOLS = _pools;
+  } catch (e51) {}
 })();
