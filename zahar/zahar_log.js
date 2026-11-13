@@ -1,12 +1,15 @@
 /* ============================================================
-   zahar_log.js v2 — журнальная лента (почта → kotlarof@yandex.ru)
-   v2: дверной крючокъ переживаетъ подмену. Раньше журналъ обертывалъ
-   window.ZAHAR_ASK один разъ при загрузке — а модуль embed переустанавливалъ
-   дверь поверхъ («контрактъ №37») и журнальная обертка срывалась.
-   Теперь ZAHAR_ASK держится черезъ defineProperty: кто бы ни поставилъ
-   новую дверь — журналъ оборачиваетъ и ея. Пишутся и депеша гостя, и отвѣт.
+   zahar_log.js v3 — журнальная лента (почта → kotlarof@yandex.ru)
+   v3: честный крючокъ. Разгадка пустого буфера: zahar_boot.js грузит
+   мозгъ динамически ПОСЛЕ загрузки страницы; мозгъ не имѣетъ защиты
+   от повторного запуска и пересоздаетъ дверь ZAHAR_ASK начисто —
+   журнальная обертка (v1/v2) и хук embed срезались. Теперь сторожъ
+   журнала каждые 800 мс проверяетъ дверь и перехватываетъ заново,
+   кто бы ни пересоздалъ ея: присваиваніемъ, defineProperty или delete.
+   Дедупликация: одна депеша не пишется дважды за 2,5 сек.
+   Статусъ честный: дверьОбернута и перехватовДвери — измеряются.
    API: zaharLogStatus(), zaharLogFlush()
-   Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, после zahar_ether.js).
+   Подключать ПОСЛЕ zahar_chat.js (лучше последнимъ, после ether).
    ============================================================ */
 (function () {
   if (window.__zaharLogLoaded) return;
@@ -21,6 +24,8 @@
 
   var BUF = [];
   var idleTimer = null, hideTimer = null;
+  var recaps = 0;
+  var lastKey = '', lastAt = 0;
 
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function stamp(t) {
@@ -29,11 +34,11 @@
       ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
   function persist() {
-    try { localStorage.setItem('zahar_log_v2', JSON.stringify(BUF)); } catch (e) {}
+    try { localStorage.setItem('zahar_log_v3', JSON.stringify(BUF)); } catch (e) {}
   }
   function restore() {
     try {
-      var s = localStorage.getItem('zahar_log_v2') || localStorage.getItem('zahar_log_v1');
+      var s = localStorage.getItem('zahar_log_v3') || localStorage.getItem('zahar_log_v2') || localStorage.getItem('zahar_log_v1');
       if (s) { var a = JSON.parse(s); if (Array.isArray(a)) BUF = a; }
     } catch (e) {}
   }
@@ -42,6 +47,10 @@
     if (text == null) return;
     text = String(text).trim();
     if (!text) return;
+    var now = Date.now();
+    var key = who + '|' + text;
+    if (key === lastKey && now - lastAt < 2500) { lastAt = now; return; }
+    lastKey = key; lastAt = now;
     BUF.push({ t: stamp(), who: who, text: text });
     if (BUF.length > CFG.maxBuf) BUF.splice(0, BUF.length - CFG.maxBuf);
     persist();
@@ -88,22 +97,52 @@
     return f;
   }
 
-  /* --- дверной крючок: переживает подмену двери --- */
-  var hooked = false;
-  try {
-    var inner = wrap(window.ZAHAR_ASK || function () { return '…'; });
-    Object.defineProperty(window, 'ZAHAR_ASK', {
-      configurable: true,
-      get: function () { return inner; },
-      set: function (v) { inner = wrap(v); }
-    });
-    hooked = true;
-  } catch (e) {
-    if (typeof window.ZAHAR_ASK === 'function') {
-      window.ZAHAR_ASK = wrap(window.ZAHAR_ASK);
-      hooked = true;
+  function doorMarked() {
+    try { return typeof window.ZAHAR_ASK === 'function' && window.ZAHAR_ASK.__zaharLogHook === true; }
+    catch (e) { return false; }
+  }
+
+  function capture() {
+    try {
+      var inner = wrap(window.ZAHAR_ASK || function () { return '…'; });
+      Object.defineProperty(window, 'ZAHAR_ASK', {
+        configurable: true,
+        get: function () { return inner; },
+        set: function (v) { inner = wrap(v); }
+      });
+      return true;
+    } catch (e) {
+      try {
+        delete window.ZAHAR_ASK;
+        var inner2 = wrap(window.ZAHAR_ASK || function () { return '…'; });
+        Object.defineProperty(window, 'ZAHAR_ASK', {
+          configurable: true,
+          get: function () { return inner2; },
+          set: function (v) { inner2 = wrap(v); }
+        });
+        return true;
+      } catch (e2) {
+        try {
+          if (typeof window.ZAHAR_ASK === 'function') {
+            window.ZAHAR_ASK = wrap(window.ZAHAR_ASK);
+            return true;
+          }
+        } catch (e3) {}
+        return false;
+      }
     }
   }
+
+  var guardFrozen = false;
+  function installDoor() {
+    if (doorMarked()) return;
+    if (!capture()) { guardFrozen = true; return; }
+    recaps++;
+    try { console.log('[zahar_log] дверьъ ZAHAR_ASK перехвачена (разъ ' + recaps + ')'); } catch (e) {}
+  }
+  if (capture()) recaps = 1;
+  try { console.log('[zahar_log] v3: журнальная лента на линіи'); } catch (e) {}
+  setInterval(function () { if (!guardFrozen) installDoor(); }, 800);
 
   /* --- отправка (FormSubmit, почта) --- */
   function payloadFor(reason, body) {
@@ -129,7 +168,7 @@
     if (!body) return false;
     var url = 'https://formsubmit.co/ajax/' + CFG.email;
     var cleared = false;
-    function finish(ok) { if (ok && !cleared) { cleared = true; BUF = []; persist(); } }
+    function finish(ok) { if (ok && !cleared) { cleared = true; BUF = []; lastKey = ''; persist(); } }
     try {
       fetch(url, {
         method: 'POST',
@@ -165,8 +204,15 @@
   });
 
   window.zaharLogStatus = function () {
-    return { 'стоитъ': hooked, 'каналъ': 'почта → ' + CFG.email,
-      'репликъВъБуферѣ': BUF.length, 'крючокъПереживаетъПодмену': true };
+    var doorState;
+    if (guardFrozen) doorState = 'дверь заморожена — перехват невозможен';
+    else if (doorMarked()) doorState = 'дверь обернута журналом';
+    else doorState = 'дверь не обернута (сторож подхватит за 0,8 сек)';
+    return { 'стоитъ': true, 'каналъ': 'почта → ' + CFG.email,
+      'репликъВъБуферѣ': BUF.length,
+      'дверьОбернута': doorMarked(),
+      'состояниеДвери': doorState,
+      'перехватовДвери': recaps };
   };
   window.zaharLogFlush = function () {
     if (!BUF.length) return 'Журналъ пустъ — отправлять нечего.';
