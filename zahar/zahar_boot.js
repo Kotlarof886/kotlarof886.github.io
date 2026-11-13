@@ -1,23 +1,26 @@
 /* ============================================================
-   zahar_boot.js — Захаръ грузится последним.
+   zahar_boot.js — Захаръ грузится последним. Сборка 14.11.2026 (правка загрузчика).
    Подключать ОДНИМ тегом в конце body вместо старых тегов Захара:
      <script src="zahar/zahar_boot.js"></script>
-   Порядок: страница готова → браузер простаивает → словарь →
-   мозг → слой → (фон, опционально) модель эмбеддингов.
+   Порядок: страница готова → браузер простаивает →
+     словарь → words.js → фразы → мозг → слой болтовни → тетрадь →
+     (фон, опционально) модель эмбеддингов.
+   Требование шапки мозга (v2.18): подключать ПОСЛЕДНИМ, после
+     zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js — соблюдено.
+   Страховка: недостающий файл не валит цепочку — в консоли будет
+     «файлъ не загрузился: …», Захар встанет на остальном.
    Событие готовности: document.dispatchEvent('zahar-ready').
    ИЗМЕНЕНО: AUTO_WAKE_MS = 20000 — модель эмбеддингов просыпается
    сама через 20 секунд после загрузки страницы.
    ============================================================ */
 (function () {
-    /* №51: полный порядок, как требует шапка мозга:
-       словарь → words.js → фразы → мозг → слой → эмбеддинги.
-       Отказ одного файла не валит всю цепочку — пишется предупреждение. */
-    var FILES = [
+  var FILES = [
     'zahar/zahar_dict.js',
     'zahar/words.js',
     'zahar/zahar_phrases.js',
     'zahar/zahar_brain.js',
     'zahar/zahar_chat.js',
+    'zahar/zahar_custom.js',
     'zahar/zahar_embed.js'
   ];
 
@@ -25,13 +28,13 @@
                             // 20000 = фоновый прогрев через 20 секунд тишины
 
   function loadOne(src) {
-    return new Promise(function (res, rej) {
+    return new Promise(function (res) {
       var s = document.createElement('script');
       s.src = src;
-      s.onload = function () { res(); };
+      s.onload = function () { res(true); };
       s.onerror = function () {
-        console.warn('[zahar_boot] файлъ не загрузился (цепочка продолжается): ' + src);
-        res();
+        console.warn('[zahar_boot] файлъ не загрузился: ' + src);
+        res(false); // цепочка не падает — идём дальше
       };
       document.head.appendChild(s);
     });
