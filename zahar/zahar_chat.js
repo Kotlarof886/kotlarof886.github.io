@@ -1,5 +1,6 @@
 /* ============================================================
-   ПРАВКА №50 (сборка 13.11.2026): день недели по нормѣ (ден недел); родителі;
+   ПРАВКА №50a (сборка 13.11.2026): 50 + стражъ узора имени (слой не падаетъ);
+        день недели по нормѣ (ден недел); родителі;
         границы «ел» (хотелъ больше не еда); имя безъ списка; служебныя слова прочь изъ подхвата.
    №49 (сборка 13.11.2026): мозг получает депешу как есть + ограда;
    «я сударыня», «давно» одним словом, имя по капсу через cap().
@@ -72,7 +73,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №48';
+  var VERSION = 'правка №50a';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -496,6 +497,7 @@
             q.match(/имя\s+мо[её]\s*[—–-]?\s*([А-ЯЁ][а-яё]+)/i) || q.match(/меня\s+([А-ЯЁ][а-яё]+)\s+(?:зовут|звать)/i);
     if (m) return m[1];
     var mb = String(q || '').trim().match(/^я\s+([а-яё]+)[.!]?$/i);
+    if (!mb) return null; /* 50a: узор не нашёлся — не падаем, выходим */
     var _mx50g = norm(mb[1]);
     if (NAME_LIST_SET[_mx50g] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50g.length >= 3 && !NAME_STOP[_mx50g])) return mb[1];
     return null;
@@ -641,6 +643,7 @@ function tryName(raw) {
     /* 44: голое «я X» — только если X из списка имен; иначе имени нет */
     if (!m) {
       var mb = s.match(/^я\s+([а-яё]+)[.!]?$/i);
+      if (!mb) return null; /* 50a: то же мѣсто — то же леченіе */
       var _mx50 = norm(mb[1]);
       if (NAME_LIST_SET[_mx50] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50.length >= 3 && !NAME_STOP[_mx50])) m = mb;
     }
