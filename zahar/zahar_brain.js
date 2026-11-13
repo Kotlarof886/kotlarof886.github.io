@@ -1,9 +1,10 @@
 /* ============================================================
-   Захаръ — мозгъ v2.14 (Барнаулъ, 1896; личность вшита целиком)
+   Захаръ — мозгъ v2.15 (Барнаулъ, 1896; личность вшита целиком)
    №44: лексикон въ зачинахъ убранъ (кромѣ редкихъ словъ); согласіе
    (да/давай/расскажи/хорошо/ок/валяй/подробнее) открываетъ записку вторую
    v2.14: точный словарный поискъ (подстрочный бонусъ ключамъ отъ 6 буквъ),
    зачинъ повтора «Про X, значитъ», страховка пуловъ, помѣхи-отказы.
+   v2.15: ять (ѣ) приравненъ къ «е»; мѣстоимена въ стопѣ; полъ на выходе пуловъ.
    Подключать ПОСЛЕДНИМ, после:
      zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js
    ============================================================ */
@@ -20,10 +21,11 @@ try { ZAHAR_WIKI_CACHE = JSON.parse(localStorage.getItem('zahar_wiki_v1') || '{}
 /* ---------- нормализация и стемминг ---------- */
 var ZAHAR_STOP = {};
 'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
+'я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее ёе их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
 
 function zaharNorm(s) {
   return String(s || '').toLowerCase()
-    .replace(/ё/g, 'е').replace(/[ъь]/g, '')
+    .replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '')
     .replace(/[іi]/g, 'и').replace(/ѳ/g, 'ф').replace(/ѵ/g, 'и')
     .replace(/[^a-zа-я0-9\s|]/g, ' ')
     .replace(/\s+/g, ' ').trim();
@@ -282,6 +284,11 @@ ZAHAR_DEFAULTS.rude = [
 ];
 
 var ZAHAR_LASTPICK = {};
+function zaharOut(s) {
+  if (window.ZAHAR_USER_GENDER !== 'f') return s;
+  return String(s).replace(/судар[ья] мой/g, 'сударыня моя').replace(/сударя/g, 'сударыню')
+    .replace(/судар[ья]/g, 'сударыня').replace(/государ[ья]/g, 'государыня');
+}
 function pick(pool) {
   var src = (window.ZAHAR_PHRASES && window.ZAHAR_PHRASES[pool]) || (typeof ZAHAR_PHRASES !== 'undefined' && ZAHAR_PHRASES[pool]) || ZAHAR_DEFAULTS[pool] || ['…'];
   if (!src.length) return '';
@@ -289,7 +296,7 @@ function pick(pool) {
   if (src.length > 1) { do { i = Math.floor(Math.random() * src.length); } while (i === ZAHAR_LASTPICK[pool]); }
   else i = 0;
   ZAHAR_LASTPICK[pool] = i;
-  return src[i];
+  return zaharOut(src[i]);
 }
 
 /* ---------- утилиты ---------- */
