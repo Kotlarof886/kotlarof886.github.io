@@ -1,5 +1,5 @@
 /* ============================================================
-   zahar_log.js v4 — журнальная лента (почта → kotlarof@yandex.ru)
+   zahar_log.js v6 — журнальная лента (почта → kotlarof@yandex.ru)
    v3: дверной крючокъ переживаетъ подмену (defineProperty + сторожъ,
    разъ въ 800 мс перехватывает дверь заново, кто бы ни пересоздалъ).
    v4: дедупликация с выравниванием переносов и окном 10 секунд —
@@ -7,6 +7,12 @@
    v5: дедупликация Захара по ядру реплики (первые 40 знаков, окно 60 сек) —
    ответы съ хвостомъ «Впрочемъ…» и безъ него склеиваются въ одинъ входъ.
    Пишутся и депеша гостя, и отвѣт (включая обещанія).
+   v6: буферъ очищается только при подтверждённой отправке (проверяется
+   поле success/ok въ ответе, а не HTTP-статус — FormSubmit при отказѣ
+   отвѣчаетъ 200 съ success:"false"); при сбое буферъ хранится, ошибка
+   печатается въ консоль, при сбое сети повторъ черезъ 2 минуты;
+   sendBeacon-резервъ убранъ (JSON-конечная точка его не разбираетъ);
+   статус отправки виденъ въ zaharLogStatus().
    API: zaharLogStatus(), zaharLogFlush()
    Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, после zahar_ether.js).
    ============================================================ */
@@ -34,11 +40,11 @@
       ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
   function persist() {
-    try { localStorage.setItem('zahar_log_v4', JSON.stringify(BUF)); } catch (e) {}
+    try { localStorage.setItem('zahar_log_v6', JSON.stringify(BUF)); } catch (e) {}
   }
   function restore() {
     try {
-      var s = localStorage.getItem('zahar_log_v4') || localStorage.getItem('zahar_log_v3') ||
+      var s = localStorage.getItem('zahar_log_v6') || localStorage.getItem('zahar_log_v4') || localStorage.getItem('zahar_log_v3') ||
               localStorage.getItem('zahar_log_v2') || localStorage.getItem('zahar_log_v1');
       if (s) { var a = JSON.parse(s); if (Array.isArray(a)) BUF = a; }
     } catch (e) {}
@@ -153,7 +159,10 @@
     if (!guardFrozen) installDoor();
   }, 800);
 
-  /* --- отправка (FormSubmit, почта) --- */
+  /* --- отправка (FormSubmit, почта) — v6: очистка буфера только после подтвержденія --- */
+  var lastError = null, lastErrAt = '', lastOkAt = '', lastTryAt = '';
+  var retryTimer = null;
+
   function payloadFor(reason, body) {
     return JSON.stringify({
       _subject: 'Журналъ бесѣдъ съ Захаромъ — ' + reason,
@@ -172,29 +181,61 @@
     }
     return rows.join('\n');
   }
+  function mailUrl() { return 'https://formsubmit.co/ajax/' + CFG.email; }
+
+  function markError(msg, reason, canRetry) {
+    lastError = String(msg);
+    lastErrAt = stamp();
+    try { console.warn('[zahar_log] не отправлено (' + reason + '): ' + lastError); } catch (e) {}
+    if (/activat/i.test(lastError)) {
+      try {
+        console.warn('[zahar_log] ФОРМА НЕ АКТИВИРОВАНА: FormSubmit прислалъ на ' + CFG.email +
+          ' письмо со ссылкой «Activate Form» — найдите его (въ томъ числѣ въ «Спамъ») и нажмите ссылку. ' +
+          'Пока активации нѣтъ, письма не доставляются; накопленное доставится после активации.');
+      } catch (e) {}
+    }
+    if (canRetry && !retryTimer && BUF.length) {
+      retryTimer = setTimeout(function () {
+        retryTimer = null;
+        if (BUF.length) send('повторъ после неудачи');
+      }, 120000);
+    }
+  }
+
   function send(reason) {
     var body = buildText(reason);
     if (!body) return false;
-    var url = 'https://formsubmit.co/ajax/' + CFG.email;
-    var cleared = false;
-    function finish(ok) { if (ok && !cleared) { cleared = true; BUF = []; persist(); } }
+    lastTryAt = stamp();
     try {
-      fetch(url, {
+      fetch(mailUrl(), {
         method: 'POST',
         keepalive: true,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: payloadFor(reason, body)
-      }).then(function (r) { finish(r && r.ok); })
-        .catch(function () {
-          try { navigator.sendBeacon(url, new Blob([payloadFor(reason, body)], { type: 'text/plain;charset=UTF-8' })); finish(true); } catch (e2) {}
+      }).then(function (r) {
+        var st = r ? r.status : 0;
+        return r.json().catch(function () { return null; }).then(function (data) {
+          var ok = !!(data && (data.success === 'true' || data.success === true || data.ok === true));
+          if (ok) {
+            BUF = []; persist();
+            lastError = null; lastOkAt = stamp();
+            try { console.log('[zahar_log] журналъ отправленъ (' + reason + '), буферъ очищенъ'); } catch (e) {}
+          } else {
+            var msg = (data && data.message) ? String(data.message)
+              : ('сервисъ не подтвердилъ отправку (HTTP ' + st + ')');
+            markError(msg, reason, !/activat/i.test(msg));
+          }
         });
+      }).catch(function () {
+        markError('сеть недоступна или запросъ отклонёнъ', reason, true);
+      });
     } catch (e) {
-      try { navigator.sendBeacon(url, new Blob([payloadFor(reason, body)], { type: 'text/plain;charset=UTF-8' })); finish(true); } catch (e2) {}
+      markError('не удалось начать отправку: ' + (e && e.message ? e.message : e), reason, true);
     }
     return true;
   }
 
-  function armIdle() {
+function armIdle() {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(function () { send('пять минутъ тишины'); }, CFG.idleMs);
   }
@@ -221,13 +262,16 @@
       'репликъВъБуферѣ': BUF.length,
       'дверьОбернута': doorMarked(),
       'состояниеДвери': doorState,
-      'перехватовДвери': recaps };
+      'перехватовДвери': recaps,
+      'последняяПопытка': lastTryAt || 'ещё не было',
+      'последняяУдача': lastOkAt || 'ни одной успешной',
+      'последняяОшибка': lastError ? (lastErrAt + ' — ' + lastError) : 'нѣтъ' };
   };
   window.zaharLogFlush = function () {
     if (!BUF.length) return 'Журналъ пустъ — отправлять нечего.';
     var n = BUF.length;
     send('пробная отправка');
-    return 'Журналъ отправленъ: репликъ ' + n + '.';
+    return 'Отправка запущена: репликъ ' + n + '. Результатъ смотри въ консоли (F12) черезъ пару секундъ.';
   };
 
   restore();
