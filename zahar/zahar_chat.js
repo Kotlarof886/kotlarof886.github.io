@@ -257,8 +257,8 @@
       var dt = new Date(base.getFullYear(), base.getMonth(), base.getDate() + k);
       var nm = holBy(dt.getMonth() + 1, dt.getDate());
       if (nm) {
-        if (k === 0) { noteHoliday(nm); return 'Нынче праздник: ' + nm + ', ' + nmOr() + '. Спрашивайте, что за он — растолкую.'; }
-        { noteHoliday(nm); return 'Ближайший праздник — ' + nm + ': через ' + numWords(k) + ' ' + formOf(k, 'день', 'дня', 'дней') + ', ' + nmOr() + '. Даты у меня въ тетрадке.'; }
+        noteHoliday(nm); if (k === 0) return 'Нынче праздник: ' + nm + ', ' + nmOr() + '. Спрашивайте, что за он — растолкую.';
+        noteHoliday(nm); return 'Ближайший праздник — ' + nm + ': через ' + numWords(k) + ' ' + formOf(k, 'день', 'дня', 'дней') + ', ' + nmOr() + '. Даты у меня въ тетрадке.';
       }
     }
     return 'Въ календаре моемъ праздниковъ на два мѣсяца впередъ не значится, ' + nmOr() + '.';
@@ -271,7 +271,7 @@
      записываются черезъ window.__zaharNoteTopic — крючокъ в answerFrom.
      ============================================================ */
   var TOPIC_MEM = { key: null, name: '', variants: [], seen: -1 };
-  function noteTopic(name, variants, shown) {
+  function noteTopic(name, variants, shown, keep) {
     try {
       if (!name) return;
       var k = norm(String(name));
@@ -284,10 +284,11 @@
       }
       if (TOPIC_MEM.key === k) {
         for (var j = 0; j < vs.length; j++) if (TOPIC_MEM.variants.indexOf(vs[j]) < 0) TOPIC_MEM.variants.push(vs[j]);
-        if (shown === 0) TOPIC_MEM.seen = -1;
+        if (keep && shown >= 0) TOPIC_MEM.seen = Math.min(Math.max(shown, 0), Math.max(TOPIC_MEM.variants.length - 1, 0));
+        else if (shown === 0) TOPIC_MEM.seen = -1;
         return;
       }
-      TOPIC_MEM = { key: k, name: String(name), variants: vs, seen: (shown === 0 ? -1 : Math.min(Math.max(shown || 0, 1), Math.max(vs.length - 1, 0))) };
+      TOPIC_MEM = { key: k, name: String(name), variants: vs, seen: (keep && shown >= 0) ? Math.min(Math.max(shown, 0), Math.max(vs.length - 1, 0)) : (shown === 0 ? -1 : Math.min(Math.max(shown || 0, 1), Math.max(vs.length - 1, 0))) };
     } catch (eNT) { warn('noteTopic: ' + eNT); }
   }
   window.__zaharNoteTopic = noteTopic;
@@ -390,24 +391,14 @@
       var nk = norm(HOL1896[m][2]);
       if (!HOL_INDEX[nk]) {
         for (var q = 0; q < HOL_TOLD.length; q++) {
-          if (nk.indexOf(norm(HOL_TOLD[q].n)) === 0) { HOL_INDEX[nk] = HOL_TOLD[q]; break; }
+          if (norm(HOL_TOLD[q].n) === nk) { HOL_INDEX[nk] = HOL_TOLD[q]; break; }
         }
       }
     }
   })();
   function noteHoliday(nm) {
     if (!nm) return;
-    var k = norm(nm);
-    var e = HOL_INDEX[k];
-    if (!e) {
-      var base = String(nm).split('(')[0].trim();
-      if (base) e = HOL_INDEX[norm(base)];
-    }
-    if (!e) {
-      for (var q = 0; q < HOL_TOLD.length; q++) {
-        if (k.indexOf(norm(HOL_TOLD[q].n)) === 0) { e = HOL_TOLD[q]; break; }
-      }
-    }
+    var e = HOL_INDEX[norm(nm)];
     if (e) noteTopic(e.n, e.t, 0);
   }
   var TOPIC_QWORDS = { 'что': 1, 'это': 1, 'за': 1, 'такое': 1, 'а': 1, 'про': 1, 'него': 1, 'нее': 1, 'ним': 1, 'ней': 1, 'о': 1, 'об': 1, 'он': 1, 'она': 1, 'оно': 1, 'они': 1, 'этом': 1, 'этот': 1, 'эта': 1, 'праздник': 1, 'празднике': 1, 'штука': 1, 'расскажи': 1, 'расскажите': 1 };
@@ -471,8 +462,8 @@
       var ht45 = holBy(dt45.getMonth() + 1, dt45.getDate());
       if (hd45) holTxt = ' И нынче праздник: ' + hd45 + '.';
       else if (ht45) holTxt = ' А завтра — ' + ht45 + '.';
+      if (hd45) noteHoliday(hd45); else if (ht45) noteHoliday(ht45);
     }
-    if (hd45) noteHoliday(hd45); else if (ht45) noteHoliday(ht45);
     return 'Сегодня ' + wd + ', ' + ORD[d - 1] + ' ' + MON_G[mo] + ' ' + y + ' года, ' + nmOr() + '.' + holTxt + ' ' + tail;
   }
 
@@ -1688,6 +1679,9 @@ function chat(raw) {
     if (!q) return null;
     var n = norm(q);
     if (!n) return null;
+    /* 54: ярус памяти разговора — «что это» и «еще» раньше всехъ */
+    var _ta54 = topicAnswer(n);
+    if (_ta54) return _ta54;
 
     /* 39: имя из тетрадки, если слой его еще не знает */
     if (!window.ZAHAR_USER_NAME && typeof window.zaharMemory === 'function') {
@@ -1732,10 +1726,6 @@ function chat(raw) {
     if (/(при чем тут|причем тут|что за кони)/.test(n)) {
       return fill('Виноватъ, {N}: увлекся словаремъ — старинныя слова сами лезутъ. Говорите прямо — что имелось въ виду?');
     }
-
-    /* №54: память темы — «что это», «еще», «про него» прежде прочих перехватчиков */
-    var _tA = topicAnswer(n);
-    if (_tA) { awaitingJob = false; return _tA; }
 
     /* 19: приоритет живого общения — имя, справка и подхват поверх счетчика */
     var nm0 = tryName(q);
@@ -1782,8 +1772,8 @@ function chat(raw) {
         var ht48 = holBy(tm48.getMonth() + 1, tm48.getDate());
         if (hd48) holTxt48 = ' И нынче праздник: ' + hd48 + '.';
         else if (ht48) holTxt48 = ' А завтра — ' + ht48 + '.';
+        if (hd48) noteHoliday(hd48); else if (ht48) noteHoliday(ht48);
       }
-      if (hd48) noteHoliday(hd48); else if (ht48) noteHoliday(ht48);
       return fill('День недели — ' + dn48 + ', число — ' + dd48.getDate() + ' ' + ms48 + ' ' + dd48.getFullYear() + ' года, {N}.' + holTxt48 + ' По журналамъ и аппарату сверено.');
     }
     /* 43: погода и градус — прежде счетчиков */
