@@ -183,6 +183,19 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.5 — ярусъ памяти репликъ, 
     if (Array.isArray(raw) && raw.length && window.__zaharPoolPickUsed) { raw.shift(); lsSet('zahar_poolrot_' + o.name, raw); }
     window.__zaharPoolPickUsed = false;
   }
+  /* №54: крючокъ памяти разговора — тема тетради уходит в zahar_chat.js */
+  function notePair(p, shown) {
+    try {
+      if (!window.__zaharNoteTopic || !p) return;
+      var nm = p.topic || p.q || '';
+      var vs = [];
+      (p.vars || []).forEach(function (v) {
+        if (v && v.t) vs.push(String(v.t).replace(/\{[TSWG]\}/g, ''));
+      });
+      if (vs.length) window.__zaharNoteTopic(nm, vs, idx ? idx : -1);
+    } catch (eNP) {}
+  }
+
   function answerFrom(q, p, c, F) {
     settlePoolOrder();
     window.__zaharLastFromPool = null;
@@ -192,7 +205,7 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.5 — ярусъ памяти репликъ, 
     var key = nv(p.q) || 'тема';
     var idxs = candIdx(p, c);
     var idx = idxs.length ? rotNext(key, idxs) : -1;
-    if (idx >= 0) return fl(p.vars[idx].t);
+    if (idx >= 0) { notePair(p, idx); return fl(p.vars[idx].t); }
     var pn = POOL_MAP[key];
     if (pn && poolHas(pn)) {
       var pidx = poolPeek(pn);
@@ -211,7 +224,7 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.5 — ярусъ памяти репликъ, 
     }
     rotReset(key);
     idx = idxs.length ? rotNext(key, idxs) : -1;
-    if (idx >= 0) return fl(p.vars[idx].t);
+    if (idx >= 0) { notePair(p, idx); return fl(p.vars[idx].t); }
     return null;
   }
 
