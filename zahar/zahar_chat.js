@@ -44,6 +44,7 @@
         «сударыня» послойно на выходе, реплики под телеграф, пулы: Тихон,
         трактир, М.Ю., линии станций, интересы; согласия открывают записку.
    zahar_chat.js — слой живой болтовни Захара, правка №21.
+   правка №52 (сборка 14.11.2026): pick() умеет последовательный обход пула — приказ от тетради; остальное без перемен.
    19: имя ловится и в обороте «меня X звать»; справка «что ты знаешь про X»
    ищет по ОБОИМ словарям с синонимами и стемами раньше счётчиков и нечёткого
    разбора; подхват слов выводится впереди счётчиков (живое общение прежде всего);
@@ -92,6 +93,19 @@
     if (!arr || !arr.length) return '';
     if (arr.length === 1) return arr[0];
     if (typeof arr._last !== 'number') arr._last = -1;
+    /* правка №52: последовательный обход пула. Если тетрадь (zahar_custom.js)
+       держит WeakMap window.__zaharPoolPick и вписала в него этот массив
+       со своим счётчиком — pick берёт УКАЗАННУЮ реплику и снимает приказ.
+       Без приказа — прежняя жизнь: случайный выбор без повтора подряд. */
+    var PM = window.__zaharPoolPick;
+    if (PM && typeof PM.has === 'function' && PM.has(arr)) {
+      var idx = PM.get(arr);
+      PM.delete(arr);
+      idx = ((idx % arr.length) + arr.length) % arr.length;
+      if (idx === arr._last && arr.length > 1) idx = (idx + 1) % arr.length;
+      arr._last = idx;
+      return arr[idx];
+    }
     var i = Math.floor(Math.random() * arr.length);
     if (i === arr._last) i = (i + 1) % arr.length;
     arr._last = i;
