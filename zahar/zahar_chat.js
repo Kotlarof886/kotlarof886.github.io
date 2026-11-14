@@ -44,7 +44,6 @@
         «сударыня» послойно на выходе, реплики под телеграф, пулы: Тихон,
         трактир, М.Ю., линии станций, интересы; согласия открывают записку.
    zahar_chat.js — слой живой болтовни Захара, правка №21.
-   правка №52 (сборка 14.11.2026): pick() умеет последовательный обход пула — приказ от тетради; остальное без перемен.
    19: имя ловится и в обороте «меня X звать»; справка «что ты знаешь про X»
    ищет по ОБОИМ словарям с синонимами и стемами раньше счётчиков и нечёткого
    разбора; подхват слов выводится впереди счётчиков (живое общение прежде всего);
@@ -74,7 +73,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №50a';
+  var VERSION = 'правка №52';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -92,20 +91,26 @@
   function pick(arr) {
     if (!arr || !arr.length) return '';
     if (arr.length === 1) return arr[0];
+    /* ПРИКАЗ тетради: взять ровно реплику под номером (правка №52).
+       Приказ адресован по имени пула и съедается только тем массивом,
+       которому адресован; одноразовый. */
+    try {
+      var _o = window.__zaharPoolPick, _P = window.__ZAHAR_POOL_BY_NAME;
+      if (_o && _P) {
+        for (var _k in _P) {
+          if (_P[_k] === arr) {
+            if (_o.name === _k) {
+              var _i = Math.max(0, Math.min(arr.length - 1, Number(_o.idx) || 0));
+              window.__zaharPoolPick = null;
+              window.__zaharPoolPickUsed = true;
+              return arr[_i];
+            }
+            break; /* приказ на другой пул — этот массив его не берёт */
+          }
+        }
+      }
+    } catch (eO) {}
     if (typeof arr._last !== 'number') arr._last = -1;
-    /* правка №52: последовательный обход пула. Если тетрадь (zahar_custom.js)
-       держит WeakMap window.__zaharPoolPick и вписала в него этот массив
-       со своим счётчиком — pick берёт УКАЗАННУЮ реплику и снимает приказ.
-       Без приказа — прежняя жизнь: случайный выбор без повтора подряд. */
-    var PM = window.__zaharPoolPick;
-    if (PM && typeof PM.has === 'function' && PM.has(arr)) {
-      var idx = PM.get(arr);
-      PM.delete(arr);
-      idx = ((idx % arr.length) + arr.length) % arr.length;
-      if (idx === arr._last && arr.length > 1) idx = (idx + 1) % arr.length;
-      arr._last = idx;
-      return arr[idx];
-    }
     var i = Math.floor(Math.random() * arr.length);
     if (i === arr._last) i = (i + 1) % arr.length;
     arr._last = i;
@@ -1748,5 +1753,6 @@ function chat(raw) {
     try { if (Array.isArray(TAIGA_SELF)) _pools.TAIGA_SELF = TAIGA_SELF; } catch (e56) {}
     try { if (Array.isArray(WX_FAIL)) _pools.WX_FAIL = WX_FAIL; } catch (e57) {}
     window.ZAHAR_CHAT_POOLS = _pools;
+    window.__ZAHAR_POOL_BY_NAME = _pools; /* реестр пулов по имени — для приказа тетради */
   } catch (e51) {}
 })();

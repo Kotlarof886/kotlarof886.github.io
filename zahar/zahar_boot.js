@@ -18,7 +18,7 @@
    Событие готовности: document.dispatchEvent('zahar-ready').
    ============================================================ */
 (function () {
-  var BOOTV = '3';
+  var BOOTV = '4';
 
   var FIRST = [
     'zahar/zahar_dict.js'
