@@ -1,5 +1,5 @@
 /* ============================================================
-   Захаръ — мозгъ v2.20 (память — последній доводъ; скорингъ взвѣшенъ) (Барнаулъ, 1896; личность вшита целиком)
+   Захаръ — мозгъ v2.21 (родня основъ; скорингъ памяти; отрицанія) (Барнаулъ, 1896; личность вшита целиком)
    №44: лексикон въ зачинахъ убранъ (кромѣ редкихъ словъ); согласіе
    (да/давай/расскажи/хорошо/ок/валяй/подробнее) открываетъ записку вторую
    v2.14: точный словарный поискъ (подстрочный бонусъ ключамъ отъ 6 буквъ),
@@ -13,6 +13,9 @@
    словаря, личности и справокъ, а не глушитъ ихъ. Пустыя темы память
    пропускаетъ; дубли изъ памяти браузера при загрузкѣ файла не приписываются
    вторымъ слоемъ — файл памяти канониченъ.
+   v2.21: стеммингъ усиленъ (ого/его/ому/ему/ое/еш/иш); родня основъ (ZAHAR_KIN);
+   память репликъ — скорингъ всѣх паръ, лучший мэтч, а не первый;
+   отрицанія: «не хочу/буду/собираюсь» гасятъ тему, «не знаешь где» — нетъ.
    v2.20: скорингъ словаря — подстрочный бонусъ взвѣшенъ длиной ключа
    («большакъ» уже не отыгрывается за «больше»); реплики памяти репликъ
    регистрируются въ ярусе разговора (window.__zaharNoteTopic) — «еще»
@@ -39,6 +42,7 @@ var ZAHAR_STOP = {};
 'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
 'не ни при тут чем за зачем когда где куда почему разве если будто все всё весь вся от до ведь мол де'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; }); /* v2.16 */
 'я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее ёе их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; });
+'твои твою твоего твоей мою моего вашей вашего ваши наших нашей вашем вашей'.split(' ').forEach(function (w) { ZAHAR_STOP[w] = 1; }); /* v2.21 */
 
 function zaharNorm(s) {
   return String(s || '').toLowerCase()
@@ -49,7 +53,7 @@ function zaharNorm(s) {
 }
 
 var _END = {};
-'иями ями ами иях ах ях ов ев ей ой ый ий ая яя ую юю ым им ом ем ых их ее ые ие ы и а я е у ю о й'.split(' ').forEach(function (e) { _END[e] = e.length; });
+'иями ями ами иях ах ях ов ев ей ой ый ий ая яя ую юю ым им ом ем ых их ее ые ие ого его ому ему ое еш иш ы и а я е у ю о й'.split(' ').forEach(function (e) { _END[e] = e.length; }); /* v2.21: добавки */
 var ZAHAR_ENDINGS = Object.keys(_END).sort(function (a, b) { return b.length - a.length; });
 
 function zaharStem(w) {
@@ -61,12 +65,94 @@ function zaharStem(w) {
   return w;
 }
 
+/* v2.21: родня основъ — разныя корни одного понятія */
+var ZAHAR_KIN = [
+  ['рыб', 'рыбалк', 'рыбач', 'рыболов', 'рыбак'],
+  ['трактир', 'трактирн', 'корчм', 'харчевн'],
+  ['телеграф', 'телеграфон', 'депеш', 'телеграмм'],
+  ['станц'],
+  ['работ', 'служб', 'служ', 'смен', 'дежур'],
+  ['погод', 'погодк', 'погодн'],
+  ['охот', 'ружь', 'берданк', 'дроб'],
+  ['музык', 'оркестр', 'романс', 'гармошк', 'гармони', 'балалайк', 'гитар', 'песн'],
+  ['книг', 'книж', 'чита', 'чтен'],
+  ['еда', 'ед', 'куш', 'харч', 'обед', 'ужин', 'завтрак', 'пельмен', 'пирог', 'сметан'],
+  ['ворон', 'воронь'],
+  ['встреч', 'гост', 'визит'],
+  ['проща', 'свидан'],
+  ['имя', 'имен', 'зовут'],
+  ['возраст', 'год', 'годик', 'лет'],
+  ['сон', 'спат', 'спл'],
+  ['зим', 'мороз', 'снежн'],
+  ['нрав', 'люб', 'любим'],
+  ['чай', 'чифир', 'самовар'],
+  ['город', 'городск', 'гульб'],
+  ['улиц'],
+  ['шеф', 'начальник', 'начальств', 'управляющ'],
+  ['родител', 'семь', 'матер', 'отц', 'батюшк', 'матушк', 'родн', 'мам', 'пап', 'брат', 'сестр'],
+  ['деньг', 'рубл', 'копейк', 'жалован'],
+  ['реч', 'река', 'речк', 'обск', 'стариц'],
+  ['лес', 'тайг', 'бор', 'чащ'],
+  ['морз', 'азбук'],
+  ['школ', 'училищ', 'учен', 'учеб', 'горнозаводск'],
+  ['спасибо', 'благодар'],
+  ['ход', 'ходи', 'хажив', 'шаг'],
+  ['день', 'ден', 'деньк'],
+  ['утро', 'утр', 'утречк', 'утреч'],
+  ['вечер', 'вече', 'веч'],
+  ['сегодня', 'сейчас', 'нынче']
+];
+function zaharKin(a, b) {
+  for (var g = 0; g < ZAHAR_KIN.length; g++) {
+    if (ZAHAR_KIN[g].indexOf(a) >= 0 && ZAHAR_KIN[g].indexOf(b) >= 0) return true;
+  }
+  return false;
+}
+
 function zaharTokensMatch(a, b) {
   if (!a || !b) return false;
   if (a === b) return true;
+  if (zaharKin(a, b)) return true;
   var s = a.length <= b.length ? a : b;
   var l = a.length <= b.length ? b : a;
   return s.length >= 4 && l.indexOf(s) === 0 && (l.length - s.length) <= 2;
+}
+
+/* v2.21: токены депеши */
+function zaharTok(q) {
+  var out = [], ts = String(q || '').split(' ');
+  for (var i = 0; i < ts.length; i++) {
+    var t = ts[i];
+    if (t && t.length >= 3 && !ZAHAR_STOP[t]) out.push(zaharStem(t));
+  }
+  return out;
+}
+
+/* v2.21: отрицанія — вольные глаголы гасятъ тему, вопросы не трогаютъ */
+var ZAHAR_VOLITION = {};
+'хочу хочешь хотим буду будем пойду пойдем поеду поедем собираюсь собираюс собираемся собираемс надо стоит желаю желаешь люблю любишь было была были будет будут бывает'.split(' ').forEach(function (w) { ZAHAR_VOLITION[w] = 1; });
+
+function zaharNegSet(q) {
+  var neg = {}, raw = String(q || '').split(' ');
+  for (var i = 0; i < raw.length; i++) {
+    if (raw[i] !== 'не' && raw[i] !== 'нет') continue;
+    var j = i + 1, first = null;
+    while (j < raw.length) {
+      if (ZAHAR_STOP[raw[j]] === 1) { j++; continue; }
+      first = raw[j]; break;
+    }
+    if (first && first.length >= 3) {
+      neg[zaharStem(first)] = 1;
+      if (ZAHAR_VOLITION[first] === 1) {
+        for (var k2 = j + 1; k2 < raw.length; k2++) {
+          var t2 = raw[k2];
+          if (t2 && t2.length >= 3 && !ZAHAR_STOP[t2]) neg[zaharStem(t2)] = 1;
+        }
+      }
+    }
+    i = j;
+  }
+  return neg;
 }
 
 /* ---------- разбор записи: Слово-Определеніе-Записка или Вопрос-Отвѣт-Отвѣт ---------- */
@@ -392,9 +478,13 @@ function zaharWordHit(hay, needle) {
 }
 
 /* ---------- реплики из памяти ---------- */
+/* v2.21: память — скорингъ всѣх паръ (лучший мэтч), стемы, родня, отрицанія */
 function zaharFindReplica(query) {
   var q = zaharNorm(query);
   if (!q) return null;
+  var ns = zaharNegSet(q), qt = zaharTok(q), rawq = q.split(' ');
+  var qn = rawq.filter(function (w) { return !ZAHAR_STOP[w]; }).join(' ');
+  var best = null, bestScore = 0;
   for (var i = 0; i < ZAHAR_MEMORY.length; i++) {
     var m = ZAHAR_MEMORY[i];
     if (!m.a || !m.a.length) continue; /* v2.19: заглушенная тема молчитъ */
@@ -402,9 +492,30 @@ function zaharFindReplica(query) {
       var nq = zaharNorm(m.q[j]);
       if (!nq) continue;
       if (nq === q || zaharWordHit(q, nq) || (zaharWordHit(nq, q) && q.length > 4)) return m;
+      /* v2.21: снятые стопы — ключ и депеша безъ служебныхъ словъ совпали */
+      var kn = nq.split(' ').filter(function (w) { return !ZAHAR_STOP[w]; }).join(' ');
+      if (kn && kn === qn) return m;
+      var kt = zaharTok(nq);
+      if (!kt.length) continue;
+      var matched = 0, pairA = null, pairB = null;
+      for (var a = 0; a < kt.length; a++) {
+        var hit = false;
+        for (var b = 0; b < qt.length; b++) {
+          if (zaharTokensMatch(kt[a], qt[b]) && !ns[qt[b]]) { matched++; pairA = kt[a]; pairB = qt[b]; hit = true; break; }
+        }
+        if (!hit) {
+          for (var r = 0; r < rawq.length; r++) {
+            var rw = rawq[r];
+            if (rw && rw.length >= 3 && !ZAHAR_STOP[rw] && !ns[zaharStem(rw)] && zaharTokensMatch(kt[a], zaharStem(rw))) { matched++; pairA = kt[a]; pairB = zaharStem(rw); hit = true; break; }
+          }
+        }
+      }
+      /* v2.21: одиночная вспышка — только равные стемы отъ 4 буквъ */
+      if (matched === 1 && !(pairA === pairB && pairA.length >= 4)) matched = 0;
+      if (matched > bestScore) { bestScore = matched; best = m; }
     }
   }
-  return null;
+  return bestScore >= 2 ? best : null;
 }
 function zaharReplicaAnswer(m) {
   var a = m.a;
