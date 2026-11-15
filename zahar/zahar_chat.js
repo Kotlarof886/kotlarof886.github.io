@@ -202,7 +202,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9б (улица дословно, полъ изъ тетрадки)';
+  var VERSION = 'правка №59.9в (слэши recall; улица дословно; полъ изъ тетрадки)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -2494,7 +2494,7 @@ function tryName(raw) {
         if (lastTopic === 'id') return 'Уже рапортовал о себе, ' + addr() + ', но повторю кратко: Захаръ Кузнецовъ, младший телеграфист барнаульской станции. А что вас интересует сверх того?';
         return fill(pick(IDENTITY));
       }, topic: 'id' },
-    { re: ^(как меня зовут|какое мое имя|какое у меня имя|какое имя у меня|как мое имя|что мое имя|мое имя|как я зовусь|как я зовус)$, run: recallName },
+    { re: /^(как меня зовут|какое мое имя|какое у меня имя|какое имя у меня|как мое имя|что мое имя|мое имя|как я зовусь|как я зовус)$/, run: recallName },
     { re: /(выглядите|выглядишь|внешность|какой ты на вид|какой я на вид)/, run: function () { return fill(pick(APPEAR)); } },
     { re: /(морз|азбук|скорость приема|ключ стуч)/, run: function () { return fill(pick(MORSE)); } },
     { re: /(провод|лини|авари|изолятор|столб)/, run: function () { return fill(pick(WIRES)); } },
