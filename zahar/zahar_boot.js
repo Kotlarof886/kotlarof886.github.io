@@ -1,5 +1,5 @@
 /* ============================================================
-   zahar_boot.js — Захаръ грузится последнимъ. Правка №6 загрузчика (15.11.2026)
+   zahar_boot.js — Захаръ грузится последнимъ. Правка №7 загрузчика (15.11.2026) — ловецъ ошибокъ
    Подключать ОДНИМ тегом в конце body вместо старых тегов Захара:
      <script src="zahar/zahar_boot.js"></script>
    Цепочка: словарь → память → слова → фразы → мозгъ → слой болтовни →
@@ -20,7 +20,25 @@
    Событие готовности: document.dispatchEvent('zahar-ready').
    ============================================================ */
 (function () {
-  var BOOTV = '6';
+  /* №7: ловец ошибок — называет повреждённый/недошедший слой по имени */
+  window.__zaharBootErrors = window.__zaharBootErrors || [];
+  window.addEventListener('error', function (ev) {
+    var m;
+    if (ev && ev.target && ev.target.tagName && ev.target.tagName.toUpperCase() === 'SCRIPT') {
+      m = 'НЕ ДОШЕЛЪ ФАЙЛЪ: ' + (ev.target.src || '?');
+    } else if (ev && ev.error instanceof SyntaxError) {
+      m = 'ПОВРЕЖДЕННЫЙ СЛОЙ: ' + (ev.filename || '?') + ' строка ' + (ev.lineno || '?') + ' — ' + (ev.message || '?');
+    } else {
+      m = 'ОШИБКА: ' + ((ev && ev.message) || '?') + ' @ ' + ((ev && ev.filename) || '?') + ':' + ((ev && ev.lineno) || '?');
+    }
+    if (window.__zaharBootErrors.indexOf(m) === -1) {
+      window.__zaharBootErrors.push(m);
+      try { console.log('⚠ ' + m); } catch (e) {}
+      if (window.__zaharBootStatusShown && window.zaharBootStatus) { try { window.zaharBootStatus(); } catch (e) {} }
+    }
+  }, true);
+
+  var BOOTV = '7';
 
   /* каждый слай — списокъ путей по очереди: всталъ первый — хватаемъ */
   var FIRST = [
@@ -128,7 +146,10 @@
       '; фразы — ' + (P ? 'встали (' + arr(P.greetings) + ' greeting[овъ])' : 'НЕТЪ') +
       '; кастомъ — ' + (C ? 'всталъ (' + (C.pairs ? C.pairs.length : 0) + ' паръ)' : 'НЕТЪ') +
       '; дверь мозга — ' + (typeof window.ZAHAR_ASK !== 'undefined' ? 'на мѣстѣ' : 'НЕТЪ') +
-      '; журналъ — ' + (window.__zaharLogLoaded ? 'всталъ' : 'НЕТЪ'));
+      '; журналъ — ' + (window.__zaharLogLoaded ? 'всталъ' : 'НЕТЪ') +
+      (window.__zaharBootErrors && window.__zaharBootErrors.length ? '; поврежденія — ' + window.__zaharBootErrors.length + ' (см. zaharBootErrors)' : ''));
+    if (window.__zaharBootErrors && window.__zaharBootErrors.length) console.warn('[zahar_boot] ПОВРЕЖДЕНІЯ:', window.__zaharBootErrors);
+    window.__zaharBootStatusShown = true;
     console.info('[zahar_boot] дошли: ' + (loaded.length ? loaded.join('; ') : 'никто'));
     if (failed.length) console.warn('[zahar_boot] НЕ ДОШЛИ: ' + failed.join('; '));
     return { loaded: loaded.slice(), failed: failed.slice() };
