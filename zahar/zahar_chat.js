@@ -1,4 +1,8 @@
 /* ===
+   №59.9б (15.11.2026): полъ изъ тетрадки — Анна «сударыня» сразу послѣ перезагрузки,
+        безъ ожиданія представленья (восстановление имени дополнено восстановленіемъ пола).
+   === */
+/* ===
    №59.9а (15.11.2026): улица трактира — дословно ваш текстъ (морзе «Алтайская», зданіе безъ ятя).
    === */
 /* ===
@@ -198,7 +202,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9а (улица дословно)';
+  var VERSION = 'правка №59.9б (улица дословно, полъ изъ тетрадки)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1771,6 +1775,14 @@
       if (hitN || (hitS && !lands45)) {
         FRAME.done = true;
         if (!FRAME.station && rs45) FRAME.station = rs45;
+        /* №59.9б: пол изъ тетрадки при узнавании — безъ ожиданія представленья */
+        if (rn45) {
+          try {
+            var _gn45 = NAME_LIST_SET[norm(String(rn45))];
+            if (_gn45 === 'f') window.ZAHAR_USER_GENDER = 'f';
+            else if (_gn45 === 'm' && !window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = 'm';
+          } catch (e45g) {}
+        }
         var lead45 = pick(['Ага — вижу въ журнале: ', 'Записка въ тетрадке цѣла: ', 'Кажись, мы уже знались — ']);
         var mid45 = (hitN && hitS) ? (rn45 + ', станція ' + rs45) : (hitN ? rn45 : ('станція ' + rs45));
         return fill(lead45 + mid45 + '. Радъ слышать! Чемъ могу служить?');
@@ -2965,7 +2977,13 @@ function chat(raw) {
     if (!window.ZAHAR_USER_NAME && typeof window.zaharMemory === 'function') {
       try {
         var _memN = window.zaharMemory();
-        if (_memN && _memN.notebook && _memN.notebook.name) window.ZAHAR_USER_NAME = _memN.notebook.name;
+        if (_memN && _memN.notebook && _memN.notebook.name) {
+          window.ZAHAR_USER_NAME = _memN.notebook.name;
+          /* №59.9б: пол изъ тетрадки — «сударыня» сразу послѣ перезагрузки */
+          var _gn39 = NAME_LIST_SET[norm(_memN.notebook.name)];
+          if (_gn39 === 'f') window.ZAHAR_USER_GENDER = 'f';
+          else if (_gn39 === 'm' && !window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = 'm';
+        }
       } catch (e) {}
     }
 
