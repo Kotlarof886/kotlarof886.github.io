@@ -153,7 +153,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.6 (кастомъ-первымъ)';
+  var VERSION = 'правка №59.6 (кастомъ-первымъ, щитъ забвенья)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -2686,6 +2686,8 @@ function tryName(raw) {
       if (!data || !data.pairs || !data.pairs.length) return '';
       var dep = String(n || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').trim();
       if (!dep) return '';
+      /* №59.6а: команда забвенья мимо кастома — её ловит стражъ в install() */
+      if (/^забы(ть|дь)(\s|$|:)/.test(dep)) return '';
       var STO = {};
       'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без не ни при чем за зачем когда где куда почему разве если будто все весь вся от до я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { STO[w] = 1; });
       var dw = dep.split(/[^а-я]+/).filter(function (w) { return w.length >= 4 && !STO[w]; });
