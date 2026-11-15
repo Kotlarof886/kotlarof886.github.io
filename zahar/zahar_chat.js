@@ -1,4 +1,10 @@
 /* ===
+   №59.9г (15.11.2026): случайное слово изъ словаря (ZAHAR_DICT_FILE) вместо навязчивой нельмы —
+        тизеръ «Слыхали вы о словѣ „X“?» + статья целикомъ по согласію; полъ — въ самом началѣ chat()
+        (до кастома и номера), femizeOut выводитъ полъ изъ имени; морзе улицы — безъ пробеловъ;
+        прощаніе «до новыхъ встречъ»; послѣ улицы «какъ онъ называется» → морзе-названіе трактира.
+   === */
+/* ===
    №59.9б (15.11.2026): полъ изъ тетрадки — Анна «сударыня» сразу послѣ перезагрузки,
         безъ ожиданія представленья (восстановление имени дополнено восстановленіемъ пола).
    === */
@@ -202,7 +208,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9в (слэши recall; улица дословно; полъ изъ тетрадки)';
+  var VERSION = 'правка №59.9г (случайное слово изъ словаря; полъ въ началѣ chat; морзе слитно; до новыхъ встречъ)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1886,7 +1892,12 @@
   }
   /* ===== №44: «сударыня» послойно — одна точка на выходе ===== */
   function femizeOut(s) {
-    if (window.ZAHAR_USER_GENDER !== 'f') return s;
+    if (window.ZAHAR_USER_GENDER !== 'f') {
+      /* №59.9г: полъ не ведомъ — выводимъ изъ имени (страничная переменная embed'а или тетрадка) */
+      var _nmF = window.ZAHAR_USER_NAME;
+      if (_nmF && NAME_LIST_SET[norm(_nmF)] === 'f') window.ZAHAR_USER_GENDER = 'f';
+      else return s;
+    }
     var out = String(s == null ? '' : s);
     var map = [['сударём','сударынёй'],['сударем','сударынёй'],['сударя','сударыню'],['сударю','сударыне'],['сударей','сударыней'],['сударь','сударыня']];
     for (var i = 0; i < map.length; i++) out = out.split(map[i][0]).join(map[i][1]);
@@ -1902,7 +1913,9 @@
   };
   function loreReply(n) {
     if (/тихон/.test(n)) return fill(pick(LORE.tihon));
-    if (/улиц|адрес/.test(n) && /трактир|шулюм|дианы/.test(n)) return 'На улицѣ .- .-.. - .- .--- ... -.- .- .-.- тамъ отдельное здание, мимо не пройдете.';
+    /* №59.9г: послѣ улицы «какъ онъ называется» — морзе-названіе трактира */
+    if (loreReply._street && /называ|назван/.test(n)) { loreReply._street = false; return fill(pick(LORE.traktir)); }
+    if (/улиц|адрес/.test(n) && /трактир|шулюм|дианы/.test(n)) { loreReply._street = true; return 'На улицѣ .-.-..-.--...-.-.-.--- тамъ отдельное здание, мимо не пройдете.'; }
     if (/трактир|шулюм|дианы/.test(n)) return fill(pick(LORE.traktir));
     if (/м ю|инкогнито/.test(n)) return fill(pick(LORE.myu));
     if (/какие станци|станци.*(знаешь|список)|лини/.test(n)) return fill(pick(LORE.lines));
@@ -2031,11 +2044,28 @@ function tryName(raw) {
   var COUNTERS = [
     { q: 'А вы кроме депеш чем занимаетесь, {N}?', topic: 'job' },
     { q: 'Как вам Барнаул наш, {N} — по нраву?', topic: 'barnaul' },
-    { q: 'Слыхали вы о нельме, {N}? Лучшая рыба в Оби, серебром отливающая.', topic: 'nelma' },
+    { q: 'Слыхали вы о нельме, {N}? Лучшая рыба в Оби, серебром отливающая.', topic: 'dictword', dyn: true },
     { q: 'Как слышно у вас, {N}? Помехи не грызут линию?', topic: 'kray' },
     { q: 'А вы чай горячий нынче отведали, {N}? Самовар у меня не зря топится.', topic: 'tea' }
   ];
   var lastCounter = false, counterTopic = null, askNameDone = false, lastTopic = null, awaitingJob = false, counterCd45 = 0;
+  /* №59.9г: случайное слово изъ словаря — вместо навязчивой нельмы */
+  function pickDictWord() {
+    try {
+      var _D = window.ZAHAR_DICT_FILE;
+      if (!_D || !_D.length) return null;
+      var _last = counterText._word || null;
+      var _cands = [];
+      for (var _di = 0; _di < _D.length; _di++) {
+        var _e = _D[_di];
+        if (!_e || !_e.w) continue;
+        if (_last && String(_last.w).toLowerCase() === String(_e.w).toLowerCase()) continue;
+        _cands.push(_e);
+      }
+      if (!_cands.length) return null;
+      return _cands[Math.floor(Math.random() * _cands.length)];
+    } catch (eD) { return null; }
+  }
   function counterText() {
     var c;
     if (!window.ZAHAR_USER_NAME && !askNameDone) { askNameDone = true; counterTopic = null; lastCounter = true; return 'Как вас величать, кстати?'; }
@@ -2050,6 +2080,10 @@ function tryName(raw) {
         var _ci = _free[Math.floor(Math.random() * _free.length)];
         counterText._last = _ci;
         c = COUNTERS[_ci];
+        if (c && c.dyn) {
+          var _dwC = pickDictWord();
+          if (_dwC) { counterText._word = _dwC; c = { q: 'Слыхали вы о словѣ «' + _dwC.w + '», {N}? Ежели слыхали — темъ лучше, растолкую по новой.', topic: 'dictword' }; }
+        }
         if (_used.indexOf(c.topic) < 0) _used.push(c.topic);
         _nbC.notebook.counters = _used;
         if (typeof window.zaharSaveNotebook === 'function') { try { window.zaharSaveNotebook(); } catch (eC2) {} }
@@ -2062,6 +2096,10 @@ function tryName(raw) {
     if (COUNTERS.length > 1 && _ci2 === counterText._last) _ci2 = (_ci2 + 1) % COUNTERS.length;
     counterText._last = _ci2;
     c = COUNTERS[_ci2];
+    if (c && c.dyn) {
+      var _dwC2 = pickDictWord();
+      if (_dwC2) { counterText._word = _dwC2; c = { q: 'Слыхали вы о словѣ «' + _dwC2.w + '», {N}? Ежели слыхали — темъ лучше, растолкую по новой.', topic: 'dictword' }; }
+    }
     counterTopic = c.topic;
     lastCounter = true;
     return fill(c.q);
@@ -2081,11 +2119,25 @@ function tryName(raw) {
     var t = counterTopic;
     function done() { counterTopic = null; lastCounter = false; }
     function no() {
-      return /(^|[^а-я])(нет|ни за что|не очен|так себе|мрачн|неслыхал|не слыхал|впервые|толко приехал|проездом|не пил|не отведал|не был|недавно)([^а-я]|$)/.test(n);
+      return /(^|[^а-я])(нет|ни за что|не очен|так себе|мрачн|неслыхал|не слыхал|не знаю|не слышал|впервые|толко приехал|проездом|не пил|не отведал|не был|недавно)([^а-я]|$)/.test(n);
     }
     function yes(extra) {
       var re = new RegExp('(^|[^а-я])(да|ага|конечно|точно|верно|именно' + (extra ? '|' + extra : '') + ')([^а-я]|$)');
       return re.test(n);
+    }
+    if (t === 'dictword') {
+      var _wdC = (counterText && counterText._word) || null;
+      if (no()) { done(); counterText._word = null; return fill('Экое же слово «' + (_wdC ? String(_wdC.w) : 'нельма') + '» у васъ не въ ходу, {N}. На Обь выйдете — гляди, не упустите.'); }
+      if (yes()) {
+        done();
+        if (_wdC) {
+          counterText._word = null;
+          try { window.__zaharNoteTopic = String(_wdC.w || ''); } catch (eT) {}
+          return fill('Записывайте, {A}: ' + String(_wdC.b || '') + ' ' + String(_wdC.d || ''));
+        }
+        return fill(pick(NELMA_TELL));
+      }
+      return null;
     }
     if (t === 'nelma') {
       if (no()) { done(); return fill('Потому и толкую, {N}: на Обь выйдете — гляди, не упустите.'); }
@@ -2485,7 +2537,7 @@ function tryName(raw) {
     { re: /^(приве[а-я]*|преве[а-я]*|прив|здравству[а-я]*|салют|хай|здорово|здоро|мои почтени[а-я]*|почтен[а-я]*|добры[йе]\s+(день|утро|вечер))$/,
       run: function () { lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
     { re: /здрави[яе]/, run: function () { lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
-    { re: /(до\s*свидан|прощай|всего доброго|до встречи|бывай|покид|(^|[^а-я])пока(?:[^а-я]|$))/,
+    { re: /(до\s*(?:свидан|новых\s+встреч)|прощай|всего доброго|до встречи|бывай|покид|(^|[^а-я])пока(?:[^а-я]|$))/,
       run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { re: /(попил|попивал|выпил|любите чай|любишь чай|про чай|о чае|чай)/, run: function () { return fill(pick(TEA)); } },
     { re: /(день|числ|дат|календар|какой год|какой месяц)/, run: answerDate },
@@ -2915,6 +2967,22 @@ function chat(raw) {
     if (!q) return null;
     var n = norm(q);
     if (!n) return null;
+    /* №59.9г: личность — въ самом началѣ chat(): имя и полъ изъ тетрадки
+       до кастома и секретнаго номера; полъ выводится изъ имени, даже
+       если страничную переменную уже выставилъ embedъ */
+    if (typeof window.zaharMemory === 'function') {
+      try {
+        var _memG = window.zaharMemory();
+        if (_memG && _memG.notebook) {
+          if (!window.ZAHAR_USER_NAME && _memG.notebook.name) window.ZAHAR_USER_NAME = _memG.notebook.name;
+          if (window.ZAHAR_USER_GENDER !== 'f' && window.ZAHAR_USER_GENDER !== 'm') {
+            var _gnG = _memG.notebook.name ? NAME_LIST_SET[norm(_memG.notebook.name)] : null;
+            if (_gnG === 'f') window.ZAHAR_USER_GENDER = 'f';
+            else if (_gnG === 'm') window.ZAHAR_USER_GENDER = 'm';
+          }
+        }
+      } catch (e) {}
+    }
     /* №59.9: секретный номеръ — выше ярусовъ; линія очищается */
     var _sl9 = q.replace(/\D+/g, '');
     if (_sl9 === '4815162342') {
@@ -2939,7 +3007,7 @@ function chat(raw) {
     if (_ta54) return _ta54;
 
     /* 59.4: прощаніе старше благодарности — «спасибо и до свиданія» не отвѣчаетъ благодарностью */
-    if (/спасиб|благодарствую|мерси/.test(n) && /(до\s*свидан|досвидан|прощай|всего доброго|до встречи|(^|[^а-я])пока(?:[^а-я]|$))/.test(n)) {
+    if (/спасиб|благодарствую|мерси/.test(n) && /(до\s*(?:свидан|новых\s+встреч)|досвидан|прощай|всего доброго|до встречи|(^|[^а-я])пока(?:[^а-я]|$))/.test(n)) {
       lastCounter = true;
       return fill(pick(FAREWELL));
     }
@@ -2973,19 +3041,7 @@ function chat(raw) {
       return fill('На завтра, ' + nmOr() + ', въ календарѣ праздника не значится. Спросите о другомъ днѣ — сверю по журналамъ.');
     }
 
-    /* 39: имя из тетрадки, если слой его еще не знает */
-    if (!window.ZAHAR_USER_NAME && typeof window.zaharMemory === 'function') {
-      try {
-        var _memN = window.zaharMemory();
-        if (_memN && _memN.notebook && _memN.notebook.name) {
-          window.ZAHAR_USER_NAME = _memN.notebook.name;
-          /* №59.9б: пол изъ тетрадки — «сударыня» сразу послѣ перезагрузки */
-          var _gn39 = NAME_LIST_SET[norm(_memN.notebook.name)];
-          if (_gn39 === 'f') window.ZAHAR_USER_GENDER = 'f';
-          else if (_gn39 === 'm' && !window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = 'm';
-        }
-      } catch (e) {}
-    }
+    /* №59.9г: имя и полъ изъ тетрадки — восстановленье перенесено въ началѣ chat() */
 
     /* 39: cj,thb → собери — фраза латиницей читается как русская раскладка */
     if (!/[а-яё]/.test(n) && /[a-z]{3,}/.test(n)) {
@@ -3029,7 +3085,7 @@ function chat(raw) {
     var _lore = loreReply(n);
     if (_lore) return maybeCounter(_lore);
     /* 43: прощание — прежде подхвата словаря и счетчиков */
-    if (/(до\s*свидан|досвидан|прощай|всего доброго|до встречи|(^|[^а-я])пока(?:[^а-я]|$))/.test(n)) { lastCounter = true; return fill(pick(FAREWELL)); }
+    if (/(до\s*(?:свидан|новых\s+встреч)|досвидан|прощай|всего доброго|до встречи|(^|[^а-я])пока(?:[^а-я]|$))/.test(n)) { lastCounter = true; return fill(pick(FAREWELL)); }
     /* 45: еда в любом обороте — прежде подхвата и счётчиков */
     if (/(любиш|нрав|обожа)[\s\S]{0,24}(рыб|ух|ед[ау]|кушат|есть|трапез)/.test(n) || /(рыб|ух|каш|мяс)[\s\S]{0,24}(люб|нрав)/.test(n) || /(^|[^а-я])что\s+(ты\s+)?(ел|ешь|едите)/.test(n)) {
       lastCounter = true;
