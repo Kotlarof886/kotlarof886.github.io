@@ -1,4 +1,12 @@
 /* ===
+   №59.7 (имя безъ допроса 15.11.2026): рамка узнаетъ по тетрадке и сдается безъ допроса;
+        «привет я Анна» — имя ловится не только с начала депеши, явное представленье перезаписываетъ;
+        праздники по датѣ («31 декабря какой праздник») бьютъ въ календарь, а не въ «нынче»;
+        встречные темы — каждая один разъ за тетрадку (нельма не долбитъ);
+        прощаніе — «лексиконъ»; фильтръ кастома отъ 3 буквъ (пельмени больше не съѣдаютъ книгу);
+        «забыть всѣ» стираетъ и тетрадку, и рамку — новый собеседникъ представится заново.
+   === */
+/* ===
    №59.6 (кастомъ-первымъ 15.11.2026): пары ZAHAR_CUSTOM_DATA отвечают раньше ярусовъ чата
         (цѣлые слова отъ 4 буквъ; ключ покрываетъ больше половины значимыхъ словъ депеши;
          рыбья семья — по основамъ рыбач/рыбалк/удочк; сезонные вариации по нынешнему мѣсяцу,
@@ -153,7 +161,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.6 (кастомъ-первымъ, щитъ забвенья)';
+  var VERSION = 'правка №59.7 (имя безъ допроса)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1005,6 +1013,22 @@
     }
     return 'Въ календаре моемъ праздниковъ на два мѣсяца впередъ не значится, ' + nmOr() + '.';
   }
+  /* №59.7: праздникъ по конкретной датѣ — парсим «число + мѣсяцъ» изъ депеши */
+  function holidayOnDate57(q) {
+    var s = String(q || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '');
+    var MON = { 'январ': 1, 'феврал': 2, 'март': 3, 'апрел': 4, 'ма': 5, 'июн': 6, 'июл': 7, 'август': 8, 'сентябр': 9, 'октябр': 10, 'ноябр': 11, 'декабр': 12 };
+    var MONNAME = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    var m = /(?:^|[^а-я])(\d{1,2})\s+(?:числа\s+)?(январ|феврал|март|апрел|ма|июн|июл|август|сентябр|октябр|ноябр|декабр)/.exec(s);
+    if (m) {
+      var d = parseInt(m[1], 10), mn2 = MON[m[2]];
+      if (d >= 1 && d <= 31 && mn2) {
+        var nm2 = holBy(mn2, d);
+        if (nm2) { noteHoliday(nm2); return 'На ' + d + '-е ' + MONNAME[mn2 - 1] + ' праздникъ: ' + nm2 + ', ' + nmOr() + '. Спрашивайте, что за он — растолкую.'; }
+        return 'На ' + d + '-е ' + MONNAME[mn2 - 1] + ' въ календарѣ моемъ праздника не значится, ' + nmOr() + '. Спросите о другомъ днѣ — сверю по журналамъ.';
+      }
+    }
+    return holidayNearest45();
+  }
   /* 55: перечень праздниковъ мѣсяца — «какіе праздники въ ноябрѣ» */
   function holidaysOfMonth55(n) {
     /* №59.6: депеши капсомъ доезжаютъ — мѣсяцъ ищется по нормализованной строкѣ */
@@ -1685,11 +1709,18 @@
     if (!FRAME.done) {
       var rn45 = window.ZAHAR_USER_NAME || null;
       var rs45 = null;
-      try { var _nb45 = (typeof window.zaharMemory === 'function' ? (window.zaharMemory() || {}) : {}); rs45 = (_nb45.notebook && _nb45.notebook.station) || null; } catch (e45) {}
+      try { var _nb45 = (typeof window.zaharMemory === 'function' ? (window.zaharMemory() || {}) : {}); rn45 = rn45 || ((_nb45.notebook && _nb45.notebook.name) || null); rs45 = (_nb45.notebook && _nb45.notebook.station) || null; } catch (e45) {}
       if (!rs45 && FRAME.station) rs45 = FRAME.station;
       var lands45 = /(^|[^а-я])(из|от|с)\s+барнаул/.test(n);
       var hitN = !!rn45 && n.indexOf(String(rn45).toLowerCase().replace(/ё/g,'е').replace(/[ъь]/g,'')) >= 0;
       var hitS = !!rs45 && n.indexOf(String(rs45).toLowerCase().replace(/ё/g,'е').replace(/[ъь]/g,'')) >= 0;
+      /* №59.7: имя уже въ тетрадке — рамка сдана безъ допроса (раньше после перезагрузки
+         страничное имя умирало и рамка выспрашивала станцію у знакомыхъ) */
+      if (!hitN && !hitS && rn45) {
+        FRAME.done = true;
+        if (!FRAME.station && rs45) FRAME.station = rs45;
+        return null;
+      }
       if (hitN || (hitS && !lands45)) {
         FRAME.done = true;
         if (!FRAME.station && rs45) FRAME.station = rs45;
@@ -1762,6 +1793,13 @@
       }
       var _f048 = n.split(' ')[0];
       if (/^(здравству|здравия|добрый|доброе|доброй|привет|приветствую|мо[еи] почтен)/.test(n) || (_f048 && _f048.length >= 4 && (lev(_f048, 'привет') <= 1 || lev(_f048, 'приветствую') <= 2 || lev(_f048, 'здравствуйте') <= 2 || lev(_f048, 'здравия') <= 1))) {
+        var _tn7 = (typeof tryName === 'function') ? tryName(q) : null;
+        if (_tn7) {
+          /* №59.7: «привет я Анна» — имя ловится и записывается до приветственного ответа */
+          FRAME.greeted = true;
+          FRAME.done = true;
+          return nameReply(_tn7);
+        }
         if (/^привет/.test(n)) { FRAME.greeted = true; return fill('Приветствую, {A}. При казенной линии так не приветствуют — извольте «здравствуйте». С какой станции депеша?'); }
         if (FRAME.greeted) return fill('Ваши приветствия слышу, {A}. С какой станции депеша пишете?');
         FRAME.greeted = true;
@@ -1824,6 +1862,16 @@ function tryName(raw) {
       if (!mb) return null; /* 50a: то же мѣсто — то же леченіе */
       var _mx50 = norm(mb[1]);
       if (NAME_LIST_SET[_mx50] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50.length >= 3 && !NAME_STOP[_mx50])) m = mb;
+    }
+    /* №59.7: представление не с начала депеши — «привет я Анна», «это Максим» */
+    if (!m) {
+      var mx7 = s.match(/(?:^|[^а-яё])(?:я|это|а\s+я)\s+([а-яё]+)[\s.!]*$/i);
+      if (mx7) {
+        var _vg7 = ' хочу буду был была есть живу служу думаю знаю вижу слышу читаю люблю рыбачу работаю хожу спрашиваю пишу согласен готов так тут здесь там всё все не ну из с на за к в у про и а';
+        var _mx7w = norm(mx7[1]);
+        var _ok7 = NAME_LIST_SET[_mx7w] || (_mx7w.length >= 3 && !NAME_STOP[_mx7w] && (' ' + _vg7 + ' ').indexOf(' ' + _mx7w + ' ') < 0);
+        if (_ok7) m = mx7;
+      }
     }
     if (!m) return null;
     var words = m[1].replace(/[.,!?;:«»"]+$/g, '').split(/\s+/).filter(Boolean);
@@ -1905,10 +1953,29 @@ function tryName(raw) {
   function counterText() {
     var c;
     if (!window.ZAHAR_USER_NAME && !askNameDone) { askNameDone = true; counterTopic = null; lastCounter = true; return 'Как вас величать, кстати?'; }
-    var _ci = Math.floor(Math.random() * COUNTERS.length);
-    if (COUNTERS.length > 1 && _ci === counterText._last) _ci = (_ci + 1) % COUNTERS.length;
-    counterText._last = _ci;
-    c = COUNTERS[_ci];
+    /* №59.7: полка использованных тем въ тетрадке — нельма не возвращается каждый ход */
+    try {
+      var _nbC = (typeof window.zaharMemory === 'function' ? (window.zaharMemory() || {}) : {});
+      if (_nbC.notebook) {
+        var _used = Array.isArray(_nbC.notebook.counters) ? _nbC.notebook.counters.slice() : [];
+        var _free = [];
+        for (var _i = 0; _i < COUNTERS.length; _i++) if (_used.indexOf(COUNTERS[_i].topic) < 0) _free.push(_i);
+        if (!_free.length) { _nbC.notebook.counters = []; _free = COUNTERS.map(function (_, j) { return j; }); }
+        var _ci = _free[Math.floor(Math.random() * _free.length)];
+        counterText._last = _ci;
+        c = COUNTERS[_ci];
+        if (_used.indexOf(c.topic) < 0) _used.push(c.topic);
+        _nbC.notebook.counters = _used;
+        if (typeof window.zaharSaveNotebook === 'function') { try { window.zaharSaveNotebook(); } catch (eC2) {} }
+        counterTopic = c.topic;
+        lastCounter = true;
+        return fill(c.q);
+      }
+    } catch (eC0) { warn('полка тем недоступна: ' + eC0); }
+    var _ci2 = Math.floor(Math.random() * COUNTERS.length);
+    if (COUNTERS.length > 1 && _ci2 === counterText._last) _ci2 = (_ci2 + 1) % COUNTERS.length;
+    counterText._last = _ci2;
+    c = COUNTERS[_ci2];
     counterTopic = c.topic;
     lastCounter = true;
     return fill(c.q);
@@ -1968,7 +2035,7 @@ function tryName(raw) {
   ];
   var FAREWELL = [
     'Честь имею, {N}! Жду новых депеш — аппарат у меня всегда без выходных.',
-    'До свидания, {N}! Пишите — словарь, погода и самовар всегда при мне.',
+    'До свидания, {N}! Пишите — лексиконъ, погода и самовар всегда при мне.',
     'Всего вам доброго, {N}! Чтоб дороги были гладки и провода не рвались.'
   ];
   var HOW_ARE = [
@@ -2373,7 +2440,8 @@ function tryName(raw) {
     { re: /(сколк[а-я]* лет|сколк[а-я]* тебе|сколько годов|возраст|лет тебе)/, run: ageRun },
     { re: /(что ты делаешь|что делаешь|что поделываешь|чем занят|чем занятой|занимаеш)/, run: function () { return fill(pick(DEEDS)); }, topic: 'deed' },
     { re: /(что умеешь|что можешь|какие навыки)/, run: function () { return fill(pick(CAN_DO)); } },
-    { re: /как(ой|ая)\s+(сейчас\s+)?праздник|ближайш[а-я]*\s+праздник/, run: holidayNearest45 },
+    /* №59.7: праздники по датѣ — «31 декабря какой праздник» бьетъ въ календарь, а не въ «нынче» */
+    { re: /(?:^|[^а-я])(\d{1,2})\s+(?:числа\s+)?(январ|феврал|март|апрел|ма[йея]|июн|июл|август|сентябр|октябр|ноябр|декабр)|как(ой|ая)\s+(сейчас\s+)?праздник|ближайш[а-я]*\s+праздник/, run: holidayOnDate57 },
     /* 55: какіе праздники въ мѣсяцѣ */
     { re: /каки[а-я]*\s+(еще\s+)?праздник|праздник[а-я]*\s+(в|во)\s+(январ|феврал|март|апрел|ма[йея]|июн|июл|август|сентябр|октябр|ноябр|декабр)|(?:январ|феврал|март|апрел|ма[йея]|июн|июл|август|сентябр|октябр|ноябр|декабр)[а-я]*\s+[\s\S]{0,24}праздник/, run: holidaysOfMonth55 },
     { re: /(любимая еда|любимое блюдо|что ешь|любимая пища)/, run: function () { return fill(pick(FOOD)); } },
@@ -2690,7 +2758,7 @@ function tryName(raw) {
       if (/^забы(ть|дь)(\s|$|:)/.test(dep)) return '';
       var STO = {};
       'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без не ни при чем за зачем когда где куда почему разве если будто все весь вся от до я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { STO[w] = 1; });
-      var dw = dep.split(/[^а-я]+/).filter(function (w) { return w.length >= 4 && !STO[w]; });
+      var dw = dep.split(/[^а-я]+/).filter(function (w) { return w.length >= 3 && !STO[w]; }); /* №59.7: отъ 3 буквъ — «еда» больше не выпадаетъ изъ ключа */
       var dsig = dw.length;
       var now = new Date();
       var mn = now.getMonth();
@@ -2700,7 +2768,7 @@ function tryName(raw) {
       var cands = [];
       function stem5(w) { return w.length >= 5 ? w.slice(0, 5) : w; }
       function wordsOf(k) {
-        return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').split(/[^а-я]+/).filter(function (w) { return w.length >= 4 && !STO[w]; });
+        return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').split(/[^а-я]+/).filter(function (w) { return w.length >= 3 && !STO[w]; });
       }
       function covOf(kw) {
         var c = 0;
@@ -3026,6 +3094,8 @@ function chat(raw) {
     window.ZAHAR_ASK = function (q) {
       /* №59.5: команда забвенья проходит мимо слоя болтовни прямо в мозгъ */
       var _f55 = /^\s*забы(ть|дь)(\s|$|:)/i.exec(String(q || '').trim());
+      /* №59.7: «забыть всѣ» — после ответа стирать и тетрадку (имя, станція, темы), и рамку */
+      var _wipe7 = !!_f55 && /\b(?:вс[её]х?|все)\b/i.test(String(q || ''));
       if (_f55 && typeof _ask === 'function') {
         var _r55;
         try { _r55 = _ask.call(this, q); } catch (eF55) { warn('сбой забвенья: ' + eF55); _r55 = null; }
@@ -3033,11 +3103,13 @@ function chat(raw) {
           return _r55.then(function (vF55) {
             var _gF = repeatGuard56(String(vF55 || ''), q);
             try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null }; pushRep56(_gF); } catch (eF55b) {}
+            if (_wipe7) { try { if (typeof window.zaharForgetName === 'function') window.zaharForgetName(); } catch (eW7) {} try { window.ZAHAR_USER_NAME = null; FRAME.done = false; FRAME.greeted = false; FRAME.station = null; FRAME.deny = 0; } catch (eW7b) {} }
             return _gF;
           });
         }
         var _gF2 = repeatGuard56(String(_r55 || ''), q);
         try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null }; pushRep56(_gF2); } catch (eF55c) {}
+        if (_wipe7) { try { if (typeof window.zaharForgetName === 'function') window.zaharForgetName(); } catch (eW7c) {} try { window.ZAHAR_USER_NAME = null; FRAME.done = false; FRAME.greeted = false; FRAME.station = null; FRAME.deny = 0; } catch (eW7d) {} }
         return femizeOut(_gF2);
       }
       var h = null;
