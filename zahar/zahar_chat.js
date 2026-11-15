@@ -1,4 +1,9 @@
 /* ===
+   №59.8 (15.11.2026): имя по тетрадкѣ — recallName и nameReply читаютъ тетрадку
+        первымъ, страничная переменная — запасъ (расколъ «тетрадка Анна / журналъ Максимъ» устраненъ);
+        охрана mb въ tryName — депеши безъ «я X» съ начала не ломаютъ слой.
+   === */
+/* ===
    №59.7д (15.11.2026): охрана mb въ tryName — депеши безъ «меня зовутъ» и безъ «я X»
         съ начала не ломаютъ чтение mb[1]; хвостовое представленье доезжаетъ.
    === */
@@ -185,7 +190,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.7д (имя въ хвостѣ, охрана)';
+  var VERSION = 'правка №59.8 (имя по тетрадкѣ, хвостъ живъ)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1903,8 +1908,11 @@ function tryName(raw) {
     if (!m) {
       var mb = s.match(/^я\s+([а-яё]+)[.!]?$/i);
       /* №59.7г: ранній выход снятъ — хвостовое представленье «привет я Анна» доезжаетъ */
-      var _mx50 = norm(mb[1]);
-      if (NAME_LIST_SET[_mx50] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50.length >= 3 && !NAME_STOP[_mx50])) m = mb;
+      /* №59.8: охрана mb — безъ «я X» съ начала mb пустъ, mb[1] не читать, хвостъ живетъ */
+      if (mb) {
+        var _mx50 = norm(mb[1]);
+        if (NAME_LIST_SET[_mx50] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50.length >= 3 && !NAME_STOP[_mx50])) m = mb;
+      }
     }
     /* №59.7: представление не с начала депеши — «привет я Анна», «это Максим» */
     if (!m) {
@@ -1959,12 +1967,22 @@ function tryName(raw) {
     return nice;
   }
   function recallName() {
+    /* №59.8: тетрадка — первый доводъ, журналъ — запасъ (послѣ перезагрузки имя честно) */
+    try {
+      var _nbR = (window.zaharMemory && window.zaharMemory().notebook.name) || '';
+      if (_nbR && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbR;
+    } catch (eR8) {}
     if (window.ZAHAR_USER_NAME)
       return 'Вы изволили представиться: ' + window.ZAHAR_USER_NAME + '. Память у меня казенная — ничего не теряется.';
     return 'Имени вашего я не слыхал, ' + addr() + '. Представьтесь — и буду звать по имени.';
   }
   function nameReply(name) {
+    /* №59.8: прежнее имя — тетрадка первымъ, журналъ запасомъ */
     var prev45 = window.ZAHAR_USER_NAME;
+    try {
+      var _nbP = (window.zaharMemory && window.zaharMemory().notebook.name) || '';
+      if (!prev45 && _nbP) prev45 = _nbP;
+    } catch (eP8) {}
     var same45 = prev45 && norm(prev45) === norm(name);
     window.ZAHAR_USER_NAME = name;
     /* №59.7в: при перезаписи имени пол пересобирается — Анна не остается «сударем» */
