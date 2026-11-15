@@ -1,6 +1,10 @@
 /* ===
-   №59.5 (слои по чину 15.11.2026): команда забвенья («забыть: …») проходитъ мимо
-        толкователя незнакомых словъ прямо въ мозгъ (раньше съедалась темой «про Забытье»).
+   №59.6 (кастомъ-первымъ 15.11.2026): пары ZAHAR_CUSTOM_DATA отвечают раньше ярусовъ чата
+        (цѣлые слова отъ 4 буквъ; ключ покрываетъ больше половины значимыхъ словъ депеши;
+         рыбья семья — по основамъ рыбач/рыбалк/удочк; сезонные вариации по нынешнему мѣсяцу,
+         невѣдомые условія — на низкій ярусъ); входъ holidaysOfMonth55 нормализуется —
+         депеши капсомъ («В ДЕКАБРЕ») больше не проваливаются въ отписку мозга;
+        страж забвенья №59.5 восстановленъ (команда «забыть: …» идёт мимо толкователя въ мозгъ).
    === */
 /* ===
    №59.4 (болтовня 15.11.2026): прощаніе старше благодарности («спасибо … до свиданія»
@@ -149,7 +153,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.5 (слои по чину)';
+  var VERSION = 'правка №59.6 (кастомъ-первымъ)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1003,6 +1007,8 @@
   }
   /* 55: перечень праздниковъ мѣсяца — «какіе праздники въ ноябрѣ» */
   function holidaysOfMonth55(n) {
+    /* №59.6: депеши капсомъ доезжаютъ — мѣсяцъ ищется по нормализованной строкѣ */
+    n = String(n || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е');
     var MO55 = [['январ', 1], ['феврал', 2], ['март', 3], ['апрел', 4], ['ма[йея]', 5],
                 ['июн', 6], ['июл', 7], ['август', 8], ['сентябр', 9], ['октябр', 10],
                 ['ноябр', 11], ['декабр', 12]];
@@ -2669,13 +2675,94 @@ function tryName(raw) {
     return out;
   }
 
+  /* №59.6: кастомъ-первымъ — пары ZAHAR_CUSTOM_DATA отвечают раньше ярусовъ чата.
+     Критерий: ключ покрываетъ больше половины значимыхъ словъ депеши (цѣлые слова отъ 4 буквъ,
+     стемы по первымъ 5 буквамъ). Рыбья семья (рыбач/рыбалк/удочк) — одиночный ключ ловится
+     только у рыбьихъ пар. Сезонные условія сходятся съ нынешнимъ мѣсяцемъ; невѣдомые
+     условія (полъ/возрастъ) опускаютъ вариацию на низкій ярусъ. */
+  function customFirst(qRaw, n) {
+    try {
+      var data = window.ZAHAR_CUSTOM_DATA;
+      if (!data || !data.pairs || !data.pairs.length) return '';
+      var dep = String(n || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').trim();
+      if (!dep) return '';
+      var STO = {};
+      'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без не ни при чем за зачем когда где куда почему разве если будто все весь вся от до я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { STO[w] = 1; });
+      var dw = dep.split(/[^а-я]+/).filter(function (w) { return w.length >= 4 && !STO[w]; });
+      var dsig = dw.length;
+      var now = new Date();
+      var mn = now.getMonth();
+      var season = (mn === 11 || mn <= 1) ? 'winter' : (mn <= 4 ? 'spring' : (mn <= 7 ? 'summer' : 'autumn'));
+      var FISH = /(рыбач|рыбалк|удочк)/;
+      var depFish = FISH.test(dep);
+      var cands = [];
+      function stem5(w) { return w.length >= 5 ? w.slice(0, 5) : w; }
+      function wordsOf(k) {
+        return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').split(/[^а-я]+/).filter(function (w) { return w.length >= 4 && !STO[w]; });
+      }
+      function covOf(kw) {
+        var c = 0;
+        for (var i = 0; i < kw.length; i++) {
+          var w = kw[i], s5 = stem5(w), hit = false;
+          for (var j = 0; j < dw.length; j++) {
+            var di = dw[j];
+            if (di === w) { hit = true; break; }
+            if (w.length >= 5 && di.length >= 5 && (di.slice(0, 5) === s5 || di.indexOf(w) === 0 || w.indexOf(di) === 0)) { hit = true; break; }
+          }
+          if (hit) c++;
+        }
+        return kw.length ? c / kw.length : 0;
+      }
+      data.pairs.forEach(function (p) {
+        var keys = [String(p.q || '')].concat((p.qs || []).map(String));
+        var best = 0;
+        for (var i = 0; i < keys.length; i++) {
+          var kw = wordsOf(keys[i]);
+          if (!kw.length) continue;
+          var cov = covOf(kw), ok = false;
+          if (kw.length >= 2) { ok = cov > 0.5; }
+          else {
+            var single = kw[0];
+            if (FISH.test(single)) ok = depFish || dsig <= 2;
+            else ok = dsig <= 2;
+          }
+          if (ok && cov > best) best = cov;
+        }
+        if (best > 0) cands.push({ cov: best, p: p });
+      });
+      if (!cands.length) return '';
+      cands.sort(function (a, b) { return b.cov - a.cov; });
+      var topC = cands[0].cov, top = [];
+      for (var i = 0; i < cands.length; i++) if (cands[i].cov === topC) top.push(cands[i]);
+      var pair = top[Math.floor(Math.random() * top.length)].p;
+      var vars = (pair.vars || []);
+      var t1 = [], t2 = [], t3 = [];
+      for (var i = 0; i < vars.length; i++) {
+        var v = vars[i], cs = (v.c || []), hasSeason = false, seasonOk = false, unknown = false;
+        for (var j = 0; j < cs.length; j++) {
+          var cond = String(cs[j] || '');
+          if (cond.indexOf('season:') === 0) { hasSeason = true; if (cond.slice(7) === season) seasonOk = true; }
+          else unknown = true;
+        }
+        if (!cs.length) t2.push(v);
+        else if (unknown) t3.push(v);
+        else if (hasSeason && seasonOk) t1.push(v);
+      }
+      var pool = t1.length ? t1 : (t2.length ? t2 : (t3.length ? t3 : null));
+      if (!pool) return '';
+      var pv = pool[Math.floor(Math.random() * pool.length)];
+      return String(pv.t || '');
+    } catch (eC) { return ''; }
+  }
 function chat(raw) {
     var q = String(raw || '').trim();
     if (!q) return null;
     var n = norm(q);
     if (!n) return null;
-    /* 59.5: команда забвенья — мимо толкователя незнакомых слов, прямо в мозг */
-    if (/^забы(ть|дь)(\s|$|:)/i.test(q)) return null;
+    /* №59.6: кастомъ-первымъ — раньше яруса «что это», благодарности и HANDLERS */
+    var _cfq = '';
+    try { _cfq = customFirst(q, n); } catch (eCF6) { _cfq = ''; }
+    if (_cfq) return _cfq;
     /* 54: ярус памяти разговора — «что это» и «еще» раньше всехъ */
     var _ta54 = topicAnswer(n);
     if (_ta54) return _ta54;
@@ -2935,6 +3022,22 @@ function chat(raw) {
     window.__zaharChatInstalled = true;
     var _ask = window.ZAHAR_ASK;
     window.ZAHAR_ASK = function (q) {
+      /* №59.5: команда забвенья проходит мимо слоя болтовни прямо в мозгъ */
+      var _f55 = /^\s*забы(ть|дь)(\s|$|:)/i.exec(String(q || '').trim());
+      if (_f55 && typeof _ask === 'function') {
+        var _r55;
+        try { _r55 = _ask.call(this, q); } catch (eF55) { warn('сбой забвенья: ' + eF55); _r55 = null; }
+        if (_r55 && typeof _r55.then === 'function') {
+          return _r55.then(function (vF55) {
+            var _gF = repeatGuard56(String(vF55 || ''), q);
+            try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null }; pushRep56(_gF); } catch (eF55b) {}
+            return _gF;
+          });
+        }
+        var _gF2 = repeatGuard56(String(_r55 || ''), q);
+        try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null }; pushRep56(_gF2); } catch (eF55c) {}
+        return femizeOut(_gF2);
+      }
       var h = null;
       try { h = chat(q); } catch (e) { warn('сбой слоя: ' + e); h = null; }
       if (h === null || h === undefined) {
