@@ -9,6 +9,7 @@
    №35 библиотека ветки 3 (ModernBERT), dtype q8 ·
    №36 секундомер и прогрев · №37 хук отдаёт ответ обещаніемъ
    (контракт слоя: ZAHAR_ASK возвращает строку или Promise)
+   №59.7в (15.11.2026): zaharSetName держитъ страничную переменную въ согласии съ тетрадкой.
    №59.7 (имя и забвенье 15.11.2026): имя ловится и в хвосте депеши («привет я Анна»),
    явное представленье перезаписывает старое имя; добавлены zaharForgetName
    (тетрадку и ленту стирает) и zaharSaveNotebook (полку тем сохраняет).
@@ -20,7 +21,7 @@
 (function () {
 'use strict';
 
-const VERSION = 'правка №59.7 (имя и забвенье)';
+const VERSION = 'правка №59.7в (имя и забвенье)';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -57,6 +58,8 @@ window.zaharSetName = function (name) {
   name = String(name).trim().replace(/[^А-ЯЁа-яё-]/g, '');
   if (!name) return;
   mem.notebook.name = name;
+  /* №59.7в: чат читает страничную переменную — держим въ согласии */
+  window.ZAHAR_USER_NAME = name;
   saveMem();
   console.log(TAG, 'тетрадка: имя записано —', name);
 };

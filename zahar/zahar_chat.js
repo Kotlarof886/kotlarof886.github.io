@@ -1,4 +1,20 @@
 /* ===
+   №59.7д (15.11.2026): охрана mb въ tryName — депеши безъ «меня зовутъ» и безъ «я X»
+        съ начала не ломаютъ чтение mb[1]; хвостовое представленье доезжаетъ.
+   === */
+/* ===
+   №59.7г (15.11.2026): ранній выход «я X» снятъ въ tryName и grabName —
+        хвостовое представленье («привет я Анна», «это Вера») доезжаетъ до записи;
+        раньше узор «я X» глушилъ хвостъ и mx7 не исполнялся вовсе (мертвый кодъ).
+   === */
+/* ===
+   №59.7в (15.11.2026): «меня зовут Анна» въ серединѣ депеши записывается — tryName
+        ловитъ представленье не только съ начала («здравствуй меня зовут Анна»);
+        нечеткій запасъ съ ключомъ «зовут» перѣдъ отпиской самъ пробуетъ tryName;
+        при перезаписи имени полъ пересобирается (Анна — «сударыня»);
+        въ женскихъ глаголахъ пола: думала/мечтала/писала/говорила/считала.
+   === */
+/* ===
    №59.7б (15.11.2026): женскіе формы въ стопѣ имени — «я устала/занята/больна»
         имя не мнятъ (раньше «Устала» записывалось именемъ и полъ ломало въ «сударыня»).
    === */
@@ -169,7 +185,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.7б (имя безъ допроса, женскій стопъ)';
+  var VERSION = 'правка №59.7д (имя въ хвостѣ, охрана)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1707,7 +1723,14 @@
             q.match(/имя\s+мо[её]\s*[—–-]?\s*([А-ЯЁ][а-яё]+)/i) || q.match(/меня\s+([А-ЯЁ][а-яё]+)\s+(?:зовут|звать)/i);
     if (m) return m[1];
     var mb = String(q || '').trim().match(/^я\s+([а-яё]+)[.!]?$/i);
-    if (!mb) return null; /* 50a: узор не нашёлся — не падаем, выходим */
+    /* №59.7г: хвостовое представленье доезжаетъ — «привет я Анна» въ рамкѣ записывается */
+    if (!mb) {
+      var _mx7g = q.match(/(?:^|[^а-яё])(?:я|это|а\s+я)\s+([А-ЯЁ][а-яё]+)[\s.!]*$/i);
+      if (!_mx7g) return null;
+      var _g7w = norm(_mx7g[1].toLowerCase());
+      if (_g7w.length < 3 || NAME_STOP[_g7w]) return null;
+      return _mx7g[1];
+    }
     var _mx50g = norm(mb[1]);
     if (NAME_LIST_SET[_mx50g] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50g.length >= 3 && !NAME_STOP[_mx50g])) return mb[1];
     return null;
@@ -1867,10 +1890,19 @@ function tryName(raw) {
             s.match(/^а?\s*(?:меня\s+зовут|мо[еиё]\s+имя\s*[—–-]*|моя\s+фамилия|(?:звать|зовут)\s+меня)\s+(.+)$/i) ||
             /* 41: обратный порядок — «имя моё Максим», в том числе с тире */
             s.match(/^имя\s+мо[еиё]\s*[—–-]?\s*(.+)$/i);
-    /* 44: голое «я X» — только если X из списка имен; иначе имени нет */
+        /* №59.7в: «меня зовут X» въ серединѣ депеши — «здравствуй меня зовут Анна» */
+    if (!m) {
+      var mz8 = s.match(/(?:^|[^а-яё])меня\s+(?:зовут|звать)\s+(.+?)[\s.!]*$/i) ||
+                s.match(/(?:^|[^а-яё])(?:зовут|звать)\s+меня\s+(.+?)[\s.!]*$/i);
+      if (mz8) {
+        var _w8 = norm(mz8[1].split(/\s+/)[0]);
+        if (_w8.length >= 3 && !NAME_STOP[_w8]) m = mz8;
+      }
+    }
+/* 44: голое «я X» — только если X из списка имен; иначе имени нет */
     if (!m) {
       var mb = s.match(/^я\s+([а-яё]+)[.!]?$/i);
-      if (!mb) return null; /* 50a: то же мѣсто — то же леченіе */
+      /* №59.7г: ранній выход снятъ — хвостовое представленье «привет я Анна» доезжаетъ */
       var _mx50 = norm(mb[1]);
       if (NAME_LIST_SET[_mx50] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50.length >= 3 && !NAME_STOP[_mx50])) m = mb;
     }
@@ -1935,6 +1967,10 @@ function tryName(raw) {
     var prev45 = window.ZAHAR_USER_NAME;
     var same45 = prev45 && norm(prev45) === norm(name);
     window.ZAHAR_USER_NAME = name;
+    /* №59.7в: при перезаписи имени пол пересобирается — Анна не остается «сударем» */
+    var _gn8 = NAME_LIST_SET[norm(name)];
+    if (_gn8 === 'f') window.ZAHAR_USER_GENDER = 'f';
+    else if (_gn8 === 'm' && !window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = 'm';
     /* 39: имя и в общую тетрадку — переживет перезагрузку */
     if (typeof window.zaharSetName === 'function') { try { window.zaharSetName(name); } catch (e) {} }
     lastCounter = true;
@@ -1946,7 +1982,7 @@ function tryName(raw) {
   function detectGender(q) {
     if (window.ZAHAR_USER_GENDER) return;
     var low = String(q || '').toLowerCase();
-    if (/слыхала|видела|работала|жила|родилась|проживала|продавала|была(?![а-я])/.test(low))
+    if (/слыхала|видела|работала|жила|родилась|проживала|продавала|думала|мечтала|писала|говорила|считала|была(?![а-я])/.test(low))
       window.ZAHAR_USER_GENDER = 'f';
     else if (/слыхал(?![а-я])|видел(?![а-я])|работал(?![а-я])|жил(?![а-я])|родился|был(?![а-я])/.test(low))
       window.ZAHAR_USER_GENDER = 'm';
@@ -2480,7 +2516,7 @@ function tryName(raw) {
   /* нечеткий запас: те же намерения, но с опечатками */
   var FUZZ = [
     { keys: ['погод', 'температур', 'погодк'], run: function () { return answerWeather(); } },
-    { keys: ['зовут', 'зоведе', 'зовете', 'зовите', 'зовешь'], run: function (n) { return /меня|мое имя/.test(n) ? recallName() : fill(pick(IDENTITY)); } },
+    { keys: ['зовут', 'зоведе', 'зовете', 'зовите', 'зовешь'], run: function (n) { var _tn8 = (typeof tryName === 'function') ? tryName(n) : null; if (_tn8) return nameReply(_tn8); return /меня|мое имя/.test(n) ? recallName() : fill(pick(IDENTITY)); } },
     { keys: ['привет', 'здравству', 'здрави', 'здорово', 'салют'], run: function () { lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
     { keys: ['свидани', 'прощай'], run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { keys: ['выглядиш', 'внешност'], run: function () { return fill(pick(APPEAR)); } },
