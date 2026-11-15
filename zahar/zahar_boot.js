@@ -1,46 +1,44 @@
 /* ============================================================
-   zahar_boot.js — Захаръ грузится последним. Сборка 15.11.2026 (правка №5 загрузчика)
+   zahar_boot.js — Захаръ грузится последнимъ. Правка №6 загрузчика (15.11.2026)
    Подключать ОДНИМ тегом в конце body вместо старых тегов Захара:
      <script src="zahar/zahar_boot.js"></script>
-   (файл boot кладётся туда же, где лежит страница, или в папку zahar/)
-
-   Правка №5:
-     1) в цепь добавлен zahar_memory.js (раньше загрузчик его не грузил —
-        мозгъ оставался безъ памяти репликъ молча);
-     2) КАЖДЫЙ файл ищется по двум путям: сначала в папке zahar/,
-        потом рядом со страницей — где файлы лежат, цепочка найдёт;
-     3) громкій вердиктъ въ консоли по КАЖДОМУ слою: словарь, слова,
-        память, мозгъ, слой болтовни, кастомные пары, семантика —
-        молчаливый слой больше не маскируется;
-     4) кэш-глушение: ?v=5 у каждого файла.
-
-   Порядок: страница готова → браузер простаивает →
-     память → словарь → words.js → фразы → мозг → слой болтовни →
-     кастомные пары → (фон, опционально) модель эмбеддингов.
-   Недостающий файл цепочку не валит — Захар встанет на остальном,
-   а вердикт назовёт недошедшее по именам.
+   Цепочка: словарь → память → слова → фразы → мозгъ → слой болтовни →
+     кастом → тетрадь/модель → эфиръ → журнальная лента (последней).
+   Требование шапки мозга (v2.18): подключать ПОСЛЕДНИМ, после
+     zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js — соблюдено.
+   №6 загрузчика:
+     1) zahar_memory.js ДОБАВЛЕНЪ въ цепь: №4 держалъ его только въ шапке-комментарии;
+        мозгъ безъ файла памяти не падаетъ (typeof-охрана есть), но реплики
+        памяти пустеютъ — «доброе утро» и прочее молчатъ;
+     2) zahar_ether.js и zahar_log.js добавлены въ хвост: журналъ цепляетъ дверь
+        ZAHAR_ASK и обязанъ встать послѣ мозга и слоя болтовни;
+     3) каждый файлъ ищется по двум путямъ: zahar/zahar_имя.js → zahar_имя.js —
+        лежитъ въ папкѣ или рядомъ со страницей, цепочка найдётъ;
+     4) кэш-глушение ?v=6; поверка послѣ цепочки — вердиктъ по каждому слою
+        въ консоли, повторимо командой zaharBootStatus().
+   Недостающий файлъ цепочку не валитъ — Захаръ встанетъ на остальномъ.
+   Событие готовности: document.dispatchEvent('zahar-ready').
    ============================================================ */
 (function () {
-  var BOOTV = '5';
+  var BOOTV = '6';
 
-  /* память и словарь — данные, грузятся первыми */
+  /* каждый слай — списокъ путей по очереди: всталъ первый — хватаемъ */
   var FIRST = [
-    ['zahar/zahar_memory.js', 'zahar_memory.js'],
-    ['zahar/zahar_dict.js',   'zahar_dict.js']
+    { name: 'словарь',           paths: ['zahar/zahar_dict.js', 'zahar_dict.js'] },
+    { name: 'память репликъ',    paths: ['zahar/zahar_memory.js', 'zahar_memory.js'] }
   ];
 
-  /* слова ищутся по очереди, пока один не встанет */
-  var WORDS_PATHS = [
-    ['zahar/words.js', 'words.js'],
-    ['zahar/zahar_words.js', 'zahar_words.js']
-  ];
+  var WORDS = { name: 'казённыя статьи',
+    paths: ['zahar/words.js', 'words.js', 'zahar/zahar_words.js'] };
 
   var REST = [
-    ['zahar/zahar_phrases.js', 'zahar_phrases.js'],
-    ['zahar/zahar_brain.js',   'zahar_brain.js'],
-    ['zahar/zahar_chat.js',    'zahar_chat.js'],
-    ['zahar/zahar_custom.js',  'zahar_custom.js'],
-    ['zahar/zahar_embed.js',   'zahar_embed.js']
+    { name: 'фразы',             paths: ['zahar/zahar_phrases.js', 'zahar_phrases.js'] },
+    { name: 'мозгъ',             paths: ['zahar/zahar_brain.js', 'zahar_brain.js'] },
+    { name: 'слой болтовни',     paths: ['zahar/zahar_chat.js', 'zahar_chat.js'] },
+    { name: 'кастомныя пары',    paths: ['zahar/zahar_custom.js', 'zahar_custom.js'] },
+    { name: 'тетрадь и модель',  paths: ['zahar/zahar_embed.js', 'zahar_embed.js'] },
+    { name: 'эфиръ',             paths: ['zahar/zahar_ether.js', 'zahar_ether.js'] },
+    { name: 'журнальная лента',  paths: ['zahar/zahar_log.js', 'zahar_log.js'] }
   ];
 
   var AUTO_WAKE_MS = 20000; // 0 = модель просыпается только по кнопке;
@@ -48,18 +46,22 @@
 
   var loaded = [], failed = [];
 
-  function loadOne(paths) {
+  function loadPaths(step) {
     return new Promise(function (res) {
       var i = 0;
       function next() {
-        if (i >= paths.length) { res(false); return; }
-        var src = paths[i++];
+        if (i >= step.paths.length) {
+          failed.push(step.name + ' (' + step.paths.join(' | ') + ')');
+          console.warn('[zahar_boot] слой не загрузился: ' + step.name + ' — ' + step.paths.join(' → '));
+          return res(false);
+        }
+        var src = step.paths[i++];
         var s = document.createElement('script');
         s.src = src + '?v=' + BOOTV; /* кэш-глушение: всегда свежий файл */
-        s.onload = function () { loaded.push(src); res(true); };
+        s.onload = function () { loaded.push(step.name + ' ← ' + src); res(true); };
         s.onerror = function () {
-          console.warn('[zahar_boot] не нашёлся: ' + src);
-          next(); /* пробуем запасной путь */
+          failed.push(step.name + ' (' + src + ')');
+          next(); /* путь не всталъ — пробуемъ запасной */
         };
         document.head.appendChild(s);
       }
@@ -67,19 +69,29 @@
     });
   }
 
-  /* слова: встал файл — но массива нет? пробуем след. дорожку */
+  /* слова: встал файл, но массива нет? пробуем след. путь */
   function loadWords() {
     var i = 0;
     function next() {
-      if (i >= WORDS_PATHS.length) {
-        console.warn('[zahar_boot] words.js не нашёлся ни по одному пути');
+      if (i >= WORDS.paths.length) {
+        console.warn('[zahar_boot] words.js не нашёлся ни по одному пути: ' + WORDS.paths.join(' → '));
         return Promise.resolve(false);
       }
-      return loadOne(WORDS_PATHS[i++]).then(function (ok) {
-        var has = false;
-        try { has = (typeof ENTRIES !== 'undefined' && Array.isArray(ENTRIES)); } catch (e) { has = false; }
-        if (ok && has) return true;
-        return next();
+      var src = WORDS.paths[i++];
+      var s = document.createElement('script');
+      s.src = src + '?v=' + BOOTV;
+      return new Promise(function (res) {
+        s.onload = function () {
+          var has = false;
+          try { has = (typeof ENTRIES !== 'undefined' && Array.isArray(ENTRIES)); } catch (e) { has = false; }
+          if (has) { loaded.push(WORDS.name + ' ← ' + src); res(true); }
+          else { failed.push(WORDS.name + ' (' + src + ' — безъ ENTRIES)'); res(next()); }
+        };
+        s.onerror = function () {
+          failed.push(WORDS.name + ' (' + src + ')');
+          res(next());
+        };
+        document.head.appendChild(s);
       });
     }
     return next();
@@ -101,53 +113,45 @@
     });
   }
 
-  /* громкій вердиктъ по слоямъ */
-  function verdict() {
-    var words = -1, mem = -1, pairs = -1;
+  function zaharBootStatus() {
+    function arr(v) { return (v && v.length) ? v.length : 0; }
+    var D, M, P, C;
+    try { D = (typeof ZAHAR_DICT_FILE !== 'undefined' && Array.isArray(ZAHAR_DICT_FILE)) ? ZAHAR_DICT_FILE : null; } catch (e) { D = null; }
+    try { M = (typeof ZAHAR_MEMORY_FILE !== 'undefined' && Array.isArray(ZAHAR_MEMORY_FILE)) ? ZAHAR_MEMORY_FILE : null; } catch (e) { M = null; }
+    try { P = (typeof ZAHAR_PHRASES !== 'undefined' && ZAHAR_PHRASES && ZAHAR_PHRASES.greetings) ? ZAHAR_PHRASES : null; } catch (e) { P = null; }
+    try { C = window.ZAHAR_CUSTOM_DATA || null; } catch (e) { C = null; }
+    var words = -1;
     try { if (typeof ENTRIES !== 'undefined' && Array.isArray(ENTRIES)) words = ENTRIES.length; } catch (e) {}
-    try { if (typeof ZAHAR_MEMORY_FILE !== 'undefined' && Array.isArray(ZAHAR_MEMORY_FILE)) mem = ZAHAR_MEMORY_FILE.length; } catch (e) {}
-    try { if (window.ZAHAR_CUSTOM_DATA && Array.isArray(window.ZAHAR_CUSTOM_DATA.pairs)) pairs = window.ZAHAR_CUSTOM_DATA.pairs.length; } catch (e) {}
-    var st = [];
-    st.push('словарь: ' + (typeof window.ZAHAR_DICT !== 'undefined' ? 'есть' : 'не отмечен (не мешает)'));
-    st.push('слова (ENTRIES): ' + (words >= 0 ? words + ' статей' : 'НЕТ'));
-    st.push('память (ZAHAR_MEMORY_FILE): ' + (mem >= 0 ? mem + ' реплик' : 'НЕТ'));
-    st.push('мозгъ: ' + (typeof window.ZAHAR_ASK === 'function' ? 'всталъ' : 'НЕТ'));
-    st.push('слой болтовни: ' + (window.__zaharChatInstalled ? 'всталъ' : 'НЕ ВСТАЛ'));
-    st.push('кастомныя пары: ' + (pairs >= 0 ? pairs + ' шт.' : 'НЕТ'));
-    st.push('семантика (модель): ' + (typeof window.ZAHAR_EMBED_WAKE === 'function' ? 'встала' : 'НЕТ'));
-    console.info('[zahar_boot] ВЕРДИКТЪ: ' + st.join(' | '));
-
-    if (!window.__zaharChatInstalled) {
-      console.warn('[zahar_boot] СЛОЙ БОЛТОВНИ НЕ ВСТАЛ. Файл zahar_chat.js не дошел: ' +
-        'проверьте, что он лежит в папке zahar/ рядом со страницей (или рядом с ней), ' +
-        'имя ровно zahar_chat.js, и что загрузился без ошибки (вкладка Console, строки выше). ' +
-        'Проверка слоя: введите в консоли zaharChatStatus().');
-    }
-    if (words < 0) {
-      console.warn('[zahar_boot] СЛОВА НЕ ВСТАЛИ: массив ENTRIES не опредѣлился — смотрите строки «не нашёлся» выше.');
-    }
-    if (failed.length) {
-      console.warn('[zahar_boot] НЕ ДОШЛИ (в объезд найдены запасные пути или отсутствуют): ' + failed.join(', '));
-    }
+    console.info('[zahar_boot] ВЕРДИКТЪ: словарь — ' + (D ? 'всталъ (' + arr(D) + ' статей)' : 'НЕТЪ') +
+      '; память — ' + (M ? 'встала (' + arr(M) + ' паръ)' : 'НЕТЪ') +
+      '; казённыя статьи — ' + (words >= 0 ? 'встали (' + words + ')' : 'НЕТЪ') +
+      '; фразы — ' + (P ? 'встали (' + arr(P.greetings) + ' greeting[овъ])' : 'НЕТЪ') +
+      '; кастомъ — ' + (C ? 'всталъ (' + (C.pairs ? C.pairs.length : 0) + ' паръ)' : 'НЕТЪ') +
+      '; дверь мозга — ' + (typeof window.ZAHAR_ASK !== 'undefined' ? 'на мѣстѣ' : 'НЕТЪ') +
+      '; журналъ — ' + (window.__zaharLogLoaded ? 'всталъ' : 'НЕТЪ'));
+    console.info('[zahar_boot] дошли: ' + (loaded.length ? loaded.join('; ') : 'никто'));
+    if (failed.length) console.warn('[zahar_boot] НЕ ДОШЛИ: ' + failed.join('; '));
+    return { loaded: loaded.slice(), failed: failed.slice() };
   }
+  window.zaharBootStatus = zaharBootStatus;
 
   pageLoaded().then(function () {
     return idle();
   }).then(function () {
     var p = Promise.resolve();
-    FIRST.forEach(function (paths) {
-      p = p.then(function () { return loadOne(paths); });
+    FIRST.forEach(function (step) {
+      p = p.then(function () { return loadPaths(step); });
     });
     p = p.then(loadWords);
-    REST.forEach(function (paths) {
-      p = p.then(function () { return loadOne(paths); });
+    REST.forEach(function (step) {
+      p = p.then(function () { return loadPaths(step); });
     });
     return p;
   }).then(function () {
     try { document.dispatchEvent(new Event('zahar-ready')); } catch (e) {
       try { document.dispatchEvent(new CustomEvent('zahar-ready')); } catch (e2) {}
     }
-    verdict();
+    zaharBootStatus();
     if (AUTO_WAKE_MS > 0 && typeof window.ZAHAR_EMBED_WAKE === 'function') {
       console.info('[zahar_boot] прогрѣвъ модели черезъ ' + (AUTO_WAKE_MS / 1000) + ' сек.');
       setTimeout(function () { window.ZAHAR_EMBED_WAKE(); }, AUTO_WAKE_MS);
