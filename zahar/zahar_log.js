@@ -1,40 +1,73 @@
 /* ============================================================
-   zahar_log.js v6 — журнальная лента (почта → kotlarof@yandex.ru)
+   zahar_log.js v7 — журнальная лента (почта → kotlarof@yandex.ru)
+   v7 (леченіе «письма не доходят»):
+     1) ГЛАВНАЯ РАНА: v6 слала весь буфер одним keepalive-запросом.
+        Предѣл браузера на keepalive ≈ 64 КБ, буфер же растет до 400 реплик
+        (~84 КБ) — каждый fetch падал съ «сбоем сети», повторялся черезъ 2
+        минуты въ тупую и никогда не доходилъ: буфер не чистился, письма
+        не шли. Теперь журналъ шлется ЧАСТЯМИ по ~45 КБ, послѣдовательно;
+        на мѣстѣ остаются только недоставленныя части. keepalive — лишь
+        при закрытіи вкладки и только если часть влѣзаетъ въ предѣл.
+     2) ШАПКА ПИСЬМА: тема и первыя строки несутъ живыя версии всѣхъ слоевъ
+        обвязки (бутъ, чатъ, мозгъ, память, словарь, фразы, эмбедъ, кастомъ,
+        эфиръ, лента) — журналъ самъ снимаетъ ихъ съ техъ файловъ, которые
+        браузеръ реально получилъ (fetch по адресамъ подключенныхъ скриптовъ,
+        разъ въ сессію). Команда zaharLogVersions() показываетъ на мѣстѣ.
+     3) ОТКАЗЪ ВИДЕНЪ: вердиктъ FormSubmit (активация / file:// / отказъ)
+        всплываетъ запиской на страницѣ (скрыть — щелчкомъ), не только въ
+        консоли. Счетъ неудачъ въ zaharLogStatus().
+     4) ЗАПАСНАЯ ДОРОЖКА: zaharLogMailto() — открываетъ почтовую программу
+        гостя съ готовымъ письмомъ (тема съ версіями, хвостъ журнала), если
+        FormSubmit упрямится. Полусуточный flush: накопленія старше 30 минутъ
+        уходятъ даже при бодрой бѣсѣдѣ.
    v6: буферъ очищается только послѣ подтвержденія въ тѣлѣ отвѣта —
    FormSubmit при отказѣ часто отдаетъ HTTP 200 съ success:false,
    старый кодъ считалъ это успѣхомъ и молча терялъ реплики.
-   Точный вердиктъ въ консоли (активация / локальный файлъ / отказъ);
-   повторъ при сбое сети черезъ 2 минуты; заглушка sendBeacon убрана —
-   она не работала и маскировала отказы какъ успѣхъ.
-   v3: дверной крючокъ переживаетъ подмену (defineProperty + сторожъ,
-   разъ въ 800 мс перехватывает дверь заново, кто бы ни пересоздалъ).
-   v4: дедупликация с выравниванием переносов и окном 10 секунд —
-   двойные реплики Захара (съ переносами и безъ) исчезли изъ журнала.
-   v5: дедупликация Захара по ядру реплики (первые 40 знаков, окно 60 сек) —
-   ответы съ хвостомъ «Впрочемъ…» и безъ него склеиваются въ одинъ входъ.
-   Пишутся и депеша гостя, и отвѣт (включая обещанія).
-   API: zaharLogStatus(), zaharLogFlush()
-   Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, после zahar_ether.js).
+   v3: дверной крючокъ переживаетъ подмену (defineProperty + сторожъ).
+   v4: дедупликация съ выравниваниемъ переносовъ и окномъ 10 секундъ.
+   v5: дедупликація Захара по ядру реплики (первые 40 знаковъ, окно 60 секъ).
+   Пишутся и депеша гостя, и отвѣтъ (включая обещанія).
+   API: zaharLogStatus(), zaharLogFlush(), zaharLogVersions(), zaharLogMailto()
+   Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, послѣ zahar_ether.js).
    ============================================================ */
 (function () {
   if (window.__zaharLogLoaded) return;
   window.__zaharLogLoaded = true;
 
+  var LOGV = 'v7';
+
   var CFG = {
     email: 'kotlarof@yandex.ru',
     idleMs: 5 * 60 * 1000,
     hideMs: 60 * 1000,
-    maxBuf: 400
+    maxBuf: 400,
+    chunkBytes: 45000,        /* v7: предѣлъ части — съ запасомъ ниже 64 КБ keepalive */
+    staleMs: 30 * 60 * 1000   /* v7: накопленіямъ старше получаса — дорога независима отъ тишины */
   };
 
   var BUF = [];
-  var idleTimer = null, hideTimer = null;
+  var SEQ = 0;
+  var idleTimer = null, hideTimer = null, staleTimer = null;
   var recaps = 0;
   var guardFrozen = false;
   var lastKey = '', lastAt = 0;
 
-  /* v6: память о попытках отправки — для zaharLogStatus() */
-  var LOG = { lastTry: null, lastOk: null, lastErr: null, retryTimer: null };
+  /* v6: память о попытках отправки — для zaharLogStatus(); v7: счетъ неудачъ */
+  var LOG = { lastTry: null, lastOk: null, lastErr: null, retryTimer: null, fails: 0 };
+
+  /* --- v7: версии обвязки — снимаются съ файловъ, отданных браузеромъ --- */
+  var VERS = null;
+  var FILES = [
+    ['бутъ',    'zahar_boot',    /правка №\d+ загрузчика/],
+    ['чатъ',    'zahar_chat',    /№59\.\d+[а-яё]*/],
+    ['мозгъ',   'zahar_brain',   /мозгъ v\d+\.\d+/],
+    ['память',  'zahar_memory',  /правка №\d+/],
+    ['словарь', 'zahar_dict',    /правка №\d+/],
+    ['фразы',   'zahar_phrases', /v\d+\.\d+/],
+    ['эмбедъ',  'zahar_embed',   /№59\.\d+[а-яё]*/],
+    ['кастомъ', 'zahar_custom',  /v\d+\.\d+/],
+    ['эфиръ',   'zahar_ether',   /правка №\d+/]
+  ];
 
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function stamp(t) {
@@ -49,7 +82,7 @@
     try {
       var s = localStorage.getItem('zahar_log_v4') || localStorage.getItem('zahar_log_v3') ||
               localStorage.getItem('zahar_log_v2') || localStorage.getItem('zahar_log_v1');
-      if (s) { var a = JSON.parse(s); if (Array.isArray(a)) BUF = a; }
+      if (s) { var a = JSON.parse(s); if (Array.isArray(a)) { BUF = a; SEQ = BUF.length; } }
     } catch (e) {}
   }
 
@@ -57,9 +90,9 @@
     if (text == null) return;
     text = String(text).trim();
     if (!text) return;
-    /* v5: дедупликация — по ядру реплики (первые 40 знаков, окно 60 сек):
+    /* v5: дедупликация — по ядру реплики (первые 40 знаковъ, окно 60 сек):
        ответы с хвостом «Впрочемъ…» и без него склеиваются в один вход.
-       Гость — по полному тексту, окно 10 секунд, как в v4. */
+       Гость — по полному тексту, окно 10 секундъ, как въ v4. */
     var flat = text.replace(/\s+/g, ' ').trim();
     var now = Date.now();
     var core = (who === 'zakhar') ? flat.slice(0, 40) : flat;
@@ -67,7 +100,8 @@
     var key = who + '|' + core;
     if (key === lastKey && now - lastAt < win) { lastAt = now; return; }
     lastKey = key; lastAt = now;
-    BUF.push({ t: stamp(), who: who, text: text });
+    SEQ++;
+    BUF.push({ id: SEQ, t: stamp(), ts: now, who: who, text: text });
     if (BUF.length > CFG.maxBuf) BUF.splice(0, BUF.length - CFG.maxBuf);
     persist();
     armIdle();
@@ -157,32 +191,101 @@
     try { console.log('[zahar_log] дверьъ ZAHAR_ASK перехвачена (разъ ' + recaps + ')'); } catch (e) {}
   }
   if (capture()) recaps = 1;
-  try { console.log('[zahar_log] v4: журнальная лента на линіи, крючокъ на двери'); } catch (e) {}
+  try { console.log('[zahar_log] ' + LOGV + ': журнальная лента на линіи, крючокъ на двери'); } catch (e) {}
   setInterval(function () {
     if (!guardFrozen) installDoor();
   }, 800);
 
-  /* --- отправка v6 (FormSubmit, почта): очистка буфера только после подтверждения --- */
-  function payloadFor(reason, body) {
-    return JSON.stringify({
-      _subject: 'Журналъ бесѣдъ съ Захаромъ — ' + reason,
-      _captcha: 'false',
-      message: body
+  /* --- v7: сбор версий обвязки --- */
+  function scriptSrcs(base) {
+    var out = [];
+    try {
+      var list = document.querySelectorAll('script[src]');
+      for (var i = 0; i < list.length; i++) {
+        var s = list[i].getAttribute('src') || '';
+        if (s.indexOf(base + '.js') >= 0) out.push(s);
+      }
+    } catch (e) {}
+    return out;
+  }
+  function fetchText(url, timeout) {
+    return new Promise(function (res) {
+      var done = false, ctl = null;
+      try { if (typeof AbortController !== 'undefined') ctl = new AbortController(); } catch (e) {}
+      var t = setTimeout(function () { if (!done) { done = true; res(null); } }, timeout || 4000);
+      try {
+        fetch(url, ctl ? { signal: ctl.signal } : {})
+          .then(function (r) { return r.text(); })
+          .then(function (tx) { if (!done) { done = true; clearTimeout(t); res(tx); } })
+          .catch(function () { if (!done) { done = true; clearTimeout(t); res(null); } });
+      } catch (e) { if (!done) { done = true; clearTimeout(t); res(null); } }
     });
   }
-  function buildText(reason) {
-    if (!BUF.length) return null;
-    var rows = ['Журналъ бесѣдъ съ Захаромъ',
-      'Страница: ' + (location && location.href ? location.href : '—'),
-      'Отправлено: ' + stamp(),
-      'Причина: ' + reason, ''];
-    for (var i = 0; i < BUF.length; i++) {
-      rows.push((BUF[i].who === 'guest' ? 'Гость: ' : 'Захаръ: ') + BUF[i].text);
-    }
-    return rows.join('\n');
+  function collectVersions(cb) {
+    if (VERS) return cb(VERS);
+    var res = { 'лента': LOGV };
+    var left = FILES.length;
+    function tick() { if (--left === 0) { VERS = res; cb(VERS); } }
+    FILES.forEach(function (f) {
+      var srcs = scriptSrcs(f[1]);
+      if (!srcs.length) { res[f[0]] = 'файлъ не найденъ на страницѣ'; setTimeout(tick, 0); return; }
+      fetchText(srcs[0], 4000).then(function (tx) {
+        if (tx) { var m = tx.match(f[2]); res[f[0]] = m ? m[0] : 'версія не опознана'; }
+        else res[f[0]] = 'не дочитанъ';
+        tick();
+      });
+    });
+  }
+  function versionsLine(v) {
+    var parts = [];
+    FILES.forEach(function (f) { parts.push(f[0] + ' ' + (v[f[0]] || '?')); });
+    parts.push('лента ' + LOGV);
+    return parts.join(' | ');
+  }
+  window.zaharLogVersions = function () {
+    if (VERS) return versionsLine(VERS);
+    collectVersions(function (v) { try { console.log('[zahar_log] версии обвязки: ' + versionsLine(v)); } catch (e) {} });
+    return 'версии собираются… черезъ несколько секундъ повторите zaharLogVersions()';
+  };
+
+  /* --- v7: записка на страницѣ при отказѣ --- */
+  function toast(msg) {
+    try {
+      var el = document.getElementById('zahar-log-toast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'zahar-log-toast';
+        el.style.cssText = 'position:fixed;right:12px;bottom:12px;max-width:340px;' +
+          'background:#1b1b17;color:#e8dcc0;border:1px solid #7a6a45;padding:10px 14px;' +
+          'font:13px/1.45 Georgia,serif;border-radius:4px;z-index:99999;' +
+          'box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:pointer;white-space:pre-wrap';
+        el.title = 'Нажмите, чтобы скрыть';
+        el.onclick = function () { el.style.display = 'none'; };
+        (document.body || document.documentElement).appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function () { el.style.display = 'none'; }, 15000);
+    } catch (e) {}
   }
 
-  /* v6: вердикт разбирается по телу ответа, а не по HTTP-статусу */
+  /* --- отправка v7 (FormSubmit, почта), частями --- */
+  function byteLen(s) {
+    try { return new Blob([s]).size; } catch (e) { return s.length; }
+  }
+  function payloadFor(subject, body) {
+    return JSON.stringify({ _subject: subject, _captcha: 'false', message: body });
+  }
+  function headerRows(reason, vline) {
+    return ['Журналъ бесѣдъ съ Захаромъ',
+      'Версии обвязки: ' + vline,
+      'Страница: ' + (location && location.href ? location.href : '—'),
+      'Отправлено: ' + stamp(),
+      'Причина: ' + reason,
+      ''];
+  }
+
   function verdict(data) {
     var ok = false;
     if (data && typeof data === 'object') {
@@ -197,48 +300,100 @@
       return 'страница открыта локально (file://) — FormSubmit отказываетъ. Откройте сайт по адресу GitHub Pages и повторите zaharLogFlush()';
     }
     if (/activat/i.test(msg)) {
-      return 'форма не активирована: найдите письмо от FormSubmit на ' + CFG.email + ' (включая «Спамъ») и нажмите «Activate Form». Накопленное доставится после активации';
+      return 'форма не активирована: найдите письмо отъ FormSubmit на ' + CFG.email + ' (включая «Спамъ») и нажмите «Activate Form». Накопленное доставится послѣ активации';
     }
     return 'отказъ FormSubmit: ' + msg;
   }
 
-  function send(reason) {
-    var body = buildText(reason);
-    if (!body) return false;
-    var url = 'https://formsubmit.co/ajax/' + CFG.email;
+  function markFail(msg) {
+    LOG.lastErr = stamp() + ' — ' + msg;
+    LOG.fails = (LOG.fails || 0) + 1;
+    try { console.warn('[zahar_log] часть НЕ ушла: ' + msg); } catch (e) {}
+    try { toast('[zahar_log] Отправка не ушла: ' + msg + '\n\nЗапасная дорожка: наберите въ консоли zaharLogMailto()'); } catch (e) {}
+  }
+  function markOk() {
+    LOG.lastOk = stamp(); LOG.lastErr = null; LOG.fails = 0;
+    try { console.log('[zahar_log] часть журнала отправлена на ' + CFG.email); } catch (e) {}
+  }
+
+  function removeIds(ids) {
+    BUF = BUF.filter(function (en) { return ids.indexOf(en.id) < 0; });
+    persist();
+  }
+
+  function sendChunks(reason, vline, chunks, idx, opts) {
+    if (idx >= chunks.length) return;
+    opts = opts || {};
+    var part = chunks[idx];
+    var isLast = (idx === chunks.length - 1);
+    var rows = headerRows(reason, vline).concat(part.map(function (p) { return p.row; }));
+    if (!isLast) rows.push('— продолженіе въ следующемъ письмѣ (' + (chunks.length - idx - 1) + ' шт.) —');
+    var body = rows.join('\n');
+    var keepalive = !!opts.urgent && byteLen(body) < 60000;
     LOG.lastTry = stamp();
-    try {
-      fetch(url, {
-        method: 'POST',
-        keepalive: true,
-        headers: { 'Content-Type': 'application/json' },
-        body: payloadFor(reason, body)
-      }).then(function (r) {
-        return r.text().then(function (t) {
-          var data = null;
-          try { data = JSON.parse(t); } catch (e) { data = { error: t.slice(0, 200) }; }
-          var v = verdict(data);
-          if (v) {
-            LOG.lastErr = stamp() + ' — ' + v;
-            try { console.warn('[zahar_log] отправка НЕ ушла: ' + v); } catch (e) {}
-            /* буферъ остаетсяъ на мѣстѣ — реплики не теряются */
-          } else {
-            LOG.lastOk = stamp(); LOG.lastErr = null;
-            BUF = []; persist();
-            try { console.log('[zahar_log] журналъ отправленъ на ' + CFG.email); } catch (e) {}
-          }
-        });
-      }).catch(function () {
-        /* сбой сети: буферъ остаетсяъ, повторъ черезъ 2 минуты */
-        LOG.lastErr = stamp() + ' — сбой сети, повторъ черезъ 2 минуты';
-        try { console.warn('[zahar_log] сеть не пропустила — повторъ черезъ 2 минуты'); } catch (e) {}
-        if (LOG.retryTimer) clearTimeout(LOG.retryTimer);
-        LOG.retryTimer = setTimeout(function () { send('повторъ после сбоя сети'); }, 120000);
+    var url = 'https://formsubmit.co/ajax/' + CFG.email;
+    fetch(url, {
+      method: 'POST',
+      keepalive: keepalive,
+      headers: { 'Content-Type': 'application/json' },
+      body: payloadFor('Журналъ бесѣдъ съ Захаромъ — ' + reason + ' [' + vline + ']', body)
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var data = null;
+        try { data = JSON.parse(t); } catch (e) { data = { error: String(t).slice(0, 200) }; }
+        var v = verdict(data);
+        if (v) {
+          markFail(v);
+          /* буферъ остаетсяъ на мѣстѣ — реплики не теряются */
+        } else {
+          markOk();
+          removeIds(part.map(function (p) { return p.en.id; }));
+          sendChunks(reason, vline, chunks, idx + 1, opts);
+        }
       });
-    } catch (e) {
-      LOG.lastErr = stamp() + ' — попытка не состоялась: ' + (e && e.message ? e.message : String(e));
-      try { console.warn('[zahar_log] ' + LOG.lastErr); } catch (e2) {}
-    }
+    }).catch(function () {
+      /* сбой сети: часть остаетсяъ, повторъ черезъ 2 минуты */
+      LOG.lastErr = stamp() + ' — сбой сети, повторъ черезъ 2 минуты';
+      LOG.fails++;
+      try { console.warn('[zahar_log] сеть не пропустила — повторъ черезъ 2 минуты'); } catch (e) {}
+      if (LOG.retryTimer) clearTimeout(LOG.retryTimer);
+      LOG.retryTimer = setTimeout(function () {
+        var rest = chunks.slice(idx);
+        if (rest.length) sendChunks('повторъ после сбоя сети', vline, rest, 0, opts);
+      }, 120000);
+    });
+  }
+
+  function send(reason, opts) {
+    if (!BUF.length) return false;
+    opts = opts || {};
+    collectVersions(function (v) {
+      var vline = versionsLine(v);
+      var head = byteLen(headerRows(reason, vline).join('\n')) + 1;
+      var chunks = [], cur = [], size = 0;
+      for (var i = 0; i < BUF.length; i++) {
+        var en = BUF[i];
+        var row = (en.who === 'guest' ? 'Гость: ' : 'Захаръ: ') + en.text;
+        var rs = byteLen(row) + 1;
+        if (cur.length && size + rs + head > CFG.chunkBytes) { chunks.push(cur); cur = []; size = 0; }
+        cur.push({ en: en, row: row }); size += rs;
+      }
+      if (cur.length) chunks.push(cur);
+      /* при закрытіи вкладки посылаемъ лишь то, что влѣзаетъ въ keepalive: хвостъ */
+      if (opts.urgent && chunks.length > 1) {
+        var tail = [];
+        for (var j = chunks.length - 1; j >= 0; j--) {
+          if (byteLen(chunks[j].map(function (p) { return p.row; }).join('\n')) + head < 60000) {
+            tail = chunks[j].concat(tail);
+          } else break;
+        }
+        chunks = [tail];
+      }
+      if (chunks.length > 1) {
+        try { console.log('[zahar_log] журналъ великъ — шлются части: ' + chunks.length + ' (v6 не доносилъ бы ничего)'); } catch (e) {}
+      }
+      sendChunks(reason, vline, chunks, 0, opts);
+    });
     return true;
   }
 
@@ -247,7 +402,14 @@
     idleTimer = setTimeout(function () { send('пять минутъ тишины'); }, CFG.idleMs);
   }
 
-  window.addEventListener('pagehide', function () { send('вкладка закрыта или обновлена'); });
+  /* v7: старыя накопленія уходятъ и безъ тишины */
+  staleTimer = setInterval(function () {
+    if (!BUF.length) return;
+    var oldest = BUF[0].ts || 0;
+    if (Date.now() - oldest > CFG.staleMs) send('полчаса накопленій');
+  }, CFG.periodicMs);
+
+  window.addEventListener('pagehide', function () { send('вкладка закрыта или обновлена', { urgent: true }); });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') {
       if (hideTimer) clearTimeout(hideTimer);
@@ -262,14 +424,15 @@
 
   window.zaharLogStatus = function () {
     var doorState;
-    if (guardFrozen) doorState = 'дверь заморожена — перехват невозможен';
-    else if (doorMarked()) doorState = 'дверь обернута журналом';
-    else doorState = 'дверь не обернута (сторож подхватит за 0,8 сек)';
-    return { 'стоитъ': true, 'каналъ': 'почта → ' + CFG.email,
+    if (guardFrozen) doorState = 'дверь заморожена — перехват невозможенъ';
+    else if (doorMarked()) doorState = 'дверь обернута журналомъ';
+    else doorState = 'дверь не обернута (сторожъ подхватитъ за 0,8 сек)';
+    return { 'версія': LOGV, 'каналъ': 'почта → ' + CFG.email,
       'репликъВъБуферѣ': BUF.length,
       'дверьОбернута': doorMarked(),
       'состояниеДвери': doorState,
       'перехватовДвери': recaps,
+      'неудачъПодряд': LOG.fails,
       'последняяПопытка': LOG.lastTry,
       'последнийУспех': LOG.lastOk,
       'последняяОшибка': LOG.lastErr };
@@ -277,8 +440,34 @@
   window.zaharLogFlush = function () {
     if (!BUF.length) return 'Журналъ пустъ — отправлять нечего.';
     send('пробная отправка');
-    return 'Пробная отправка запущена. Черезъ несколько секундъ откройте консоль (F12) — тамъ будетъ либо «журналъ отправленъ», либо точная причина отказа.';
+    return 'Пробная отправка запущена. Черезъ несколько секундъ откройте консоль (F12) — тамъ будетъ либо «часть журнала отправлена», либо точная причина отказа (она же всплыветъ запиской на страницѣ).';
+  };
+
+  /* v7: запасная дорожка — черезъ почтовую программу гостя */
+  window.zaharLogMailto = function () {
+    collectVersions(function (v) {
+      var vline = versionsLine(v);
+      var subject = 'Журналъ бесѣдъ съ Захаромъ — вручную [' + vline + ']';
+      var rows = headerRows('запасная дорожка (mailto)', vline);
+      for (var i = 0; i < BUF.length; i++) {
+        rows.push((BUF[i].who === 'guest' ? 'Гость: ' : 'Захаръ: ') + BUF[i].text);
+      }
+      var body = rows.join('\n');
+      /* предѣлъ адресной строки: держимъ хвостъ */
+      while (body.length > 1500) body = body.slice(500);
+      var href = 'mailto:' + CFG.email + '?subject=' + encodeURIComponent(subject) +
+                 '&body=' + encodeURIComponent(body);
+      try {
+        var a = document.createElement('a');
+        a.href = href; document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { window.location.href = href; }
+    });
+    return 'Почтовая программа откроется съ готовымъ письмомъ (тема съ версіями, хвостъ журнала). Останется нажать «Отправить».';
   };
 
   restore();
+
+  /* v7: прогревъ кэша версий при загрузкѣ — чтобы прощальная отправка
+     (pagehide) не ждала fetch и ушла мгновенно */
+  try { collectVersions(function () {}); } catch (e) {}
 })();
