@@ -17,6 +17,10 @@
    («большакъ» уже не отыгрывается за «больше»); реплики памяти репликъ
    регистрируются въ ярусе разговора (window.__zaharNoteTopic) — «еще»
    дозвучиваетъ и после нельмы.
+   №59.5 (слои по чину 15.11.2026): выученное — на своей полке (zahar_learned_v1);
+   прежний ключ zahar_memory_v1 занят лентой embed — борьба за один ключ стирала
+   имя и ленту; старый массив выученного переселяется разово. Забвение матчится
+   по значимым словам (от 4 букв), а не только по точной фразе.
    Подключать ПОСЛЕДНИМ, после:
      zahar_memory.js, zahar_dict.js, words.js, zahar_phrases.js
    ============================================================ */
@@ -102,8 +106,12 @@ function zaharMemoryLoad() {
   }
   /* v2.19: файл памяти канониченъ — изъ памяти браузера беремъ только
      то, чего въ файлѣ нѣтъ, иначе дубли приписываются вторымъ слоемъ */
+  /* №59.5: выученное живет на своей полке zahar_learned_v1 —
+     прежний ключ zahar_memory_v1 занят лентой embed (лента + тетрадка);
+     если новой полки нет, разово переселяем старый массив выученного */
   try {
-    var s = JSON.parse(localStorage.getItem('zahar_memory_v1') || '[]');
+    var s = JSON.parse(localStorage.getItem('zahar_learned_v1') || 'null');
+    if (!Array.isArray(s)) s = JSON.parse(localStorage.getItem('zahar_memory_v1') || 'null');
     if (Array.isArray(s)) {
       var seen = {};
       ZAHAR_MEMORY.forEach(function (m) { seen[m.key] = 1; });
@@ -116,7 +124,7 @@ function zaharMemoryLoad() {
     }
   } catch (e) {}
 }
-function zaharMemoryPersist() { try { localStorage.setItem('zahar_memory_v1', JSON.stringify(ZAHAR_MEMORY)); } catch (e) {} }
+function zaharMemoryPersist() { try { localStorage.setItem('zahar_learned_v1', JSON.stringify(ZAHAR_MEMORY)); } catch (e) {} }
 
 /* ---------- обучение ---------- */
 function zaharSaveWord(w, b, d) {
@@ -516,6 +524,15 @@ async function ZAHAR_ASK(raw) {
     var beforeM = ZAHAR_MEMORY.length;
     ZAHAR_MEMORY = ZAHAR_MEMORY.filter(function (m) {
       var hit = m.key.indexOf(fk) >= 0 || m.q.some(function (q) { return zaharNorm(q).indexOf(fk) >= 0; });
+      /* №59.5: забвенье по словам — если точной фразы нет, матчим
+         основы значимых слов (5 букв) по ключу, вопросам и ответам пары */
+      if (!hit) {
+        var stems = fk.split(' ').filter(function (w) { return w.length >= 4; })
+          .map(function (w) { return w.length >= 5 ? w.slice(0, 5) : w; });
+        hit = stems.length > 0 && (stems.some(function (w) { return m.key.indexOf(w) >= 0; }) ||
+          m.q.some(function (q) { var nq = zaharNorm(q); return stems.some(function (w) { return nq.indexOf(w) >= 0; }); }) ||
+          m.a.some(function (a) { var na = zaharNorm(a); return stems.some(function (w) { return na.indexOf(w) >= 0; }); }));
+      }
       if (hit) removed++;
       return !hit;
     });

@@ -9,11 +9,15 @@
    №35 библиотека ветки 3 (ModernBERT), dtype q8 ·
    №36 секундомер и прогрев · №37 хук отдаёт ответ обещаніемъ
    (контракт слоя: ZAHAR_ASK возвращает строку или Promise)
+   №59.5 (слои по чину 15.11.2026): слой болтовни и мозгъ отвечают раньше семантики —
+   роутер добирает только если слой промолчал (раньше семантика перехватывала депеши
+   врасплох: нельма на «ты рыбачишь», приветствие на «спасибо и до свидания»);
+   у интента fish четыре ответа (нельма, муксун, хариус, таймень) — одна заготовка не долбит.
    ============================================================ */
 (function () {
 'use strict';
 
-const VERSION = 'правка №44';
+const VERSION = 'правка №59.5 (слои по чину)';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -103,7 +107,10 @@ function normalize(text) {
 /* ---------- 18 интентов ---------- */
 const INTENTS = [
   { name: 'fish', examples: ['как ловится нельма', 'нельма клюет', 'рыбалка на оби', 'поймал тайменя', 'где ловить рыбу'],
-    responses: ['Нельма — лучшая рыба в Оби, серебром отливающая. Ловится на перемёт и на спиннинг, {N}. Самое то — утренние зори.'] },
+    responses: ['Нельма — лучшая рыба в Оби, серебром отливающая. Ловится на перемёт и на спиннинг, {N}. Самое то — утренние зори.',
+                'На муксуна подъ лѣдомъ хожу, {N}: сигъ жирный, «белой осетріной» званный — осенью неводами берутъ.',
+                'Хариусъ въ быстринахъ Обскихъ притоковъ водится — плавникъ пестрый, какъ у петуха. Къ столу въ малосолѣ хорошъ.',
+                'На тайменя охота — царь таежныхъ рекъ, до пуда вѣсомъ. Поймать тайменя — не рыбу поймать, событие поймать.'] },
   { name: 'hunt', examples: ['белку видел в тайге', 'охота на соболя', 'ружье купил', 'капканы ставить', 'белка промыслом идет'],
     responses: ['Белка нынче ходит промыслом — шкурка дороже меди. Соболиный след видели у Каргополовых угодьев.'] },
   { name: 'tea', examples: ['налей чаю', 'попить чаю', 'чай с сахаром', 'самовар кипит', 'чай вприкуску'],
@@ -300,33 +307,54 @@ function tryHook() {
         console.log(TAG, 'рамка не завершена (станция не записана) — семантика молчит, слой отвечает');
         return orig.call(this, text);
       }
+      /* №59.5: слои старше семантики — сначала слой болтовни и мозгъ,
+         семантический роутер добирает только если слой промолчал (null/пусто) */
       const q = normalize(zaharEnrichQuery(t));
       const t0 = nowMs();
-      return embed(q).then(vec => {
-        console.log(TAG, 'эмбеддингъ за ' + Math.round(nowMs() - t0) + ' мс');
-        state.lastVec = vec;
-        const hit = match(q);
-        if (!hit) {
-          console.log(TAG, 'семантика пропустила (за ' + Math.round(nowMs() - t0) + ' мс) — слой отвечает самъ');
-          return orig.call(this, text);
-        }
-        if (hit.name === 'weather') {
-          console.log(TAG, 'погода — отдает слою (живые данные)');
-          return orig.call(this, text);
-        }
-        zaharNoteTopic(hit.name);
-        const rep = fillRep(pick(hit.intent));
-        console.log(TAG, 'семантика отработала за ' + Math.round(nowMs() - t0) + ' мс');
-        console.log(TAG, 'семантика отвечает:', rep);
-        zaharNoteZahar(rep);
-        if (typeof cb === 'function') {
-          try { cb(rep); } catch (e) { console.warn(TAG, 'cb отверг ответ:', e && e.message); }
-        }
-        return rep;
-      }).catch(e => {
-        console.warn(TAG, 'семантика споткнулась, слой отвечает сам:', e && e.message ? e.message : e);
-        return orig.call(this, text);
-      });
+      const semanticAnswer = function () {
+        return embed(q).then(vec => {
+          console.log(TAG, 'эмбеддингъ за ' + Math.round(nowMs() - t0) + ' мс');
+          state.lastVec = vec;
+          const hit = match(q);
+          if (!hit) {
+            console.log(TAG, 'семантика пропустила (за ' + Math.round(nowMs() - t0) + ' мс)');
+            return null;
+          }
+          if (hit.name === 'weather') {
+            console.log(TAG, 'погода — отдает слою (живые данные)');
+            return null;
+          }
+          zaharNoteTopic(hit.name);
+          const rep = fillRep(pick(hit.intent));
+          console.log(TAG, 'семантика отработала за ' + Math.round(nowMs() - t0) + ' мс');
+          console.log(TAG, 'семантика отвечает:', rep);
+          zaharNoteZahar(rep);
+          if (typeof cb === 'function') {
+            try { cb(rep); } catch (e) { console.warn(TAG, 'cb отверг ответ:', e && e.message); }
+          }
+          return rep;
+        }).catch(function (e) {
+          console.warn(TAG, 'семантика споткнулась:', e && e.message ? e.message : e);
+          return null;
+        });
+      };
+      const layered = orig.call(this, text);
+      if (layered && typeof layered.then === 'function') {
+        return layered.then(function (r) {
+          if (r !== null && r !== undefined && r !== '') return r;
+          console.log(TAG, 'слой промолчал — семантика добирает');
+          return semanticAnswer();
+        }).catch(function (e) {
+          console.warn(TAG, 'слой споткнулся — семантика добирает:', e && e.message ? e.message : e);
+          return semanticAnswer();
+        });
+      }
+      if (layered !== null && layered !== undefined && layered !== '') {
+        console.log(TAG, 'слой ответил сам — семантика молчит');
+        return layered;
+      }
+      console.log(TAG, 'слой промолчал — семантика добирает');
+      return semanticAnswer();
     };
     wrapped.__zahar_patched = true;
     window.ZAHAR_ASK = wrapped;
