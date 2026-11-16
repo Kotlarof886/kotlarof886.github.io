@@ -1,4 +1,29 @@
 /* ===
+   №59.9с (17.11.2026): чинъ сборки — лишняя скобка въ themeOf (послѣ стем-чинки 59.9п);
+        парсер ронялъ весь файлъ («Unexpected token var» на 2869), слой болтовни молчалъ.
+   === */
+/* ===
+   №59.9р (17.11.2026): corsproxy удаленъ изъ погодного конвейера (401 безъ ключа);
+        прямой api.open-meteo — первый, allorigins и codetabs — запасные.
+   === */
+/* ===
+   №59.9о (17.11.2026): «что расскажешь» въ болтовню — COMP_WANT на нормализованныхъ основахъ
+        (нормализация съѣдаетъ «ъ/ь»: «расскажешь»→«расскаже»); «извніте»→«извините»;
+        имя едино: тетрадка канонична, сомнительное исправляется страничнымъ (COMP_BADNAME);
+        морзе-ключъ зоветъ по имени ({N}); справка «что сейчас вместо завода»;
+        пять полокъ конструктора: словарь+выученное (ZAHAR_DICT_EXTRA), казенныя статьи (ENTRIES),
+        кастомъ по темамъ, память репликъ; анти-повторъ полокъ — COMP_SHELF_RING.
+   === */
+/* ===
+   №59.9н (17.11.2026): казенный конструкторъ — зачинъ+фактъ+хвостъ въ хвостѣ chat(),
+        когда ярусы молчатъ; казенныя справки (одежда, отопленіе, клѣвъ, погода);
+        перестройка одного факта каркасами (чередованіе, анти-повторъ по кольцу);
+        любимыя словца (априори, констатировано, ламентации, осведомиться, сей,
+        ибо, ежели, неужто, извольте видѣть, позвольте вопросить) — не болѣе
+        одного на реплику; ранжировщикъ USER2 (zaharEmbedRank) съ кэшемъ,
+        не успѣлъ — жребій. Словарь: 10 статей словецъ.
+   === */
+/* ===
    №59.9м (17.11.2026): ночь отвечаетъ ночью — NIGHT_GREETS въ трехъ местахъ, безъ встречнаго вопроса;
         отголосокъ — Даніилъ барыжникъ; затирания __zaharNoteTopic заменены вызовами;
         сезонъ по слову депеши (зим/лет/весн/осен); флагъ трактира — «сходимъ» после трактира;
@@ -248,7 +273,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9м (ночь отвечаетъ ночью; «добрякъ» не огрызается статьей; статьи въ темахъ тетради; отголосокъ Даніила-барыжника; сезонъ по слову; флагъ трактира; «ъ» дореформенный)';
+  var VERSION = 'правка №59.9с (скобка themeOf на мѣстѣ; все чины 59.9о/п/р въ силѣ)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1640,7 +1665,6 @@
       var enc = encodeURIComponent(OM_URL);
       var jobs = [
         [OM_URL, 'om'],
-        ['https://corsproxy.io/?url=' + enc, 'om'],
         ['https://api.allorigins.win/raw?url=' + enc, 'om'],
         ['https://api.codetabs.com/v1/proxy?quest=' + enc, 'om'],
         ['https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', 'met']
@@ -2056,7 +2080,16 @@ function tryName(raw) {
     /* №59.8: тетрадка — первый доводъ, журналъ — запасъ (послѣ перезагрузки имя честно) */
     try {
       var _nbR = (window.zaharMemory && window.zaharMemory().notebook.name) || '';
-      if (_nbR && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbR;
+      /* №59.9о: тетрадка канонична, но сомнительное имя лечится страничнымъ */
+      if (_nbR && !COMP_BADNAME.test(norm(_nbR)) && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbR;
+      else if (window.ZAHAR_USER_NAME && _nbR && COMP_BADNAME.test(norm(_nbR))) {
+        try {
+          if (window.zaharMemory && window.zaharMemory() && window.zaharMemory().notebook) {
+            window.zaharMemory().notebook.name = window.ZAHAR_USER_NAME;
+            if (typeof window.zaharSaveNotebook === 'function') window.zaharSaveNotebook();
+          }
+        } catch (eN59) {}
+      }
     } catch (eR8) {}
     if (window.ZAHAR_USER_NAME)
       return 'Вы изволили представиться: ' + cap(window.ZAHAR_USER_NAME) + '. Память у меня казенная — ничего не теряется.';
@@ -2067,7 +2100,7 @@ function tryName(raw) {
     var prev45 = window.ZAHAR_USER_NAME;
     try {
       var _nbP = (window.zaharMemory && window.zaharMemory().notebook.name) || '';
-      if (!prev45 && _nbP) prev45 = _nbP;
+      if (!prev45 && _nbP && !COMP_BADNAME.test(norm(_nbP))) prev45 = _nbP;
     } catch (eP8) {}
     var same45 = prev45 && norm(prev45) === norm(name);
     window.ZAHAR_USER_NAME = name;
@@ -2288,6 +2321,18 @@ function tryName(raw) {
     'Завтракал чаем с баранками, {A}: телеграфисту и не надо более.',
     'Голоден ли я? Всегда, {A}: за аппаратом посидишь — аппетит зверем ходит.'
   ];
+  var HUNT_CARE = [
+    'На лося, {N}? Дело знатное: Тихон Дмитриевич за таким по первому снегу ходит — ельники да марясовые болота.',
+    'Охота — дело честное, {N}. Зверь крупный, в одиночку не берут; а я по этой части ружье покуда коплю — берданку или тульскую двустволку.',
+    'Удачи, {N}, на промысле! Лося ходят по черной тропе к ельнику, на зорьке. Снег выпал — следы свежие.'
+  ];
+
+  var KISSET_LAMENT = [
+    'Ах, {N}, кисет — дело нехитрое, а обидно: и махорка в нем, и монеты мелкие, и кремень с огнивом.',
+    'На Соборной поищите поутру, {N}: на ярмарке к утру часто находят. А в лавках новые кисеты — копейки дело.',
+    'Досадно, {N}. У меня кисет от бабушки — так я его за пазухой ношу и на каждой перемене станции проверяю.'
+  ];
+
   var MORSE = [
     'Морзянка — моя грамота, {A}: точка — тире, и все слова из них. Скорость у меня — до сорока знаков в минуту принимаю.',
     'Азбуку Морзе выучил еще в горнозаводской школе, {A}: вначале точка и тире путались, теперь и во сне отстучу.',
@@ -2327,6 +2372,12 @@ function tryName(raw) {
     'Одевайтесь теплей, {N}: пальто на такую погоду — легко. Шуба да валенки — вот станционный набор.',
     'Шуба, {N}, да шапка. В моей будке печь, а вам на улицу — берегите уши: отморозите — к аппарату не встанете.'
   ];
+  var COAT_MILD = [
+    'Пальто, {N}, на такой градус — в самый раз: поддева потеплее да шарф. Шуба — к морозу покрепче.',
+    'На минус три, {N}, пальто честнее шубы: до будки пять минут, а в шубе у аппарата сидеть жарко.',
+    'Пальто, {N}, да перчатки — на такую погоду самое то. Шуба к такому холоду — баловство.'
+  ];
+
   var STUDY_SELF = [
     'Учусь, {N}, не покладая рук: морзянка до сорока знаков, арифметика по вечерам. Грамоте — школа, дальше — практика при аппарате.',
     'Всегда учусь, {N}: у аппарата, у депеш, у старших. Тихон говорит: телеграфист, что перестал учиться, — наполовину архивариус.'
@@ -2593,7 +2644,7 @@ function tryName(raw) {
     /* 42: грибы */
     { re: /(^|[^а-я])(гриб[а-я]*|грузд|рыжик|волнуш)/, run: function () { return fill(pick(MUSHROOMS)); } },
     /* 42: пальто или шуба — до погоды */
-    { re: /(пальто|шуб[а-я]*)/, run: function () { return fill(pick(COAT_ADVICE)); } },
+    { re: /(пальто|шуб[а-я]*)/, run: function () { var t = null; try { t = siteTemp(); } catch (eCt) {} return fill(pick((t !== null && t > -5) ? COAT_MILD : COAT_ADVICE)); } },
     { re: /(погод|пагод|температур|сколк[а-я]* градус|как холодно|как тепло|на улице|на дворе|метель)/, run: answerWeather },
     { re: /(ветер|ветр|флюгер)/, run: answerWind },
     { re: /(осадк|дожд|ливн|морос|снегопад|гроз)/, run: answerPrecip },
@@ -2684,7 +2735,9 @@ function tryName(raw) {
     { keys: ['умеешь', 'можешь'], run: function () { return fill(pick(CAN_DO)); } },
     { keys: ['морзе', 'азбука'], run: function () { return fill(pick(MORSE)); } },
     { keys: ['устал', 'отдых'], run: function () { return fill(pick(TIRED)); } },
-    { keys: ['голоден', 'завтрак', 'обед'], run: function () { return fill(pick(MEALS)); } },
+    { keys: ['охот', 'лося', 'тайга', 'кабан', 'глухар'], run: function (n) { return fill(pick(HUNT_CARE)); } },
+    { keys: ['кисет'], run: function (n) { if (/(потер|пропа|исчез|промот|выронил)/.test(n)) return fill(pick(KISSET_LAMENT)); return null; } },
+    { keys: ['голоден', 'завтрак', 'обед'], run: function (n) { if (/(^|[^а-я])завтра([^а-я]|$)/.test(n) && !/завтрак/.test(n)) return null; return fill(pick(MEALS)); } },
     { keys: ['здоровье', 'болею'], run: function () { return fill(pick(HEALTH)); } },
     { keys: ['новости', 'новосте'], run: function () { return fill(pick(NEWS)); } },
     { keys: ['настроение'], run: function () { return fill(pick(MOOD)); } },
@@ -2746,7 +2799,7 @@ function tryName(raw) {
   var _ADDR_STOP = { сударь: 1, сударыня: 1, барин: 1, барышня: 1, государь: 1, господин: 1, господа: 1, милостивый: 1, батюшка: 1, матушка: 1, любезный: 1, почтеннейший: 1 };
   (function () {
     for (var t in THEME_WORDS) {
-      THEME_WORDS[t].split(' ').forEach(function (w) { if (w && !_ADDR_STOP[w]) _THEME_MAP[w] = t; });
+      THEME_WORDS[t].split(' ').forEach(function (w) { if (w && !_ADDR_STOP[w]) { _THEME_MAP[w] = t; _THEME_MAP[norm(w)] = t; } });
     }
   })();
 
@@ -2806,6 +2859,11 @@ function tryName(raw) {
     for (var t in THEME_WORDS) {
       var ws = ' ' + THEME_WORDS[t] + ' ';
       if (ws.indexOf(' ' + st + ' ') >= 0) return t;
+      /* №59.9п: стем-в-стем — «карас» найдет «карась» в любом падеже */
+      var warr = THEME_WORDS[t].split(' ');
+      for (var wi = 0; wi < warr.length; wi++) {
+        if (warr[wi] && (norm(warr[wi]) === k || chatStem(norm(warr[wi])) === st)) return t;
+      }
     }
     return 'generic';
   }
@@ -2820,6 +2878,12 @@ function tryName(raw) {
     /* 59.9д: охрана приветствий — «доброе утречко» не должно цеплять статьи лексикона (Добре) */
     if (/(не|ни)\s+(было|хочу|желаю|буду|добр|хорош|рад)/.test(n)) return null; /* 59.9и: «не доброе утро» — тема молчитъ, мозгъ дастъ отказъ */
     if (/(добр[а-яё]*\s+(утр[а-яё]*|утречк|ден[а-яё]*|день|дня|вечер[а-яё]*|ноч[а-яё]*)|(утр[а-яё]*|утречк|ден[а-яё]*|день|дня|вечер[а-яё]*|ноч[а-яё]*)\s+добр[а-яё]*)/.test(n)) return null;
+    /* №59.9п: анафора — «про него / о ней» тянуть последнюю статью лексикона */
+    if (lastMention && /(^|[^а-яё])(него|нее|ней|н[её]м)([^а-яё]|$)/.test(n)) {
+      n = n.replace(/(^|[^а-яё])(него|нее|ней|н[её]м)([^а-яё]|$)/g, '$1' + norm(lastMention.w) + '$3');
+    }
+    /* №59.9п: вопрос о живом слове (клюет/ловится/знаешь) — не тизеръ, путь въ мозгъ за статьей */
+    if (/(клю[её]т|клюют|ловится|ловят|водится|водят|бер[её]тся|знаешь)/.test(n)) return null;
     var toks = n.split(' ');
     if (toks.length <= 1) return null;             /* одиночное слово — пусть мозг отвечает справкой */
     if (MENTION_NOTQ.test(n)) return null;          /* прямой вопрос — путь в мозг */
@@ -3044,6 +3108,240 @@ function tryName(raw) {
       return String(pv.t || '');
     } catch (eC) { return ''; }
   }
+  /* ============================================================
+     №59.9н: казенный конструкторъ (zaharCompose). Ярусы молчали —
+     Захаръ собираетъ реплику изъ кусковъ: зачинъ + фактъ + хвостъ.
+     Факты: казенныя справки и послѣдняя статья лексикона; одинъ и
+     тот же фактъ перестраивается каркасами по чередованію, анти-повторъ
+     по кольцу репликъ. Ранжировщикъ USER2 (zaharEmbedRank) зовется
+     безъ ожиданія: успѣлъ — порядокъ кандидатовъ запоминается на
+     следующий ходъ того же ярлыка; не успѣлъ — жребій. Любимыя словца
+     вшиты въ каркасы — не болѣе одного на реплику.
+     ============================================================ */
+  /* №59.9о: сомнительные «имена» — статьи, словца и быт, именемъ не мнятся */
+  var COMP_BADNAME = /(толкован|лексикон|словар|аппарат|трактир|самовар|карас|налив|шуба|пальто|примет|погод|морзе|баромет|априори|констатирован|ламентац|осведоми|неужто|ежели|позвольте|извольте|барнаул|демидов|гость|судар)/;
+  var COMP_WANT = /(что расскаже|что расскажит|что послушать|чем удивиш|чем удивит|поболта|поговорим|болтаем|что новенького|есть новенькое|расскажи что-нибудь|расскажи что нибудь|расскажи о чем-нибудь|расскажи о чем нибудь|скучно|развесел|потеш)/;
+  var COMP_CONT = /(^|[^а-я])(а еще|а что еще|ну и что|и что дальше|что дальше|да ну|а потом|что было дальше|ну и как)([^а-я]|$)/;
+  var COMP_TAIL = [
+    'На усъ мотаю, {N}, — и вамъ советую.',
+    'Записывайте въ тетрадку, авось пригодится.',
+    'Вотъ таковы депешіи жизни, {N}.',
+    'Аппаратъ благодаритъ за любопытство.',
+    'Ключъ молчитъ, а я — говорю.'
+  ];
+  var COMP_TALK = [
+    'Между депешами затишье, {N}: почитываю лексиконъ да записываю словца. Что васъ интересуетъ — рыба, приметы, городъ?',
+    'Занимаюсь темъ, что ленту читаю да чай пью. А изъ приметъ любопытное: дымъ столбомъ — къ стуже, туманъ надъ Обью — къ оттепели.',
+    'Позвольте вопросить васъ, {N}: о чемъ желаете поговорить? О рыбалке, о заводѣ, о приметахъ — у меня всѣ записи наготовѣ.'
+  ];
+  var COMP_SKEL = [
+    'Априори, въ лексиконѣ значится: {W} — {B} {D}',
+    'Констатировано, {N}: {B} {T}',
+    'Извольте видѣть, {N}: {B} {D}',
+    'Неужто не слыхали, {N}? {B}',
+    'Слыхалъ я занятную запись: {B} {D} {T}',
+    'Сіе слово по-своему дивное, {N}: {B}',
+    'Ежели угодно — растолкую: {W} — {B} {D}',
+    'Позвольте вопросить... покуда самъ отвечу: {B} {T}'
+  ];
+  var COMP_FACTS = [
+    { name: 'одежда',
+      keys: [/(шуб|пальто|тулуп|шинел|валенк|рукавиц|перчатк)/, /(одет|надеть|носить|тепле|тепло|холодн|мороз|градус|минус|погод)/],
+      texts: [
+        'Минусъ три градуса — по-сибирски потепленье, {N}: шуба овчинная — то на крепкій морозъ, а нынѣ пальто съ теплымъ подъкладомъ да валенки — самое то.',
+        'При такой погодѣ я бы одѣвался безъ хитростей: пальто, шарфъ да рукавицы; а шубу овчинную оставьте на настоящую стужу — когда за щеку щиплетъ.',
+        'Шуба въ минусъ три — это уже баловство, сударь: въ дни оттепельные на Оби дуетъ, а къ вечеру подморозитъ — вотъ тогда шуба и уместна.'
+      ] },
+    { name: 'отопленіе',
+      keys: [/отоплен/, /кантор|топите|греете|тепло ли|холодно ли/],
+      texts: [
+        'Въ нашей канторѣ печь голландская стоитъ — дровами топимъ, самоваръ на угольяхъ при аппаратѣ держимъ. Рукамъ у аппарата Юза холоднее, чемъ у печи, — такъ и греемъ ихъ чаемъ.',
+        'Отопленіе у насъ дровяное: голландка въ углу да уголья къ самовару. Иные конторы уже керосинками греются — хвалятъ примусъ, безъ копоти и запаху, — но у насъ печь на мѣстѣ стоитъ.',
+        'Въ канторѣ у насъ голландка да самоваръ; ежели дежурство ночное — и второй разъ топимъ. Скучнѣе некуда, а зато въ депешахъ правды больше.'
+      ] },
+    { name: 'клѣвъ',
+      keys: [/клев|клюет|клует|поклевк/, /будет|думаешь|думаете|ожидать|сегодня|завтра|сейчас/],
+      texts: [
+        'Клѣвъ — дѣло Господне, {N}: я предсказывать не мастакъ, приметамъ верю. Карась беретъ въ старицахъ да омутахъ, на червя да на тесто; погода тихая да давленіе ровное — пробуйте.',
+        'Умныхъ приметъ о клѣвѣ не скажу, покорно извините: по бородѣ ничего не чувствуется. Но удочку беру съ собой обязательно — какъ смѣну сдамъ.',
+        'Верю въ приметы, въ приборы — нетъ: клѣвъ по бороде не стучится. Ежели день тихій да безъ вѣтра — карась дремать не долженъ, извольте пробовать.'
+      ] },
+    { name: 'погода',
+      keys: [/погод/],
+      texts: [
+        'Погоду за проводомъ не увидишь, {N} — у меня барометръ на стѣнѣ канторы, на него и поглядываю. А приметы такія: дымъ столбомъ — къ стуже, туманъ надъ Обью — къ оттепели.',
+        'Погода за окномъ канторы, сударь: по приметамъ — звѣзды ярко горятъ да луна круглая — жди стужи; вѣтеръ сырой съ Оби — жди снегопада.',
+        'Не погодѣй я, {N}, а телеграфистъ: барометръ да приметникъ — всѣ мои вѣсти о погодѣ. Ежели вамъ нужна точность — извольте барометръ спросить, а не ключъ.'
+      ] },
+    { name: 'демидовскій нынѣ',
+      keys: [/(демидов|завод)/, /(что сейчас|что теперь|вместо|нынч|ныне|чем стал|кому принадлежит|кто теперь|жив ли)/],
+      texts: [
+        'Съ 1893-го заводъ стоитъ, {N}: руды оскудѣли, дѣло угасло. Нынѣ тамъ плотина да заводской прудъ — рыболовы по вечерамъ сидятъ, горны остыли.',
+        'Ничего не стало вмѣсто него, сударь: закрылся онъ въ 1893-мъ. Остались плотина да прудъ заводской — нынѣ то мѣсто тихое, рыбное.',
+        'Заводу тому нѣтъ ужѣ три года, {N}: руды вышли. Стоитъ плотина, плещется прудъ, а молоты остыли — куютъ нынѣ на ремесленныхъ дворахъ.',
+        'Говариваютъ, {N}: корпуса завода подъ казенную надобность отдадутъ — лесопилку тамъ вознамѣрились устроить. Пока то слухи — на аппаратѣ сіе не подтвѣрждалось.'
+      ] }
+  ];
+
+  /* №59.9о: пять полокъ конструктора — словарь+выученное, казенныя статьи,
+     кастомъ по темамъ, память репликъ; анти-повторъ — COMP_SHELF_RING */
+  var COMP_SHELF_RING = [];
+  function zaharShelfPush(t) {
+    if (!t || COMP_SHELF_RING.length >= 40) return;
+    var key = norm(String(t)).replace(/\s+/g, ' ').slice(0, 80);
+    if (key && COMP_SHELF_RING.indexOf(key) < 0) COMP_SHELF_RING.push(key);
+  }
+  function zaharShelfSeen(t) {
+    if (!t) return false;
+    var key = norm(String(t)).replace(/\s+/g, ' ').slice(0, 80);
+    return key ? COMP_SHELF_RING.indexOf(key) >= 0 : false;
+  }
+  var COMP_TOPIC_MAP = [
+    { re: /(рыбалк|рыбач|карас|налим|щук|ерш|окун|удочк|клев|стариц|невод)/, topic: 'рыбалка' },
+    { re: /(охот|ружь|берданк|глухар|тетерев|тайга|заяц|белк|охотничь)/, topic: 'охота' },
+    { re: /(книг|чита|лексикон|словар|журнал|газет)/, topic: 'книги' },
+    { re: /(музык|гармон|гитар|патефон|оркестр|романс|песн)/, topic: 'увлечения' }
+  ];
+  function zaharShelfFacts(nQ, rawQ, topicW) {
+    var out = [];
+    try {
+      var qn = String(nQ || norm(rawQ || ''));
+      /* полка 1: словарь + выученное со станції */
+      var dict = null;
+      try {
+        dict = (typeof ZAHAR_DICT_EXTRA !== 'undefined' && Array.isArray(ZAHAR_DICT_EXTRA) && ZAHAR_DICT_EXTRA.length)
+          ? ZAHAR_DICT_EXTRA
+          : (typeof ZAHAR_DICT_FILE !== 'undefined' && Array.isArray(ZAHAR_DICT_FILE) ? ZAHAR_DICT_FILE : null);
+      } catch (eS1) { dict = null; }
+      if (dict && dict.length) {
+        var cand = null, stem = null;
+        if (topicW) {
+          var tw = norm(String(topicW));
+          stem = tw.slice(0, Math.max(4, tw.length - 2));
+          for (var d1 = 0; d1 < dict.length && !cand; d1++) {
+            var e1 = dict[d1];
+            if (e1 && e1.w && e1.b && norm(e1.w).indexOf(stem) === 0 && !zaharShelfSeen(e1.b)) cand = e1;
+          }
+        }
+        if (!cand) {
+          var words = qn.split(/\s+/);
+          for (var d2 = 0; d2 < words.length && !cand; d2++) {
+            var wq = words[d2];
+            if (!wq || wq.length < 4) continue;
+            for (var d3 = 0; d3 < dict.length; d3++) {
+              var e3 = dict[d3];
+              if (e3 && e3.w && e3.b && norm(e3.w) === wq && !zaharShelfSeen(e3.b)) { cand = e3; break; }
+            }
+          }
+        }
+        if (cand) out.push(String(cand.b) + (cand.d ? ' ' + cand.d : ''));
+      }
+      /* полка 2: казенныя статьи — только съ дореформенной статьей b */
+      if (out.length < 2 && typeof ENTRIES !== 'undefined' && Array.isArray(ENTRIES) && ENTRIES.length) {
+        for (var tr2 = 0; tr2 < 12 && out.length < 2; tr2++) {
+          var e2 = ENTRIES[(Math.random() * ENTRIES.length) | 0];
+          if (e2 && e2.b && String(e2.b).length > 40 && !zaharShelfSeen(e2.b)) { out.push(String(e2.b)); break; }
+        }
+      }
+      /* полка 3: кастомъ — базовый вариантъ по темѣ */
+      if (out.length < 2 && window.ZAHAR_CUSTOM_DATA && Array.isArray(window.ZAHAR_CUSTOM_DATA.pairs) && window.ZAHAR_CUSTOM_DATA.pairs.length) {
+        var topic = null;
+        if (topicW) {
+          var tn = norm(String(topicW));
+          for (var c0 = 0; c0 < COMP_TOPIC_MAP.length && !topic; c0++) if (COMP_TOPIC_MAP[c0].re.test(tn)) topic = COMP_TOPIC_MAP[c0].topic;
+        }
+        if (!topic) for (var c1 = 0; c1 < COMP_TOPIC_MAP.length && !topic; c1++) if (COMP_TOPIC_MAP[c1].re.test(qn)) topic = COMP_TOPIC_MAP[c1].topic;
+        var pool = topic ? window.ZAHAR_CUSTOM_DATA.pairs.filter(function (p) { return p && p.topic === topic; }) : [];
+        if (!pool.length) {
+          pool = window.ZAHAR_CUSTOM_DATA.pairs.filter(function (p) {
+            var qs = (p.qs || []).concat([p.q]);
+            for (var k1 = 0; k1 < qs.length; k1++) {
+              var st = norm(String(qs[k1])).split(/\s+/);
+              for (var k2 = 0; k2 < st.length; k2++) if (st[k2].length > 5 && qn.indexOf(st[k2]) >= 0) return true;
+            }
+            return false;
+          });
+        }
+        if (pool.length) {
+          var p2 = pool[(Math.random() * pool.length) | 0];
+          var vs2 = (p2.vars || []).filter(function (v) { return v && (!v.c || !v.c.length); });
+          if (vs2.length) {
+            var t2b = fill(vs2[(Math.random() * vs2.length) | 0].t);
+            if (!zaharShelfSeen(t2b)) out.push(t2b);
+          }
+        }
+      }
+      /* полка 4: память репликъ — одна за ходъ */
+      if (out.length < 2 && typeof ZAHAR_MEMORY !== 'undefined' && Array.isArray(ZAHAR_MEMORY) && ZAHAR_MEMORY.length) {
+        var mem2 = ZAHAR_MEMORY[(Math.random() * ZAHAR_MEMORY.length) | 0];
+        if (mem2 && mem2.a && mem2.a.length) {
+          var t3 = fill(mem2.a[(Math.random() * mem2.a.length) | 0]);
+          if (t3 && !zaharShelfSeen(t3)) out.push(t3);
+        }
+      }
+    } catch (eSh) {}
+    return out.slice(0, 2);
+  }
+  function zaharAssemble(q, parts, tag) {
+    if (!parts || !parts.length) return '';
+    var filled = parts.map(function (s) {
+      return fill(s).replace(/ {2,}/g, ' ').trim();
+    }).filter(function (s) { return s; });
+    if (!filled.length) return '';
+    var ring = [];
+    try { ring = (window.ZAHAR_SESSION && window.ZAHAR_SESSION.repRing) || []; } catch (eR) { ring = []; }
+    var fresh = filled.filter(function (s) {
+      return ring.indexOf(s) === -1;
+    });
+    if (!fresh.length) fresh = filled;
+    var idx = 0;
+    try {
+      if (window.__zaharCompRank && window.__zaharCompRank.tag === tag &&
+          typeof window.__zaharCompRank.idx === 'number' &&
+          window.__zaharCompRank.idx < fresh.length) {
+        idx = window.__zaharCompRank.idx;
+      } else {
+        idx = (window.__zaharCompNo || 0) % fresh.length;
+      }
+      window.__zaharCompNo = ((window.__zaharCompNo || 0) + 1) % Math.max(1, fresh.length);
+    } catch (eI) { idx = 0; }
+    try {
+      if (typeof window.zaharEmbedRank === 'function' && fresh.length > 1) {
+        window.zaharEmbedRank(q, fresh).then(function (ord) {
+          if (ord && ord.length) window.__zaharCompRank = { tag: tag, idx: ord[0] };
+        }).catch(function () {});
+      }
+    } catch (eRk) {}
+    try { zaharShelfPush(fresh[idx]); } catch (eP59) {}
+    return fresh[idx];
+  }
+  function zaharCompose(q, n) {
+    try {
+      /* 1. казенныя справки — все ключевые группы обязаны сойтись */
+      for (var fi = 0; fi < COMP_FACTS.length; fi++) {
+        var F = COMP_FACTS[fi], ok = true, ki;
+        for (ki = 0; ki < F.keys.length; ki++) if (!F.keys[ki].test(n)) { ok = false; break; }
+        if (ok) return zaharAssemble(q, F.texts, 'справка:' + F.name);
+      }
+      /* 2. явное приглашеніе к болтовнѣ или продолженіе темы */
+      var lw = null;
+      try { lw = window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastWord; } catch (eL) { lw = null; }
+      var wantChat = COMP_WANT.test(n);
+      var cont = COMP_CONT.test(n) && lw && lw.w && lw.b;
+      if (!wantChat && !cont) return '';
+      if (!lw || !lw.w || !lw.b) {
+        return zaharAssemble(q, COMP_TALK.concat(zaharShelfFacts(n, q, null)), 'болтовня');
+      }
+      var texts = COMP_SKEL.map(function (sk) {
+        return sk
+          .replace(/\{W\}/g, hardSign(lw.w))
+          .replace(/\{B\}/g, lw.b || '')
+          .replace(/\{D\}/g, lw.d || '')
+          .replace(/\{T\}/g, pick(COMP_TAIL));
+      });
+      return zaharAssemble(q, texts.concat(zaharShelfFacts(n, q, lw.w)), 'тема:' + lw.w);
+    } catch (eC) { return ''; }
+  }
 function chat(raw) {
     var q = String(raw || '').trim();
     if (!q) return null;
@@ -3052,7 +3350,7 @@ function chat(raw) {
     if (/^[.-]+$/.test(_rz59z) && _rz59z === '--.. .- .--. --- .-- . -.. -. -.-- .---'.replace(/\s+/g, '')) {
       try { loreReply._street = true; } catch (eMZ59z) {}
       try { if (typeof window.__zaharNoteTopic === 'function') window.__zaharNoteTopic('трактиръ', null, 0, true); } catch (eMZ59b) {} /* №59.9м */
-      return 'Трактиръ зовется на ключѣ, Максим: --.. .- .--. --- .-- . -.. -. -.-- .---. Рога марала надъ буфетомъ, каминъ изъ дикаго камня, шулюмъ наваристый — трактирщикъ Игнатъ дѣло знаетъ.';
+      return fill('Трактиръ зовется на ключѣ, {N}: --.. .- .--. --- .-- . -.. -. -.-- .---. Рога марала надъ буфетомъ, каминъ изъ дикаго камня, шулюмъ наваристый — трактирщикъ Игнатъ дѣло знаетъ.');
     }
     var n = norm(q);
     if (!n) return null;
@@ -3322,6 +3620,10 @@ function chat(raw) {
     /* 18: живой подхват слов из словарей в обычной речи */
     var mr = mentionReply(q, n);
     if (mr) { awaitingJob = false; return maybeCounter(mr); }
+
+    /* №59.9н: конструкторъ — ярусы молчали; Захаръ собираетъ реплику самъ */
+    var _comp = zaharCompose(q, n);
+    if (_comp) { awaitingJob = false; return maybeCounter(femizeOut(_comp)); }
     return null;
   }
 

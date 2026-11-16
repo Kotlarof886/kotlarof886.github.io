@@ -9,6 +9,10 @@
    №35 библиотека ветки 3 (ModernBERT), dtype q8 ·
    №36 секундомер и прогрев · №37 хук отдаёт ответ обещаніемъ
    (контракт слоя: ZAHAR_ASK возвращает строку или Promise)
+   №59.9о (17.11.2026): саніція тетрадки (сомнительное имя стирается при загрузкѣ);
+        стопъ-листъ ловца имени расширенъ (словарь, словца, бытъ); словца «сіе/ибо» —
+        по всему слову; ранжировщикъ zaharEmbedRank для конструктора (модель лишь
+        подбираетъ изъ готовыхъ кандидатовъ, ничего не сочиняетъ).
    №59.7в (15.11.2026): zaharSetName держитъ страничную переменную въ согласии съ тетрадкой.
    №59.7 (имя и забвенье 15.11.2026): имя ловится и в хвосте депеши («привет я Анна»),
    явное представленье перезаписывает старое имя; добавлены zaharForgetName
@@ -21,7 +25,7 @@
 (function () {
 'use strict';
 
-const VERSION = 'правка №59.7в (имя и забвенье)';
+const VERSION = 'правка №59.9о (имя чистится; ранжировщикъ)';
 const TAG = '[zahar_embed]';
 
 const CFG = {
@@ -46,6 +50,15 @@ const mem = { tape: [], notebook: {} };
 try { Object.assign(mem, JSON.parse(localStorage.getItem(MEM_KEY) || '{}')); } catch (e) {}
 mem.tape = Array.isArray(mem.tape) ? mem.tape.slice(-TAPE_MAX) : [];
 mem.notebook = mem.notebook || {};
+/* №59.9о: саніція тетрадки — сомнительное имя стирается при загрузкѣ
+   (статьи и словца именемъ не мнятся: «Толкование», «Априори» и проч.) */
+try {
+  if (mem.notebook.name && /(толкован|лексикон|словар|аппарат|трактир|самовар|карас|налив|налим|шуба|пальто|тулуп|валенк|примет|морз|депеш|априори|констатирован|ламентац|осведоми|неужто|погод|барнаул|демидов|гост|судар)/i.test(String(mem.notebook.name))) {
+    console.log(TAG, 'саніція: сомнительное имя въ тетрадкѣ стерто —', mem.notebook.name);
+    delete mem.notebook.name;
+    saveMem();
+  }
+} catch (eSani) {}
 
 function saveMem() {
   try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch (e) {}
@@ -64,7 +77,10 @@ window.zaharSetName = function (name) {
   console.log(TAG, 'тетрадка: имя записано —', name);
 };
 
-const STOP = /(белк|чай|обь|нельм|купец|сударь|депеш|медвед|телеграф)/i;
+const STOP = /(белк|чай|обь|нельм|купец|сударь|сударын|депеш|медвед|телеграф|толкован|лексикон|словар|аппарат|трактир|самовар|карас|налив|налим|шуба|пальто|тулуп|валенк|примет|морз|априори|констатирован|ламентац|осведоми|неужто|ежели|позвольте|извольте|погод|барнаул|демидов|гост)/i;
+/* №59.9о: словца-не-имена («сіе», «ибо», «ажъ») — по всему слову, не по подстроке,
+   чтобы «Алексей» не задеть */
+const STOP2 = /(?:^|[^а-яё])(сей|сія|сиѣ|сие|ибо|аж|ажно|аки|яко)(?:[^а-яё]|$)/i;
 /* №59.7: стоп-глаголы — «я хочу/устал/занят» имя не мнят */
 const STOPVERB = /(устал|занят|болен|рад|согласен|свободен|уверен|готов|хочу|думаю|знаю|вижу|слышу|читаю|люблю|работаю|хожу|служу|пишу|рыбачу|не|все|всё|тут|там|здесь|дома|устала|занята|больна|согласна|свободна)/i;
 
@@ -75,7 +91,7 @@ function grabNameFromUser(text) {
   if (m && !STOP.test(m[1])) { zaharSetName(m[1]); return; }
   /* «привет я Анна», «это Анна» — имя в хвосте депеши */
   const m2 = t.match(/(?:^|[^а-яё])(?:я|это|а\s+я)\s+([А-ЯЁ][а-яё]{1,20})[\s.,!?]*$/i);
-  if (m2 && !STOP.test(m2[1]) && !STOPVERB.test(m2[1].toLowerCase())) zaharSetName(m2[1]);
+  if (m2 && !STOP.test(m2[1]) && !STOP2.test(m2[1].toLowerCase()) && !STOPVERB.test(m2[1].toLowerCase())) zaharSetName(m2[1]);
 }
 
 window.zaharSetStation = function (st) {
@@ -302,6 +318,38 @@ async function wake() {
 }
 window.zaharWake = wake;
 window.ZAHAR_EMBED_WAKE = wake;  // будильник zahar_boot.js идёт через ту же охраняемую wake
+
+/* №59.9о: ранжировщикъ для казеннаго конструктора — модель лишь ПОДБИРАЕТЪ изъ
+   готовыхъ кандидатовъ (ничего не сочиняетъ). Обещаніе возвращаетъ порядокъ
+   индексовъ кандидатовъ по близости къ депешѣ. Не успѣла — конструктор жребіємъ. */
+window.zaharEmbedRank = function (q, candidates) {
+  return new Promise(function (resolve, reject) {
+    try {
+      const cands = (candidates || []).filter(function (c) { return c && String(c).trim(); });
+      if (!state.ready || !state.pipe || cands.length < 2) {
+        reject(new Error('модель не готова'));
+        return;
+      }
+      embed(normalize(String(q || ''))).then(function (qv) {
+        const scored = [];
+        let k = 0;
+        const next = function () {
+          if (k >= cands.length) {
+            scored.sort(function (a, b) { return b.s - a.s; });
+            resolve(scored.map(function (x) { return x.i; }));
+            return;
+          }
+          embed(normalize(cands[k])).then(function (cv) {
+            scored.push({ i: k, s: cosine(qv, cv) });
+            k++;
+            next();
+          }).catch(reject);
+        };
+        next();
+      }).catch(reject);
+    } catch (eRk) { reject(eRk); }
+  });
+};
 
 /* ---------- контроль ---------- */
 window.zaharEmbedStatus = function () {
