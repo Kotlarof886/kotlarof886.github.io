@@ -209,7 +209,7 @@
     markEther();
     window.__zaharBusy = true;
 
-    var MORSE = '.. -.. . -  .--. . .-. . -.. .- ---. .-';
+    var MORSE = '.--. . .-. . -.. .- ---. .-';
     var MIN = 16;
     var m = MORSE.split(''), mi = 0, emitted = 0, mTimer = null, morseOn = true;
     var pending = null;
