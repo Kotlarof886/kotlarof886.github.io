@@ -1,4 +1,10 @@
 /* ===
+   №59.9м (17.11.2026): ночь отвечаетъ ночью — NIGHT_GREETS въ трехъ местахъ, безъ встречнаго вопроса;
+        отголосокъ — Даніилъ барыжникъ; затирания __zaharNoteTopic заменены вызовами;
+        сезонъ по слову депеши (зим/лет/весн/осен); флагъ трактира — «сходимъ» после трактира;
+        «ъ» дореформенный въ тизерѣ, счетчикѣ и темахъ. Кастомъ v2.8 (шулюмъ), словарь (наливъ).
+   === */
+/* ===
    №59.9л (16.11.2026): «Вечеръ въ хату» — прибаутка и отголосокъ про Даніила (флагъ на слѣдующій ходъ);
         «доброй ночи/ночи доброй» — «ноч[а-яё]*» въ охранахъ чата; нельма — прямое чтеніе словаря;
         «Про тему „X“»; имя изъ тетрадки смиряется (cap). Кастомъ не трогался — новыя пары вшиты въ zahar_custom.js v2.7.
@@ -242,7 +248,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9л («доброй ночи» — оба порядка; «Вечеръ въ хату» съ отголоскомъ про Даніила; нельма изъ словаря; «Про тему „X“»; имя смиряется)';
+  var VERSION = 'правка №59.9м (ночь отвечаетъ ночью; «добрякъ» не огрызается статьей; статьи въ темахъ тетради; отголосокъ Даніила-барыжника; сезонъ по слову; флагъ трактира; «ъ» дореформенный)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -286,6 +292,18 @@
     return arr[i];
   }
   function cap(w) { return w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w; }
+
+  /* №59.9м: дореформенный «ъ» на конце словъ */
+  function hardSign(w) {
+    w = String(w || '').replace(/\s+/g, ' ').trim();
+    if (!w) return w;
+    var parts = w.split(' ');
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p && /[бвгджзклмнпрстфхцчшщ]/.test(p.charAt(p.length - 1))) parts[i] = p + 'ъ';
+    }
+    return parts.join(' ');
+  }
 
   /* ---------- обращение: пол + возраст ---------- */
   function addr() {
@@ -1491,7 +1509,7 @@
           TOPIC_MEM.seen++;
           return fill(TOPIC_MEM.variants[TOPIC_MEM.seen]);
         }
-        return fill('Про тему „' + TOPIC_MEM.name + '“ я вамъ уже все разсказалъ, {N}. О другомъ спросите — или научите новому, запомню.');
+        return fill('Про тему „' + hardSign(TOPIC_MEM.name) + '“ я вамъ уже все разсказалъ, {N}. О другомъ спросите — или научите новому, запомню.');
       }
       /* «что это / это что / про него» — вопросъ о послѣдней тѣмѣ:
          складываемъ вопросъ изъ служебныхъ словъ; остатокъ пустой — значитъ, о ней */
@@ -1507,7 +1525,7 @@
             TOPIC_MEM.seen++;
             return fill(TOPIC_MEM.variants[TOPIC_MEM.seen]);
           }
-          return fill('Уже докладывалъ о «' + TOPIC_MEM.name + '», {N}. Спросите иначе — или о другомъ, слушаю.');
+          return fill('Уже докладывалъ о «' + hardSign(TOPIC_MEM.name) + '», {N}. Спросите иначе — или о другомъ, слушаю.');
         }
       }
       /* прямой вопросъ по имени праздника — безъ оглядки на память */
@@ -2116,7 +2134,7 @@ function tryName(raw) {
         c = COUNTERS[_ci];
         if (c && c.dyn) {
           var _dwC = pickDictWord();
-          if (_dwC) { counterText._word = _dwC; c = { q: 'Слыхали вы о словѣ «' + _dwC.w + '», {N}? Ежели слыхали — темъ лучше, растолкую по новой.', topic: 'dictword' }; }
+          if (_dwC) { counterText._word = _dwC; c = { q: 'Слыхали вы о словѣ «' + hardSign(_dwC.w) + '», {N}? Ежели слыхали — темъ лучше, растолкую по новой.', topic: 'dictword' }; }
         }
         if (_used.indexOf(c.topic) < 0) _used.push(c.topic);
         _nbC.notebook.counters = _used;
@@ -2132,7 +2150,7 @@ function tryName(raw) {
     c = COUNTERS[_ci2];
     if (c && c.dyn) {
       var _dwC2 = pickDictWord();
-      if (_dwC2) { counterText._word = _dwC2; c = { q: 'Слыхали вы о словѣ «' + _dwC2.w + '», {N}? Ежели слыхали — темъ лучше, растолкую по новой.', topic: 'dictword' }; }
+      if (_dwC2) { counterText._word = _dwC2; c = { q: 'Слыхали вы о словѣ «' + hardSign(_dwC2.w) + '», {N}? Ежели слыхали — темъ лучше, растолкую по новой.', topic: 'dictword' }; }
     }
     counterTopic = c.topic;
     lastCounter = true;
@@ -2161,12 +2179,12 @@ function tryName(raw) {
     }
     if (t === 'dictword') {
       var _wdC = (counterText && counterText._word) || null;
-      if (no()) { done(); counterText._word = null; return fill('Экое же слово «' + (_wdC ? String(_wdC.w) : 'нельма') + '» у васъ не въ ходу, {N}. На Обь выйдете — гляди, не упустите.'); }
+      if (no()) { done(); counterText._word = null; return fill('Экое же слово «' + (_wdC ? String(hardSign(_wdC.w)) : 'нельма') + '» у васъ не въ ходу, {N}. На Обь выйдете — гляди, не упустите.'); }
       if (yes()) {
         done();
         if (_wdC) {
           counterText._word = null;
-          try { window.__zaharNoteTopic = String(_wdC.w || ''); } catch (eT) {}
+          try { if (typeof window.__zaharNoteTopic === 'function') window.__zaharNoteTopic(String(_wdC.w || ''), [String(_wdC.b || ''), String(_wdC.d || '')].filter(Boolean), 0, true); } catch (eT) {} /* №59.9м */
           return fill('Записывайте, {A}: ' + String(_wdC.b || '') + ' ' + String(_wdC.d || ''));
         }
         return fill(pick(NELMA_TELL));
@@ -2198,6 +2216,11 @@ function tryName(raw) {
   }
 
   /* ---------- пулы ---------- */
+  var NIGHT_GREETS = [
+    'И вамъ доброй ночи, {A}! Ночная смена на линіи — аппаратъ къ вашимъ услугамъ, извольте депешу.',
+    'Доброй ночи, {A}! Провода ночные цѣлы, аварьи нѣтъ — слушаю ключъ.',
+    'Ночь на линіи тихая, {A}. Доброй ночи желаю — и извольте спрашивать.'
+  ];
   var GREETS = [
     'Здравствуйте, {A}! Аппарат к вашим услугам — извольте депешу.',
     'Мое почтение, {A}! Ключ наготове, слушаю внимательно.',
@@ -2286,7 +2309,8 @@ function tryName(raw) {
   var SEASON = [
     'Люблю зиму, {A}: Обь встанет — и на лед, на жерлицы. Только иней на проводах — враг телеграфа.',
     'Лето — моя пора, {A}: рыбалка, вёсла, нельма ходит. А осень слякотна — депешам расплываюсь.',
-    'Весна у нас шумная, {A}: лед на Оби ломается с грохотом — и телеграммы полетят о разливах.'
+    'Весна у нас шумная, {A}: лед на Оби ломается с грохотом — и телеграммы полетят о разливах.',
+    'Осень — рыбья пора, {A}: налимъ къ нересту подъходитъ, хариусъ въ перекатахъ держится. Только грязь на путяхъ — телеграммамъ не въ усладу.'
   ];
   var FRIENDS = [
     'Друзья есть, {A}: напарник по смене Гоша да бухгалтер из конторы Степан Карлыч. Трое нас — и город освоили.',
@@ -2575,8 +2599,8 @@ function tryName(raw) {
     { re: /(осадк|дожд|ливн|морос|снегопад|гроз)/, run: answerPrecip },
     { re: /(который час|сколк[а-я]* времени|сколк[а-я]* время|сколк[а-я]* часов|сколк[а-я]* на часах|сколк[а-я]* сейчас|какое время(?! года))/, run: answerTime },
     { re: /^(приве[а-я]*|преве[а-я]*|прив|здравству[а-я]*|салют|хай|здорово|здоро|мои почтени[а-я]*|почтен[а-я]*|(добры[йе]|доброй)\s+(день|утро|вечер|ноч[а-яё]*))$/,
-      run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
-    { re: /здрави[яе]/, run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
+      run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; if (/ноч/.test(String(nn || ''))) return fill(pick(NIGHT_GREETS)); /* №59.9м: ночь не встречаетъ встречнымъ вопросомъ */ return fill(pick(GREETS)) + ' ' + counterText(); } },
+    { re: /здрави[яе]/, run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; if (/ноч/.test(String(nn || ''))) return fill(pick(NIGHT_GREETS)); /* №59.9м: ночь не встречаетъ встречнымъ вопросомъ */ return fill(pick(GREETS)) + ' ' + counterText(); } },
     { re: /(до\s*(?:свидан|новых\s+встреч)|прощай|всего доброго|до встречи|бывай|покид|(^|[^а-я])пока(?:[^а-я]|$))/,
       run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { re: /(попил|попивал|выпил|любите чай|любишь чай|про чай|о чае|чай)/, run: function () { return fill(pick(TEA)); } },
@@ -2592,7 +2616,7 @@ function tryName(raw) {
     { re: /(провод|лини|авари|изолятор|столб)/, run: function () { return fill(pick(WIRES)); } },
     { re: /(газет|пресс|листок)/, run: function () { return fill(pick(NEWSPAPERS)); } },
     { re: /(ярмарк)/, run: function () { return fill(pick(FAIR)); } },
-    { re: /(время года|зим|лет[оа]м?|осен|весн)/, run: function () { return fill(pick(SEASON)); } },
+    { re: /(время года|зим|лет[оа]м?|осен|весн)/, run: function (qq, nn) { var _s59m = String(nn || ''); var _si59m = /зим/.test(_s59m) ? 0 : (/лет/.test(_s59m) ? 1 : (/весн/.test(_s59m) ? 2 : (/осен/.test(_s59m) ? 3 : null))); return fill(pick(_si59m == null ? SEASON : [SEASON[_si59m]])); } }, /* №59.9м: сезонъ по слову */
     { re: /(друз|приятел|товарищ)/, run: function () { return fill(pick(FRIENDS)); } },
     { re: /(как учил|где учил|учил(ся|ась)|учишься|учитесь|обучал|обучен|образован|школ)/, run: function () { return fill(pick(LEARNED)); } },
     { re: /(почему телеграф|зачем телеграф|почему выбор)/, run: function () { return fill(pick(WHY_TG)); } },
@@ -2650,7 +2674,7 @@ function tryName(raw) {
   var FUZZ = [
     { keys: ['погод', 'температур', 'погодк'], run: function () { return answerWeather(); } },
     { keys: ['зовут', 'зоведе', 'зовете', 'зовите', 'зовешь'], run: function (n) { var _tn8 = (typeof tryName === 'function') ? tryName(n) : null; if (_tn8) return nameReply(_tn8); return /меня|мое имя/.test(n) ? recallName() : fill(pick(IDENTITY)); } },
-    { keys: ['привет', 'здравству', 'здрави', 'здорово', 'салют'], run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
+    { keys: ['привет', 'здравству', 'здрави', 'здорово', 'салют'], run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; if (/ноч/.test(String(nn || ''))) return fill(pick(NIGHT_GREETS)); /* №59.9м: ночь не встречаетъ встречнымъ вопросомъ */ return fill(pick(GREETS)) + ' ' + counterText(); } },
     { keys: ['свидани', 'прощай'], run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { keys: ['выглядиш', 'внешност'], run: function () { return fill(pick(APPEAR)); } },
     { keys: ['чай', 'чаю'], run: function () { return fill(pick(TEA)); } },
@@ -2949,6 +2973,12 @@ function tryName(raw) {
       'и а но или же да что как это эти этот эта тот так тоже также ведь вот ну бы ли лишь уже ещё еще только очень даже там тут здесь про для под над без не ни при чем за зачем когда где куда почему разве если будто все весь вся от до я ты мы вы он она оно они меня мне тебя тебе вас вам нас нам его ее их мой моя мои твой твоя ваше ваш наш наше сам самый'.split(' ').forEach(function (w) { STO[w] = 1; });
       var dw = dep.split(/[^а-я]+/).filter(function (w) { return w.length >= 3 && !STO[w]; }); /* №59.7: отъ 3 буквъ — «еда» больше не выпадаетъ изъ ключа */
       var dsig = dw.length;
+      /* №59.9м: флагъ трактира — голое «сходимъ» после трактирной пары */
+      if (window.__zaharTavernFlag && !/(трактир|рыбалк|воскресень)/.test(dep) && dsig <= 3 && /^(давай\s+)?(сходим|пойдем|пошли)(\s|$)/.test(dep)) {
+        window.__zaharTavernFlag = false;
+        return 'Какъ буду свободенъ — обязательно сходимъ.';
+      }
+
       var now = new Date();
       var mn = now.getMonth();
       var season = (mn === 11 || mn <= 1) ? 'winter' : (mn <= 4 ? 'spring' : (mn <= 7 ? 'summer' : 'autumn'));
@@ -3010,6 +3040,7 @@ function tryName(raw) {
       var pool = t1.length ? t1 : (t2.length ? t2 : (t3.length ? t3 : null));
       if (!pool) return '';
       var pv = pool[Math.floor(Math.random() * pool.length)];
+      try { window.__zaharTavernFlag = (String(pair.topic || '') === 'трактир'); } catch (eTF59m) {} /* №59.9м */
       return String(pv.t || '');
     } catch (eC) { return ''; }
   }
@@ -3020,7 +3051,7 @@ function chat(raw) {
     var _rz59z = String(q).replace(/\s+/g, '');
     if (/^[.-]+$/.test(_rz59z) && _rz59z === '--.. .- .--. --- .-- . -.. -. -.-- .---'.replace(/\s+/g, '')) {
       try { loreReply._street = true; } catch (eMZ59z) {}
-      try { window.__zaharNoteTopic = 'трактиръ'; } catch (eMZ59b) {}
+      try { if (typeof window.__zaharNoteTopic === 'function') window.__zaharNoteTopic('трактиръ', null, 0, true); } catch (eMZ59b) {} /* №59.9м */
       return 'Трактиръ зовется на ключѣ, Максим: --.. .- .--. --- .-- . -.. -. -.-- .---. Рога марала надъ буфетомъ, каминъ изъ дикаго камня, шулюмъ наваристый — трактирщикъ Игнатъ дѣло знаетъ.';
     }
     var n = norm(q);
@@ -3045,7 +3076,7 @@ function chat(raw) {
     /* №59.9: секретный номеръ — выше ярусовъ; линія очищается */
     var _sl9 = q.replace(/\D+/g, '');
     if (_sl9 === '4815162342') {
-      window.__zaharNoteTopic = 'лента';
+      try { if (typeof window.__zaharNoteTopic === 'function') window.__zaharNoteTopic('лента', null, 0, true); } catch (eMZ59m1) {} /* №59.9м */
       return '>: ОТ4Е НА6Ъ IЖЕ ЕСI НА НЕ5ЕСѢХЪ ДА С8ѦТIТСѦ IМѦ Т8ОЕ ДА ПРIIДЕТЪ ЦАРСТ8IЕ Т8ОЕ ДА 5УДЕТЪ 8ОЛѦ Т8ОѦ ѦКО НА НЕ5ЕСI I НА ЗЕМЛI ХЛѢ5Ъ НА6Ъ НАСУЩНЫЙ ДАЖДЬ НАМЪ ДНЕСЬ I ОСТА8I НАМЪ ДОЛГI НА6А ѦКОЖЕ I МЫ ОСТА8ЛѦЕМЪ ДОЛЖНИКΩМЪ НА6ИМЪ I НЕ 88ЕДI НАСЪ 8О IСКУ6ЕНIЕ НО IЗ5А8I НАСЪ ОТЪ ЛУКА8АГΩ >:';
     }
     /* №59.9: жалобіи на морзе — подсказка о секретном номеръ */
@@ -3054,7 +3085,7 @@ function chat(raw) {
       || (/(не понят|непонят|не разобра)/.test(n) && /точк/.test(n))
       || /нет назван/.test(n);
     if (_mz9) {
-      window.__zaharNoteTopic = 'линія';
+      try { if (typeof window.__zaharNoteTopic === 'function') window.__zaharNoteTopic('линія', null, 0, true); } catch (eMZ59m2) {} /* №59.9м */
       return 'Сдается мнѣ, электромагниты отъ остаточнаго току залипаютъ - попробуйте секретный номеръ для очистки линіи передать, непремѣнно должно подѣйствовать: 4 8 15 16 23 42';
     }
     /* №59.9л: «Вечеръ въ хату» — прибаутка и отголосокъ про Даніила */
@@ -3064,7 +3095,7 @@ function chat(raw) {
     }
     if (window.__zaharHatFlag && /(откуда ты|кто тебя научил|как ты знаешь|откуда знаешь)/.test(n)) {
       try { window.__zaharHatFlag = false; } catch (eH59l) {}
-      return femizeOut(fill('Это Даніилъ нашепталъ, сударь — работникъ со станціи. Какъ эдакую прибаутку при насъ складывали, такъ я въ уши и вмоталъ: на усъ мотаю, а въ лексиконъ не записываю!'));
+      return femizeOut(fill('Это Даніилъ барыжник нашепталъ эдакую прибаутку, такъ я въ уши и вмоталъ: на усъ мотаю, а въ лексиконъ не записываю!'));
     }
     /* №59.6: кастомъ-первымъ — раньше яруса «что это», благодарности и HANDLERS */
     var _cfq = '';

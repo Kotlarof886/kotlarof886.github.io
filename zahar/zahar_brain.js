@@ -1,9 +1,15 @@
 /* ============================================================
+   №59.9м (17.11.2026): ночные приветствия — свой пулъ (ночь не отвечаетъ днемъ);
+        «добрякъ» не огрызается статьей «Добре» (сырое слово обязательно);
+        статьи регистрируютъ тему — «ЕЩЁ» дозвучиваетъ запиской второй;
+        дореформенный «ъ» на словахъ статей (наливъ, ершъ).
+   ============================================================ */
+/* ============================================================
    №59.9л (16.11.2026): «доброй ночи» и «ночи доброй» — «ноч[а-яё]*» въ охранахъ
         обоихъ порядковъ; согласіе «желаю» после статьи; повторъ въ wiki-сборкѣ срезанъ (zaharCleanDef).
    ============================================================ */
 /* ============================================================
-   Захаръ — мозгъ v2.28 (№59.9к: «ден добры» — охрана после нормализации; «день добрый» — пулъ безъ памяти; «не доброе утро» — отказъ раньше словаря; «ъ» въ зачинахъ счищенъ; «Про словечко „X“») (Барнаулъ, 1896; личность вшита целиком)
+   Захаръ — мозгъ v2.29 (№59.9к: «ден добры» — охрана после нормализации; «день добрый» — пулъ безъ памяти; «не доброе утро» — отказъ раньше словаря; «ъ» въ зачинахъ счищенъ; «Про словечко „X“») (Барнаулъ, 1896; личность вшита целиком)
    №59.9к (16.11.2026): нормализация сѣдаетъ «ь» («день»→«ден») — охрана обратнаго порядка переведена на «ден|утро|вечер»; пара тетрадки «добрый день» огрызалась статьей «Добре» — память у приветствий въ обратномъ порядкѣ не зовется;
    отрицательное приветствіе («утро нынче не доброе») — отказъ «дѣло ваше» до словаря и темъ; хвостатая «ъ/ь» въ статьяхъ счищена (наливъ — «налив», а не «налив — ъ»).
    №44: лексикон въ зачинахъ убранъ (кромѣ редкихъ словъ); согласіе
@@ -321,6 +327,7 @@ function zaharCounts() { return { words: ZAHAR_DICT_EXTRA.length, repl: ZAHAR_ME
 
 /* ---------- фразы (запасные; zahar_phrases.js перекрывает) ---------- */
 var ZAHAR_DEFAULTS = {
+  nightGreetings: ['И вамъ доброй ночи, сударь! Ночная смена на линіи — аппаратъ къ вашимъ услугамъ.', 'Доброй ночи, сударь. Провода ночные цѣлы, аварьи нѣтъ — извольте депешу.', 'Ночь на линіи тихая, сударь. Доброй ночи желаю — и извольте спрашивать.'],
   greetings: ['Вашъ ключъ услышанъ, милостивый государь. Извольте депешу.', 'Здравія желаю, сударь! Аппаратъ на линии.', 'Приветствую, милостивый государь. Телеграфъ работаетъ безъ перебоевъ.'],
   rareIntro: ['Если вѣрить лексикону:', 'Слово редкое, сударь — если вѣрить лексикону:', 'Сіе слово изъ лексикона — запишу въ тетрадку. Итакъ:'],
   intro: ['Всякому извѣстно, сударь:', 'Насколько мнѣ извѣстно, извольте:', 'Хмъ, слово знакомое — въ тетрадку записалъ давно:', 'Такъ это же въ нашихъ краяхъ частое слово. Слушайте:'],
@@ -446,6 +453,17 @@ function zaharCleanDef(word, def) {
   return def;
 }
 
+/* №59.9м: дореформенный «ъ» на конце словъ на твердый согласный */
+function zaharHardSign(w) {
+  w = String(w || '').replace(/\s+/g, ' ').trim();
+  if (!w) return w;
+  var parts = w.split(' ');
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i];
+    if (p && /[бвгджзклмнпрстфхцчшщ]/.test(p.charAt(p.length - 1))) parts[i] = p + 'ъ';
+  }
+  return parts.join(' ');
+}
 
 /* ---------- поиск по словарю ---------- */
 function zaharFindEntry(query) {
@@ -460,6 +478,8 @@ function zaharFindEntry(query) {
     var kw = zaharNorm(e.w || '');
     if (!kw) continue;
     var kwHead = zaharNorm(String(e.w || '').replace(/\s*\(.*$/, '').replace(/[.,;!?»]+$/, '')) || kw; /* v2.16: заголовок статьи безъ примечаній въ скобкахъ */
+    /* №59.9м: «добрякъ» не огрызается статьей «Добре» — сырое слово обязано стоять въ депешѣ */
+    if (/(добр|хорош)/.test(kwHead) && !q.split(' ').some(function (t) { return t === kwHead; })) continue;
     var kt = kwHead.split(' ').filter(function (t) { return t && t.length >= 3 && !ZAHAR_STOP[t]; }).map(zaharStem);
     var score = 0;
     if (kt.length) {
@@ -557,9 +577,9 @@ function zaharFollowUp() {
   if (!lw) return pick('notFound');
   var other = ZAHAR_SESSION.lastField === 'b' ? 'd' : 'b';
   var def = zaharEntryDef(lw, other);
-  if (!def) return pick('followup') + '\n\nКазенныя записки о словѣ «' + lw.w + '» всѣ ужѣ показаны, сударь. Спросите о другомъ словѣ.';
+  if (!def) return pick('followup') + '\n\nКазенныя записки о словѣ «' + zaharHardSign(lw.w) + '» всѣ ужѣ показаны, сударь. Спросите о другомъ словѣ.';
   ZAHAR_SESSION.lastField = other;
-   return lw.w + ' — ' + zaharCleanDef(lw.w, def) + '\n\n' + pick('outro');
+   return zaharHardSign(lw.w) + ' — ' + zaharCleanDef(lw.w, def) + '\n\n' + pick('outro');
 }
 
 function zaharFindCompareEntries(text) {
@@ -696,6 +716,8 @@ async function ZAHAR_ASK(raw) {
   if (!_neg59e && /(до свидан|прощай|всего добр|до встречи)/.test(low)) return pick('farewell'); /* №59.9е */
   if (/(привет|здравств|добрый день|добрый вечер|доброе утро|доброй ночи|добры ден|(добрый|доброе|доброй|добры|добра|добрейш[а-яё]*)\s+(утр[а-я]*|ден|вечер|ноч[а-яё]*)|(^|[^а-я])(ден|утр[а-я]*|вечер|ноч[а-яё]*)\s+добр[а-я]*)/.test(low)) { /* №59.9ж: отрицаніе у приветствія — отказъ, словарь не отыгрывается */
     if (_neg59e) return pick('refusal');
+    /* №59.9м: ночь не отвечаетъ днемъ */
+    if (/ноч/.test(low)) return pick('nightGreetings');
     if (/(^|[^а-я])(ден|утр[а-я]*|вечер|ноч[а-яё]*)\s+добр[а-я]*/.test(low)) return pick('greetings'); /* №59.9и: обратный порядокъ — память не зовется, она огрызалась статьей */
     /* №59.9е: память прежде пулов */
     var grep59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(low) : null;
@@ -710,7 +732,7 @@ async function ZAHAR_ASK(raw) {
   if (/(различ|отлич|разниц|сравни|сравнен)/.test(low)) {
     var two = zaharFindCompareEntries(text);
     if (two) {
-            return pick('compare') + '\n\n' + two[0].w + ' — ' + zaharCleanDef(two[0].w, two[0].b || '—') + '\n\n' + two[1].w + ' — ' + zaharCleanDef(two[1].w, two[1].b || '—');
+            return pick('compare') + '\n\n' + zaharHardSign(two[0].w) + ' — ' + zaharCleanDef(two[0].w, two[0].b || '—') + '\n\n' + zaharHardSign(two[1].w) + ' — ' + zaharCleanDef(two[1].w, two[1].b || '—');
 
     }
   }
@@ -720,10 +742,11 @@ async function ZAHAR_ASK(raw) {
   if (e) {
     var def = zaharEntryDef(e, 'b');
     if (def) {
-      var was45 = (ZAHAR_SESSION.lastWord && ZAHAR_SESSION.lastWord.w === e.w) ? ('Про словечко «' + e.w + '», значитъ. Слушайте:') : null;
+      try { if (typeof window.__zaharNoteTopic === 'function') window.__zaharNoteTopic(e.w, [def, zaharEntryDef(e, 'd')].filter(Boolean), 0, true); } catch (eT59m) {} /* №59.9м: статья — тема тетради */
+      var was45 = (ZAHAR_SESSION.lastWord && ZAHAR_SESSION.lastWord.w === e.w) ? ('Про словечко «' + zaharHardSign(e.w) + '», значитъ. Слушайте:') : null;
       ZAHAR_SESSION.lastWord = e; ZAHAR_SESSION.lastField = 'b';
       try { window.__zaharFreshTick59e = (window.__zaharTurn59e || 0); } catch (eF59e) {} /* №59.9е: статья свежая — счётчик уступает */
-            var out = (was45 || pick((e.w||'').length >= 9 ? 'rareIntro' : 'intro')) + '\n\n' + e.w + ' — ' + zaharCleanDef(e.w, def);
+            var out = (was45 || pick((e.w||'').length >= 9 ? 'rareIntro' : 'intro')) + '\n\n' + zaharHardSign(e.w) + ' — ' + zaharCleanDef(e.w, def);
       if (zaharEntryDef(e, 'd')) out += '\n\nМогу подробнее разсказать — желаете?';
       else out += '\n\n' + pick('outro');
       return out;
@@ -736,7 +759,7 @@ async function ZAHAR_ASK(raw) {
     var wiki = await zaharWikiFetch(wt);
     if (wiki) {
       ZAHAR_SESSION.lastWord = null;
-            return pick('wiki') + '\n\n' + wt + ' — ' + zaharCleanDef(wt, wiki);
+            return pick('wiki') + '\n\n' + zaharHardSign(wt) + ' — ' + zaharCleanDef(wt, wiki);
     }
   }
 
@@ -755,7 +778,7 @@ async function ZAHAR_ASK(raw) {
 
   /* отказъ */
   var nf = pick('notFound');
-  if (ZAHAR_SESSION.lastWord) nf += '\n\nВпрочемъ, сударь, мы какъ разъ толковали о словѣ «' + ZAHAR_SESSION.lastWord.w + '». Извольте спросить о немъ еще — или задайте другую депешу.';
+  if (ZAHAR_SESSION.lastWord) nf += '\n\nВпрочемъ, сударь, мы какъ разъ толковали о словѣ «' + zaharHardSign(ZAHAR_SESSION.lastWord.w) + '». Извольте спросить о немъ еще — или задайте другую депешу.';
   return nf;
 }
 
