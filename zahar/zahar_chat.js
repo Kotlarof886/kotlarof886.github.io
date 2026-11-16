@@ -1,4 +1,9 @@
 /* ===
+   №59.9л (16.11.2026): «Вечеръ въ хату» — прибаутка и отголосокъ про Даніила (флагъ на слѣдующій ходъ);
+        «доброй ночи/ночи доброй» — «ноч[а-яё]*» въ охранахъ чата; нельма — прямое чтеніе словаря;
+        «Про тему „X“»; имя изъ тетрадки смиряется (cap). Кастомъ не трогался — новыя пары вшиты въ zahar_custom.js v2.7.
+   === */
+/* ===
    №59.9к (16.11.2026): нормализация съѣдаетъ «ь» — охраны обратнаго порядка перевѣдены на «ден|утро|вечер» (мозгъ v2.27); VERSION обновлена.
    === */
 /* ===
@@ -237,7 +242,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9к («ден добры» — охрана после нормализации; обратное приветствіе безъ памяти; «ъ» счищенъ)';
+  var VERSION = 'правка №59.9л («доброй ночи» — оба порядка; «Вечеръ въ хату» съ отголоскомъ про Даніила; нельма изъ словаря; «Про тему „X“»; имя смиряется)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -1486,7 +1491,7 @@
           TOPIC_MEM.seen++;
           return fill(TOPIC_MEM.variants[TOPIC_MEM.seen]);
         }
-        return fill('Про ' + TOPIC_MEM.name + ' я вамъ уже все разсказалъ, {N}. О другомъ спросите — или научите новому, запомню.');
+        return fill('Про тему „' + TOPIC_MEM.name + '“ я вамъ уже все разсказалъ, {N}. О другомъ спросите — или научите новому, запомню.');
       }
       /* «что это / это что / про него» — вопросъ о послѣдней тѣмѣ:
          складываемъ вопросъ изъ служебныхъ словъ; остатокъ пустой — значитъ, о ней */
@@ -2036,7 +2041,7 @@ function tryName(raw) {
       if (_nbR && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbR;
     } catch (eR8) {}
     if (window.ZAHAR_USER_NAME)
-      return 'Вы изволили представиться: ' + window.ZAHAR_USER_NAME + '. Память у меня казенная — ничего не теряется.';
+      return 'Вы изволили представиться: ' + cap(window.ZAHAR_USER_NAME) + '. Память у меня казенная — ничего не теряется.';
     return 'Имени вашего я не слыхал, ' + addr() + '. Представьтесь — и буду звать по имени.';
   }
   function nameReply(name) {
@@ -2081,7 +2086,7 @@ function tryName(raw) {
   /* №59.9г: случайное слово изъ словаря — вместо навязчивой нельмы */
   function pickDictWord() {
     try {
-      var _D = window.ZAHAR_DICT_FILE;
+      var _D = (typeof ZAHAR_DICT_FILE !== 'undefined' && ZAHAR_DICT_FILE && ZAHAR_DICT_FILE.length) ? ZAHAR_DICT_FILE : (window.ZAHAR_DICT_FILE || null); /* №59.9л: словарь объявлен константой — на window не вешается */
       if (!_D || !_D.length) return null;
       var _last = counterText._word || null;
       var _cands = [];
@@ -2188,7 +2193,7 @@ function tryName(raw) {
       if (yes('отведал|пивал|попил|уже')) { done(); return fill('То-то же, {A}! Без чаю и депеша не пишется.'); }
       return null;
     }
-    if (t === 'job') { done(); /* №59.9ж: приветствие — не ответ на вопрос о дѣлѣ */ if (!/(привет|здравств|(добр[а-яё]*\s+(утр|ден|вечер)|(утр|ден|вечер)[а-яё]*\s*добр[а-яё]*))/.test(n)) awaitingJob = true; return null; }
+    if (t === 'job') { done(); /* №59.9ж: приветствие — не ответ на вопрос о дѣлѣ */ if (!/(привет|здравств|(добр[а-яё]*\s+(утр|ден|вечер|ноч)|(утр|ден|вечер|ноч)[а-яё]*\s*добр[а-яё]*))/.test(n)) awaitingJob = true; return null; }
     return null;
   }
 
@@ -2569,7 +2574,7 @@ function tryName(raw) {
     { re: /(ветер|ветр|флюгер)/, run: answerWind },
     { re: /(осадк|дожд|ливн|морос|снегопад|гроз)/, run: answerPrecip },
     { re: /(который час|сколк[а-я]* времени|сколк[а-я]* время|сколк[а-я]* часов|сколк[а-я]* на часах|сколк[а-я]* сейчас|какое время(?! года))/, run: answerTime },
-    { re: /^(приве[а-я]*|преве[а-я]*|прив|здравству[а-я]*|салют|хай|здорово|здоро|мои почтени[а-я]*|почтен[а-я]*|добры[йе]\s+(день|утро|вечер))$/,
+    { re: /^(приве[а-я]*|преве[а-я]*|прив|здравству[а-я]*|салют|хай|здорово|здоро|мои почтени[а-я]*|почтен[а-я]*|(добры[йе]|доброй)\s+(день|утро|вечер|ноч[а-яё]*))$/,
       run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
     { re: /здрави[яе]/, run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; return fill(pick(GREETS)) + ' ' + counterText(); } },
     { re: /(до\s*(?:свидан|новых\s+встреч)|прощай|всего доброго|до встречи|бывай|покид|(^|[^а-я])пока(?:[^а-я]|$))/,
@@ -2790,7 +2795,7 @@ function tryName(raw) {
   function mentionReply(q, n) {
     /* 59.9д: охрана приветствий — «доброе утречко» не должно цеплять статьи лексикона (Добре) */
     if (/(не|ни)\s+(было|хочу|желаю|буду|добр|хорош|рад)/.test(n)) return null; /* 59.9и: «не доброе утро» — тема молчитъ, мозгъ дастъ отказъ */
-    if (/(добр[а-яё]*\s+(утр[а-яё]*|утречк|ден[а-яё]*|день|дня|вечер[а-яё]*)|(утр[а-яё]*|утречк|ден[а-яё]*|день|дня|вечер[а-яё]*)\s+добр[а-яё]*)/.test(n)) return null;
+    if (/(добр[а-яё]*\s+(утр[а-яё]*|утречк|ден[а-яё]*|день|дня|вечер[а-яё]*|ноч[а-яё]*)|(утр[а-яё]*|утречк|ден[а-яё]*|день|дня|вечер[а-яё]*|ноч[а-яё]*)\s+добр[а-яё]*)/.test(n)) return null;
     var toks = n.split(' ');
     if (toks.length <= 1) return null;             /* одиночное слово — пусть мозг отвечает справкой */
     if (MENTION_NOTQ.test(n)) return null;          /* прямой вопрос — путь в мозг */
@@ -3028,7 +3033,7 @@ function chat(raw) {
       try {
         var _memG = window.zaharMemory();
         if (_memG && _memG.notebook) {
-          if (!window.ZAHAR_USER_NAME && _memG.notebook.name) window.ZAHAR_USER_NAME = _memG.notebook.name;
+          if (!window.ZAHAR_USER_NAME && _memG.notebook.name) window.ZAHAR_USER_NAME = cap(_memG.notebook.name); /* №59.9л: «МАКСИМ» смиряется */
           if (window.ZAHAR_USER_GENDER !== 'f' && window.ZAHAR_USER_GENDER !== 'm') {
             var _gnG = _memG.notebook.name ? NAME_LIST_SET[norm(_memG.notebook.name)] : null;
             if (_gnG === 'f') window.ZAHAR_USER_GENDER = 'f';
@@ -3051,6 +3056,15 @@ function chat(raw) {
     if (_mz9) {
       window.__zaharNoteTopic = 'линія';
       return 'Сдается мнѣ, электромагниты отъ остаточнаго току залипаютъ - попробуйте секретный номеръ для очистки линіи передать, непремѣнно должно подѣйствовать: 4 8 15 16 23 42';
+    }
+    /* №59.9л: «Вечеръ въ хату» — прибаутка и отголосокъ про Даніила */
+    if (/^вечер\s+в\s+хату[.!]*$/.test(n)) {
+      try { window.__zaharHatFlag = true; } catch (eH59l) {}
+      return femizeOut(fill('Вечеръ въ хату, часикъ въ радость, чай въ сладость, ногамъ ходу, голове приходу, матушку удачу, сто тузовъ по сдаче!'));
+    }
+    if (window.__zaharHatFlag && /(откуда ты|кто тебя научил|как ты знаешь|откуда знаешь)/.test(n)) {
+      try { window.__zaharHatFlag = false; } catch (eH59l) {}
+      return femizeOut(fill('Это Даніилъ нашепталъ, сударь — работникъ со станціи. Какъ эдакую прибаутку при насъ складывали, такъ я въ уши и вмоталъ: на усъ мотаю, а въ лексиконъ не записываю!'));
     }
     /* №59.6: кастомъ-первымъ — раньше яруса «что это», благодарности и HANDLERS */
     var _cfq = '';
@@ -3243,7 +3257,7 @@ function chat(raw) {
     }
 
     /* №59.9ж: приветствия сквозь встречный вопросъ о дѣлѣ */
-    if (awaitingJob && /(привет|здравств|(добр[а-яё]*\s+(утр|ден|вечер)|(утр|ден|вечер)[а-яё]*\s*добр[а-яё]*))/.test(n)) awaitingJob = false;
+    if (awaitingJob && /(привет|здравств|(добр[а-яё]*\s+(утр|ден|вечер|ноч)|(утр|ден|вечер|ноч)[а-яё]*\s*добр[а-яё]*))/.test(n)) awaitingJob = false;
     if (awaitingJob && n.split(' ').length >= 2 && !REF_RE.test(n)) {
       awaitingJob = false;
       lastCounter = true;
