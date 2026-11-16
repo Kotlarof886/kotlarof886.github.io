@@ -1,4 +1,7 @@
 /* ===
+   №59.9к (16.11.2026): нормализация съѣдаетъ «ь» — охраны обратнаго порядка перевѣдены на «ден|утро|вечер» (мозгъ v2.27); VERSION обновлена.
+   === */
+/* ===
    №59.9и (16.11.2026): «не доброе утро» и подругие отрицательныя приветствія — тема-реакція молчитъ, дорога въ мозгъ (отказъ «дѣло ваше»); VERSION обновлена.
    === */
 /* ===
@@ -234,7 +237,7 @@
 (function () {
   if (window.__zaharChatLoaded) return;
   window.__zaharChatLoaded = true;
-  var VERSION = 'правка №59.9и (обратное приветствіе безъ памяти; «не доброе утро» — отказъ; «ъ» счищенъ)';
+  var VERSION = 'правка №59.9к («ден добры» — охрана после нормализации; обратное приветствіе безъ памяти; «ъ» счищенъ)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
