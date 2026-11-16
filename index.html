@@ -8106,6 +8106,31 @@ window.addEventListener('error', function (e) {
 
   var moonPos = { alt: -90, az: 0, phase: 0, sunAlt: -90 };
   var moonScreenX = 0, moonScreenY = 0, moonRadius = 0;
+/* ↓↓↓ ВСТАВИТЬ ЗДЕСЬ ↓↓↓ */
+/* Наклон луны вокруг своей оси по фазам 0…12:
+   330°, 335°, 340°, 345°, 350°, 355°, 0°, 5°, 10°, 15°, 20°, 25°, 30°. */
+/* Наклон луны по фазам 0…12 (вокруг своей оси):
+   300°, 305°, 310°, 315°, 320°, 325°, 0°, 35°, 40°, 45°, 50°, 55°, 60°. */
+var MOON_TILT_DEG = [300, 305, 310, 315, 320, 325, 0, 35, 40, 45, 50, 55, 60];
+
+function moonTiltDeg(phase) {
+  var f = phase * 12;
+  if (f < 0) f = 0;
+  if (f > 12) f = 12;
+  var i0 = Math.floor(f);
+  var i1 = Math.min(12, i0 + 1);
+  var k  = f - i0;
+
+  /* Приводим к знаковому диапазону −180…+180, чтобы 355° и 0°
+     интерполировались как −5° → 0°, а не через полный оборот. */
+  var d0 = ((MOON_TILT_DEG[i0] % 360) + 540) % 360 - 180;
+  var d1 = ((MOON_TILT_DEG[i1] % 360) + 540) % 360 - 180;
+  var diff = d1 - d0;
+  if (diff >  180) diff -= 360;
+  if (diff < -180) diff += 360;
+
+  return d0 + diff * k;   /* −30 … +30, знаковая форма */
+}
 
   /* У каждой буквы луны — своё состояніе перелива, живущее между кадрами. */
   var moonLetterState = {};
@@ -9332,9 +9357,16 @@ var FOG_CODES = [45,48];
     ctx.translate(moonScreenX * dpr, (moonScreenY) * dpr);
     ctx.scale(dpr, dpr);
 
-        var tiltRatio = (W/2 - moonScreenX) / (W/2);
-    var tilt = -tiltRatio * (Math.PI / 6);
-    ctx.rotate(tilt);
+                // 1. Старый наклон (от положения луны на экране) — оставляем как был
+    var tiltRatio = (W/2 - moonScreenX) / (W/2);
+    var oldTiltDeg = -tiltRatio * 30;
+
+    // 2. Ваш новый наклон (по таблице фаз) — с МИНУСОМ,
+    //    потому что Canvas крутит по часовой, а таблица задана против
+    var newTiltDeg = -moonTiltDeg(phase);
+
+    // 3. Складываем и применяем
+    ctx.rotate((oldTiltDeg + newTiltDeg) * Math.PI / 180);
 
     var ceMoon = cloudEffect(moonScreenX, moonScreenY);
 
