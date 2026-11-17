@@ -521,6 +521,8 @@ function zaharWordHit(hay, needle) {
 function zaharFindReplica(query) {
   var q = zaharNorm(query);
   if (!q) return null;
+  /* №59.9ц: дѣловыя депеши память репликъ не глотаетъ */
+  if (/(трактир|шулюм|рыбалк|удочк|охот|промысл|погод|градус|клю|клев|ловит|звер)/.test(q)) return null;
   var ns = zaharNegSet(q), qt = zaharTok(q), rawq = q.split(' ');
   var qn = rawq.filter(function (w) { return !ZAHAR_STOP[w]; }).join(' ');
   var best = null, bestScore = 0;
@@ -727,7 +729,7 @@ async function ZAHAR_ASK(raw) {
     if (/(^|[^а-я])(ден|утр[а-я]*|вечер|ноч[а-яё]*)\s+добр[а-я]*/.test(low)) return pick('greetings'); /* №59.9и: обратный порядокъ — память не зовется, она огрызалась статьей */
     /* №59.9е: память прежде пулов */
     var grep59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(low) : null;
-    if (grep59e) return zaharReplicaAnswer(grep59e);
+    if (grep59e) return zaharFemizeOut(zaharReplicaAnswer(grep59e));
     return pick('greetings');
   }
   if (!_neg59e && /(кто ты|ты кто|как тебя зовут|как звать|представься|представьтесь|какое.{0,8}имя|как вас зовут|ваше имя|твое имя)/.test(low)) return pick('identity'); /* №59.9е */
@@ -773,7 +775,7 @@ async function ZAHAR_ASK(raw) {
      когда словарь, личность и справки промолчали */
   var rep = zaharFindReplica(low);
   if (rep) {
-    var repA20 = zaharReplicaAnswer(rep);
+    var repA20 = zaharFemizeOut(zaharReplicaAnswer(rep));
     /* v2.20: реплика памяти — въ ярусъ разговора, «еще» докажетъ */
     try { if (window.__zaharNoteTopic) window.__zaharNoteTopic(rep.q[0] || 'память', rep.a, -1, true); } catch (eR20) {}
     return repA20;
