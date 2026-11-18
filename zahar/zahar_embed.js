@@ -25,11 +25,11 @@
 (function () {
 'use strict';
 
-const VERSION = 'правка №59.9и (имя чистится; ранжировщикъ; какъ не имя)';
+const VERSION = 'правка №59.9я (модель грузится сразу; будильникъ изъятъ)';
 const TAG = '[zahar_embed]';
 
 const CFG = {
-  wakeDelay: 20000,          // будильник: модель просыпается сама
+  wakeDelay: 0,              // №59.9я: модель грузится сразу, безъ будильника
   threshold: 0.72,           // порог уверенности
   margin: 0.015,             // зазор до второго интента
   libraryUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1',
@@ -442,11 +442,9 @@ const hookTimer = setInterval(function () {
   if (tryHook() || ++hookTries > 40) clearInterval(hookTimer);
 }, 500);
 
-/* ---------- будильник (правка №21) ---------- */
-setTimeout(function () {
-  console.log(TAG, 'будильникъ ' + VERSION + ': время просыпаться');
-  wake();
-}, CFG.wakeDelay);
+/* ---------- будильник (правка №21 / №59.9я): изъятъ — грузимся сразу ---------- */
+console.log(TAG, 'будильникъ ' + VERSION + ': грузимся сразу');
+wake();
 
 console.log(TAG, VERSION + ' загружена: память готова — лента ' + mem.tape.length +
   ', в тетрадке: ' + (mem.notebook.name || 'имя ещё не записано'));
