@@ -697,7 +697,10 @@ async function ZAHAR_ASK(raw) {
 
   /* продолженіе */
   if (/^(а\s+)?(да|давай|давайте|ну давай|расскажи|разкажи|подробнее|а подробнее|продолжай|продолжите|хорошо|ладно|ок|окей|валяй|желаю|он|она|оно|они|еще|ещё|больше|еще раз|ещё раз)\s*\??$/.test(low) && ZAHAR_SESSION.lastWord) {
-    return zaharFollowUp();
+    /* №59.9и: согласіе дозвучиваетъ лишь тему свежее двухъ ходовъ */
+    var _fr59b = (typeof window.__zaharTurn59e === 'undefined' || typeof window.__zaharFreshTick59e === 'undefined') ? 0 : (window.__zaharTurn59e - window.__zaharFreshTick59e);
+    if (_fr59b > 2) { ZAHAR_SESSION.lastWord = null; }
+    else return zaharFollowUp();
   }
 
   /* на грубость — грубостью (юный возрастъ) */
