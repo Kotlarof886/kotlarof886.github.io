@@ -1834,14 +1834,15 @@ body.curtain-on .tab .tab-label { visibility: hidden; }
    Предыдущее (№307): доработка морфологіи — запросъ даётъ списокъ вариантовъ основы (stemCands), а не одинъ «жадный» стемм. Причина: «сулеѣ» → «сулее», отъ которого стеммеръ откусывалъ «ее» целикомъ и оставлялъ «сул» вместо «суле» — ять тутъ ни при чѣмъ, онъ конвертируется какъ прежде. Теперь «сулеѣ» находитъ «Сулея». Тотъ же списокъ вариантовъ работаетъ въ толкованіяхъ и подсвѣткѣ. -->
 <!-- Сшивъ №306: исправленъ стыкъ вживленія стеммера — лишній const разрывалъ объявленіе const DICT, изъ-за чего весь скриптъ не выполнялся (ошибка «switchTab is not defined»). Прежнее (№305): морфологическій поискъ — стеммеръ отсѣкаетъ окончаніе, ярусъ «Найдено по формѣ слова» находитъ статьи по любой формѣ слова (склоненіе, число, время). Стем-индексъ wst/dst строится при загрузкѣ словаря. Точныя совпаденія — по-прежнему сверху. -->
 <!-- Сшивъ №304: изъ выдачи убрана автоподсказка «Изъ словаря устарѣвшихъ словъ» (Азбука). Панель «Изысканіе въ эфирѣ» не тронута. Прежнее: словарь пополненъ книжной карточкой «Выдержанный резервъ» (cover: images/rezerv-cover.jpg, pdf: books/rezerv.pdf) -->
-<script src="zahar/zahar_memory.js?v=19"></script>
-<script src="zahar/zahar_dict.js?v=19"></script> 
-<script src="words.js?v=19"></script>
-<script src="zahar/zahar_phrases.js?v=19"></script>
-<script src="zahar/zahar_brain.js?v=19"></script>
-<script src="zahar/zahar_chat.js?v=19"></script>
-<script src="zahar/zahar_custom.js?v=19"></script>
-<script src="zahar/zahar_embed.js?v=19"></script>
+<script src="zahar/zahar_memory.js?v=20"></script>
+<script src="zahar/zahar_dict.js?v=20"></script>
+<script src="words.js?v=20"></script>
+<script src="zahar/zahar_phrases.js?v=20"></script>
+<script src="zahar/zahar_brain.js?v=20"></script>
+<script src="zahar/zahar_sky.js?v=20"></script>
+<script src="zahar/zahar_chat.js?v=20"></script>
+<script src="zahar/zahar_custom.js?v=20"></script>
+<script src="zahar/zahar_embed.js?v=20"></script>
 <script src="zahar/zahar_ether.js?v=19"></script>
 <script>
 // ---------- Данные: подключается words.js ----------
