@@ -285,7 +285,7 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.11 (№60.0а) — черви: запасаю�
       /* №61: команды — мимо кастома, прямо къ мозгу (стражи чата уже отработали) */
       try {
         var _cqw = String(q || '').toLowerCase().replace(/ё/g, 'е');
-        if (/^(забудьте|забудь|забыть)(\s|$|:)/.test(_cqw) || /^научи\s/.test(_cqw) || /^(кто ты|ты кто)(\s|\?|$)/.test(_cqw) || /^что такое\s/.test(_cqw) || /^сколько мне\s/.test(_cqw)) return _ask.apply(this, arguments);
+        if (/^(забудьте|забудь|забыть)(\s|$|:)/.test(_cqw) || /^научи(ть)?(\s|:|$)/.test(_cqw) || /^(кто ты|ты кто)(\s|\?|$)/.test(_cqw) || /^что такое\s/.test(_cqw) || /^сколько мне\s/.test(_cqw)) return _ask.apply(this, arguments);
       } catch (eB61) {}
       var a = findPair(q);
       if (a) return a;
