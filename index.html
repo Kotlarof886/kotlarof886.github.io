@@ -3487,9 +3487,9 @@ function wxLoadCache() {
   /* Замокъ переживаетъ перезагрузку страницы: послѣ первой удачной гонки
      полнаго перебора больше нѣтъ — дёргаемъ только залипшее зеркало.
      Существованіе маршрута провѣряетъ wxFetch: убрали изъ списка — замокъ снимется. */
-  try {
-    var lock = localStorage.getItem('barnaul-wx-lock');
-    if (lock) wxLockName = lock;
+    try {
+    if (wxFrozenMirror) localStorage.setItem('barnaul-precip-lock', wxFrozenMirror);
+    else localStorage.removeItem('barnaul-precip-lock');
   } catch (e) {}
 }
 function wxSaveCache() {
@@ -8115,11 +8115,27 @@ window.addEventListener('error', function (e) {
   var lightOn = document.body.classList.contains('light');
   var lastDecision = null;
 
-    var wCode = null, wFall = null, wRain = null, wPrecip = null;
+        var wCode = null, wFall = null, wRain = null, wPrecip = null;
   var wWind = null, wWDir = null, wVis = null, wCloud = null;
     var TTL = 4 * 60 * 1000, busy = false;
 
     var PRECIP_URL = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=weather_code,snowfall,rain,precipitation,wind_speed_10m,wind_direction_10m,visibility,cloud_cover&wind_speed_unit=ms';
+
+/* Залипающее зеркало для осадковъ: имя побѣдителя + списокъ мёртвыхъ (401/403/404).
+   Система независима отъ wxFetch (привѣтствіе) — у нея свой наборъ зёренъ и свой замокъ. */
+var wxFrozenMirror = null;
+var wxDeadMirrors = {};
+try {
+  var _dm = JSON.parse(localStorage.getItem('barnaul-precip-dead') || '{}');
+  if (_dm && typeof _dm === 'object') wxDeadMirrors = _dm;
+} catch (e) {}
+
+function wxMarkDeadMirror(name) {
+  if (!name) return;
+  wxDeadMirrors[name] = true;
+  try { localStorage.setItem('barnaul-precip-dead', JSON.stringify(wxDeadMirrors)); } catch (e) {}
+  console.log('[погода-осадки] зеркало «' + name + '» помѣчено мёртвымъ — больше не трогаемъ');
+}
 
   var MOON_D_BASE = 65;
 
@@ -8487,7 +8503,7 @@ function updateMoonPos() {
     return null;
   }
 
-  function loadCache() {
+    function loadCache() {
     try {
       var raw = localStorage.getItem('barnaul-precip-v2');
       if (!raw) return;
@@ -8503,14 +8519,22 @@ function updateMoonPos() {
         wCloud = (typeof o.cloud === 'number') ? o.cloud : null;
       }
     } catch (e) {}
+    try {
+      var lock = localStorage.getItem('barnaul-precip-lock');
+      if (lock) wxFrozenMirror = lock;
+    } catch (e) {}
   }
 
-  function saveCache() {
+    function saveCache() {
     try {
             localStorage.setItem('barnaul-precip-v2', JSON.stringify({
         code: wCode, fall: wFall, rain: wRain, precip: wPrecip,
         wind: wWind, wdir: wWDir, vis: wVis, cloud: wCloud, ts: Date.now()
       }));
+    } catch (e) {}
+    try {
+      if (wxFrozenMirror) localStorage.setItem('barnaul-precip-lock', wxFrozenMirror);
+      else localStorage.removeItem('barnaul-precip-lock');
     } catch (e) {}
   }
 
@@ -8544,8 +8568,15 @@ function updateMoonPos() {
         if (ctrl) { try { ctrl.abort(); } catch (e) {} }
         resolve({ val: null, name: name });
       }, timeoutMs);
-      fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
-        .then(function (r) { clearTimeout(to); return r.ok ? r.text() : null; })
+            fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+        .then(function (r) {
+          clearTimeout(to);
+          if (r.status === 401 || r.status === 403 || r.status === 404) {
+            wxMarkDeadMirror(name);   /* ← помѣчаемъ навсегда */
+            return null;
+          }
+          return r.ok ? r.text() : null;
+        })
         .then(function (t) {
           var parsed = parseOM(t);
           if (parsed) { clearTimeout(to); resolve({ val: parsed, name: name }); }
@@ -8587,7 +8618,19 @@ function updateMoonPos() {
       for (var w = 0; w < codes.length; w++) {
         if (isWetCode(codes[w])) { wetCode = codes[w]; break; }
       }
-      var finalCode = (wetCode !== null) ? wetCode : (codes[0] !== undefined ? codes[0] : null);
+            /* Запоминаемъ имя зеркала, чьи данныя легли въ основу:
+         «мокрое» — приоритетъ; иначе — первое непустое. */
+      var _winner = null;
+      var _wantCode = (wetCode !== null) ? wetCode : (codes[0] !== undefined ? codes[0] : null);
+      if (_wantCode !== null) {
+        for (var _wi2 = 0; _wi2 < responses.length; _wi2++) {
+          if (responses[_wi2].val && responses[_wi2].val.code === _wantCode) {
+            _winner = responses[_wi2].name;
+            break;
+          }
+        }
+      }
+      if (_winner) wxFrozenMirror = _winner;   /* ← замокъ: побѣдитель запомненъ */
 
       /* 2) Для прочих полей — первый ответ, но суммы берём по максимуму. */
       var base = responses[0].val;
@@ -8599,7 +8642,7 @@ function updateMoonPos() {
         if (typeof v.precipitation === 'number' && v.precipitation > precipMax) precipMax = v.precipitation;
       }
 
-            wCode = finalCode;
+                        wCode = _wantCode;
       wFall = (fallMax > 0) ? fallMax : base.fall;
       wRain = (rainMax > 0) ? rainMax : base.rain;
       wPrecip = (precipMax > 0) ? precipMax : (base.precipitation || null);
@@ -8646,18 +8689,66 @@ function updateMoonPos() {
   }
 }
 
-    var tries = [
-      tryMirror(OM, 6000, 'Open-Meteo (прямой)'),
-      tryMirror('https://corsproxy.io/?url=' + enc, 8000, 'Open-Meteo (corsproxy)'),
-      tryMirror('https://api.allorigins.win/raw?url=' + enc, 8000, 'Open-Meteo (allorigins)'),
-      tryMirror('https://api.codetabs.com/v1/proxy?quest=' + enc, 8000, 'Open-Meteo (codetabs)')
-    ];
-    tries.forEach(function (p) { p.then(handleResponse); });
-    Promise.all(tries).then(function () {
-      finalize();                       /* если все отвалились — просто применяем то, что есть */
+        function scheduleNext() {
       busy = false;
       setTimeout(fetchWeather, TTL);
-    });
+    }
+
+    /* ЗАМОКЪ СТОИТЪ — дёргаемъ ТОЛЬКО залипшее зеркало, безъ гонки и безъ 401-хъ. */
+    if (wxFrozenMirror && !wxDeadMirrors[wxFrozenMirror]) {
+      var locked = null;
+      if (wxFrozenMirror === 'Open-Meteo (прямой)')         locked = { url: OM, name: wxFrozenMirror, T: 6000 };
+      else if (wxFrozenMirror === 'Open-Meteo (corsproxy)')  locked = { url: 'https://corsproxy.io/?url=' + enc, name: wxFrozenMirror, T: 8000 };
+      else if (wxFrozenMirror === 'Open-Meteo (allorigins)') locked = { url: 'https://api.allorigins.win/raw?url=' + enc, name: wxFrozenMirror, T: 8000 };
+      else if (wxFrozenMirror === 'Open-Meteo (codetabs)')   locked = { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, name: wxFrozenMirror, T: 8000 };
+
+      if (locked) {
+        tryMirror(locked.url, locked.T, locked.name).then(function (res) {
+          if (res && res.val !== null) {
+            handleResponse(res);
+            finalize();
+            scheduleNext();
+            return;
+          }
+          console.log('[погода-осадки] залипшее зеркало «' + wxFrozenMirror + '» отвалилось — переборъ заново');
+          wxFrozenMirror = null;
+          try { localStorage.removeItem('barnaul-precip-lock'); } catch (e) {}
+          runRace();
+        });
+        return;   /* ⚠️ важно: выходимъ, чтобы не запустить гонку ниже */
+      }
+      /* имя есть, но такого маршрута въ спискѣ уже нѣтъ — забываемъ */
+      wxFrozenMirror = null;
+      try { localStorage.removeItem('barnaul-precip-lock'); } catch (e) {}
+    }
+
+    /* Гонка: какъ было, но мёртвыя зеркала выкидываемъ изъ старта. */
+    function runRace() {
+      var all = [
+        { url: OM, t: 6000, name: 'Open-Meteo (прямой)' },
+        { url: 'https://corsproxy.io/?url=' + enc, t: 8000, name: 'Open-Meteo (corsproxy)' },
+        { url: 'https://api.allorigins.win/raw?url=' + enc, t: 8000, name: 'Open-Meteo (allorigins)' },
+        { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, t: 8000, name: 'Open-Meteo (codetabs)' }
+      ];
+      var tries = [];
+      for (var mi = 0; mi < all.length; mi++) {
+        if (wxDeadMirrors[all[mi].name]) continue;   /* ← мёртвыхъ не запускаемъ */
+        tries.push(tryMirror(all[mi].url, all[mi].t, all[mi].name));
+      }
+      if (!tries.length) {
+        /* всѣ зеркала помѣчены мёртвыми — сбрасываемъ списокъ, пробуемъ снова */
+        wxDeadMirrors = {};
+        try { localStorage.removeItem('barnaul-precip-dead'); } catch (e) {}
+        return runRace();
+      }
+      tries.forEach(function (p) { p.then(handleResponse); });
+      Promise.all(tries).then(function () {
+        finalize();
+        scheduleNext();
+      });
+    }
+
+    runRace();
   }
 
   function sunAltitude(lat, lon, date) {
@@ -8947,7 +9038,6 @@ var FOG_CODES = [45,48];
 
   var SNOW_SIZE_POOL = [12, 14, 15, 16, 20, 26];
 
-  var SNOW_SIZE_POOL = [12, 14, 15, 16, 20, 26];
   var RAIN_SIZE_POOL = [11, 14, 15, 16, 19];
 
   function snowSizesForWidth() { return (window.innerWidth < 600) ? [12, 14, 16] : [14, 20, 26]; }
