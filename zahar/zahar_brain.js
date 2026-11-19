@@ -1,4 +1,9 @@
 /* ============================================================
+   №65 (20.11.2026): «что такое X» — ежели X въ тетрадкѣ (словарь-экстра
+        или память репликъ), эфиръ (вики) не зовется: тетрадка старше.
+        Прошлый анахронизмъ («Борисъ Пильнякъ — совѣтскій писатель») сънятъ.
+   ============================================================ */
+/* ============================================================
    №62 (19.11.2026): приветствия разведены (greetDay/greetMorning/greetEvening/privet);
         прощание узнаётъ «до завтра».
    ============================================================ */
@@ -793,9 +798,25 @@ async function ZAHAR_ASK(raw) {
     }
   }
 
-  /* Википедія */
+  /* Википедія — №65: выученное старше эфира: ежели слово въ тетрадкѣ, вики не зовемъ */
   var wt = zaharWikiTerm(text);
+  var _taught65 = false;
   if (wt) {
+    try {
+      var _wk65 = zaharNorm(wt);
+      var _chk65 = function (k) {
+        k = String(k || '').trim();
+        return !!k && (k === _wk65 || k.indexOf(_wk65) === 0 || _wk65.indexOf(k) === 0);
+      };
+      _taught65 = ZAHAR_DICT_EXTRA.some(function (e) { return _chk65(zaharNorm(e.w)); }) ||
+        ZAHAR_MEMORY.some(function (m) {
+          var ks = String(m.key || '').split('|');
+          if (ks.some(_chk65)) return true;
+          return (m.q || []).some(function (q) { return _chk65(zaharNorm(q)); });
+        });
+    } catch (eT65) { _taught65 = false; }
+  }
+  if (wt && !_taught65) {
     var wiki = await zaharWikiFetch(wt);
     if (wiki) {
       ZAHAR_SESSION.lastWord = null;
