@@ -3465,6 +3465,10 @@ curtainBeginReverse();   /* №212: занавесъ въ обратную ст�
    вчеращній дневной градусъ больше не доедетъ первымъ. Печать ленты погоду НЕ ждётъ:
    если температура ещё не готова — приветствие идётъ безъ нея, а запросъ дозаполняетъ кэшъ фономъ. */
 var wxVal = null, wxTs = 0, wxBusy = false, wxLastTry = 0, wxInjectDone = true;
+/* Залипающее зеркало: имя маршрута, что отвѣтилъ послѣднимъ.
+   Пока стоитъ — гонки нѣтъ, дёргаемъ ТОЛЬКО его.
+   Отвалилось — снимаемъ и снова полный переборъ. */
+var wxLockName = null;
 /* Кэшъ годенъ 10 минутъ: устарѣвшій градусъ лентѣ не показывается вовсе —
    лента едетъ за свежимъ. Печать погоду не ждётъ: температура дописывается
    въ набирающееся приветствіе на лету (wxInject), а если приветствіе уже
@@ -3480,9 +3484,20 @@ function wxLoadCache() {
       }
     }
   } catch (e) {}
+  /* Замокъ переживаетъ перезагрузку страницы: послѣ первой удачной гонки
+     полнаго перебора больше нѣтъ — дёргаемъ только залипшее зеркало.
+     Существованіе маршрута провѣряетъ wxFetch: убрали изъ списка — замокъ снимется. */
+  try {
+    var lock = localStorage.getItem('barnaul-wx-lock');
+    if (lock) wxLockName = lock;
+  } catch (e) {}
 }
 function wxSaveCache() {
   try { localStorage.setItem('barnaul-wx2', JSON.stringify({ t: wxVal, ts: wxTs })); } catch (e) {}
+  try {
+    if (wxLockName) localStorage.setItem('barnaul-wx-lock', wxLockName);
+    else localStorage.removeItem('barnaul-wx-lock');
+  } catch (e) {}
 }
 function wxDone(ok) {
   wxBusy = false;
@@ -3532,47 +3547,84 @@ function wxParseMet(t) {
   } catch (e) {}
   return null;
 }
+/* Фабрика: маршруты собираются свѣжими на каждый вызовъ.
+   URL/парсеры/имена — въ одномъ мѣстѣ; _cb пересчитывается,
+   чтобы кэшъ проксія бился даже для залипшаго зеркала. */
+function wxRoutes() {
+  var OM = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m';
+  var OMcb = OM + '&_cb=' + Date.now();
+  var enc = encodeURIComponent(OMcb);
+  return [
+    /* прямыя пути — безъ посредниковъ */
+    { name: 'open-meteo',    run: function () { return wxTry(OM, wxParseOM, 7000, 'open-meteo'); } },
+    { name: 'MET-Norway',    run: function () { return wxTry('https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', wxParseMet, 7000, 'MET-Norway'); } },
+    /* запасныя — open-meteo черезъ проксіи */
+    { name: 'OM-corsproxy',  run: function () { return wxTry('https://corsproxy.io/?url=' + enc, wxParseOM, 7000, 'OM-corsproxy'); } },
+    { name: 'OM-allorigins', run: function () { return wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'); } },
+    { name: 'OM-codetabs',   run: function () { return wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'); } },
+    /* wttr.in — отложенный стартъ, какъ было (Сшивъ №103) */
+    { name: 'wttr.in',       delay: 3000, run: function () { return wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in'); } }
+  ];
+}
+
 function wxFetch() {
   if (wxBusy) return;
   wxBusy = true;
-  var OM = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m';
-  /* Сшивъ №101: всѣ маршруты стартуютъ разомъ (гонка) — побѣждаетъ первый валидный ответъ,
-     остальныя обрываются. Прямые пути: open-meteo, MET Norway (api.met.no — безъ ключа,
-     открытый CORS, изъ россійскихъ сѣтей отвѣчаетъ охотно) и wttr.in. Запасные — тѣ же
-     open-meteo черезъ проксіи; въ проксируемый адресъ вшита помѣтка _cb, бьющая ихъ кэшъ. */
-  var OMcb = OM + '&_cb=' + Date.now();
-  var enc = encodeURIComponent(OMcb);
-  var settled = false;
+
+  var state = { settled: false };
+  var routes = wxRoutes();
+
   function finish(p) {
     var v = p && p.v;
-    if (settled || v === null || v === undefined) return;
-    settled = true;
+    if (state.settled || v === null || v === undefined) return;
+    state.settled = true;
+    if (p && p.name) wxLockName = p.name;   /* ← ЗАМОК: запоминаемъ побѣдителя */
     wxVal = Math.round(v); wxTs = Date.now();
-    console.log('[погода] маршрутъ ответилъ: ' + ((p && p.name) || '?') + ' \u2192 ' + wxVal + ' C');
+    console.log('[погода] маршрутъ отвѣтилъ: ' + ((p && p.name) || '?') + ' \u2192 ' + wxVal + ' C');
     wxDone(true);
   }
-  var tries = [
-    /* прямые пути — безъ посредниковъ */
-    wxTry(OM, wxParseOM, 7000, 'open-meteo'),
-    wxTry('https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', wxParseMet, 7000, 'MET-Norway'),
-    /* запасные — open-meteo черезъ проксіи */
-    wxTry('https://corsproxy.io/?url=' + enc, wxParseOM, 7000, 'OM-corsproxy'),
-    wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'),
-    wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs')
-  ];
-  /* Сшивъ №103: wttr.in выводится изъ гонки — его источнику (WorldWeatherOnline)
-     въ Барнаулѣ нынче видитъ дневной градусъ вместо фактическаго (+6 при нулѣ за окномъ).
-     Онъ стартуетъ лишь черезъ 3 секунды и только если точные маршруты молчатъ. */
-  tries.push(new Promise(function (res2) {
-    setTimeout(function () {
-      if (settled) return res2({ v: null, name: 'wttr-otmena' });
-      wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in').then(res2);
-    }, 3000);
-  }));
-  tries.forEach(function (p) { p.then(finish); });
-  Promise.all(tries).then(function () {
-    if (!settled) { console.log('[погода] всѣ маршруты молчатъ — повторка черезъ 10 сек.'); wxDone(false); }
-  });
+
+  function race() {
+    var tries = routes.map(function (r) {
+      if (!r.delay) return r.run();
+      return new Promise(function (res) {
+        setTimeout(function () {
+          if (state.settled) return res({ v: null, name: r.name + '-otmena' });
+          r.run().then(res);
+        }, r.delay);
+      });
+    });
+    tries.forEach(function (p) { p.then(finish); });
+    Promise.all(tries).then(function () {
+      if (!state.settled) {
+        console.log('[погода] всѣ маршруты молчатъ — повторка черезъ 10 сек.');
+        wxDone(false);
+      }
+    });
+  }
+
+  /* ЗАМОКЪ СТОИТЪ — гонки нѣтъ, дёргаемъ ТОЛЬКО залипшее зеркало.
+     Провѣрка «есть ли такой маршрутъ» — на случай, если имя убрали изъ списка. */
+  if (wxLockName) {
+    var locked = null;
+    for (var i = 0; i < routes.length; i++) {
+      if (routes[i].name === wxLockName) { locked = routes[i]; break; }
+    }
+    if (locked) {
+      locked.run().then(function (p) {
+        var v = p && p.v;
+        if (v !== null && v !== undefined) return finish(p);   /* живъ — работаемъ дальше */
+                console.log('[погода] залипшее зеркало «' + wxLockName + '» отвалилось — переборъ заново');
+        wxLockName = null;
+        try { localStorage.removeItem('barnaul-wx-lock'); } catch (e) {}
+        race();
+      });
+      return;   /* ⚠️ важно: выходимъ, чтобы не запустить race ниже */
+    }
+    wxLockName = null;   /* маршрута уже нѣтъ въ спискѣ — забываемъ */
+  }
+
+  race();
 }
 function wxInject() {   /* дозапись градуса въ набирающееся приветствіе — ударами, какъ весь текстъ */
   if (wxVal === null || wxInjectDone) return;
