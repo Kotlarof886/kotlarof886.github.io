@@ -8560,8 +8560,55 @@ function updateMoonPos() {
     }
     return null;
   }
+/* MET-Norway (compact) → тот же формат, что parseOM.
+   Поля Open-Meteo берём из MET-структуры:
+   - code       ← symbol_code (text → WMO-приближение)
+   - precipitation ← next_1_hours.precipitation_amount
+   - wind       ← instant.wind_speed
+   - wdir       ← instant.wind_from_direction
+   - cloud      ← instant.cloud_area_fraction
+   - vis        ← fog_area_fraction > 50 → 500 (туман) */
+function parseMetPrecip(t) {
+  try {
+    var o = JSON.parse(t);
+    var ts = o && o.properties && o.properties.timeseries;
+    if (!ts || !ts.length || !ts[0].data) return null;
+    var d = ts[0].data;
+    var inst = d.instant && d.instant.details;
+    if (!inst) return null;
 
-  function tryMirror(url, timeoutMs, name) {
+    var sym = (d.next_1_hours && d.next_1_hours.summary &&
+               d.next_1_hours.summary.symbol_code || '').toLowerCase();
+    var code = null;
+    if (sym.indexOf('thunder')   >= 0) code = 95;
+    else if (sym.indexOf('heavysnow') >= 0) code = 75;
+    else if (sym.indexOf('snow')  >= 0) code = 71;
+    else if (sym.indexOf('sleet') >= 0) code = 66;
+    else if (sym.indexOf('heavyrain') >= 0) code = 65;
+    else if (sym.indexOf('rain')  >= 0) code = 61;
+    else if (sym.indexOf('fog')   >= 0) code = 45;
+    else if (sym.indexOf('cloudy')>= 0) code = 3;
+    else if (sym.indexOf('fair')  >= 0) code = 1;
+    else if (sym.indexOf('clearsky') >= 0) code = 0;
+
+    var pa = d.next_1_hours && d.next_1_hours.details &&
+             d.next_1_hours.details.precipitation_amount;
+    var isSnow = [71,73,75,77,85,86].indexOf(code) >= 0;
+    var isRain = [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].indexOf(code) >= 0;
+
+    return {
+      code: code,
+      fall: isSnow && typeof pa === 'number' ? pa : null,
+      rain: isRain && !isSnow && typeof pa === 'number' ? pa : null,
+      precipitation: typeof pa === 'number' ? pa : null,
+      wind: typeof inst.wind_speed === 'number' ? inst.wind_speed : null,
+      wdir: typeof inst.wind_from_direction === 'number' ? inst.wind_from_direction : null,
+      vis:  (typeof inst.fog_area_fraction === 'number' && inst.fog_area_fraction > 50) ? 500 : null,
+      cloud: typeof inst.cloud_area_fraction === 'number' ? Math.round(inst.cloud_area_fraction) : null
+    };
+  } catch (e) { return null; }
+}
+  function tryMirror(url, timeoutMs, name, parser) {
     return new Promise(function (resolve) {
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var to = setTimeout(function () {
@@ -8578,7 +8625,7 @@ function updateMoonPos() {
           return r.ok ? r.text() : null;
         })
         .then(function (t) {
-          var parsed = parseOM(t);
+                    var parsed = (parser || parseOM)(t);
           if (parsed) { clearTimeout(to); resolve({ val: parsed, name: name }); }
           else resolve({ val: null, name: name });
         })
@@ -8630,7 +8677,18 @@ function updateMoonPos() {
           }
         }
       }
-      if (_winner) wxFrozenMirror = _winner;   /* ← замокъ: побѣдитель запомненъ */
+      /* Предпочитаемъ прямой источникъ прокси: прокси капризны, а MET-Norway
+         и прямой open-meteo отвѣчаютъ стабильно. Если оба пришли — берёмъ не-прокси. */
+      var _isProxy = { 'Open-Meteo (corsproxy)': 1, 'Open-Meteo (allorigins)': 1, 'Open-Meteo (codetabs)': 1 };
+      if (_winner && _isProxy[_winner]) {
+        for (var _wp = 0; _wp < responses.length; _wp++) {
+          if (responses[_wp].val && responses[_wp].val.code === _wantCode && !_isProxy[responses[_wp].name]) {
+            _winner = responses[_wp].name;
+            break;
+          }
+        }
+      }      
+if (_winner) wxFrozenMirror = _winner;   /* ← замокъ: побѣдитель запомненъ */
 
       /* 2) Для прочих полей — первый ответ, но суммы берём по максимуму. */
       var base = responses[0].val;
@@ -8697,13 +8755,14 @@ function updateMoonPos() {
     /* ЗАМОКЪ СТОИТЪ — дёргаемъ ТОЛЬКО залипшее зеркало, безъ гонки и безъ 401-хъ. */
     if (wxFrozenMirror && !wxDeadMirrors[wxFrozenMirror]) {
       var locked = null;
-      if (wxFrozenMirror === 'Open-Meteo (прямой)')         locked = { url: OM, name: wxFrozenMirror, T: 6000 };
+            if (wxFrozenMirror === 'Open-Meteo (прямой)')         locked = { url: OM, name: wxFrozenMirror, T: 6000 };
+      else if (wxFrozenMirror === 'MET-Norway')              locked = { url: 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', name: wxFrozenMirror, T: 7000, parser: parseMetPrecip };
       else if (wxFrozenMirror === 'Open-Meteo (corsproxy)')  locked = { url: 'https://corsproxy.io/?url=' + enc, name: wxFrozenMirror, T: 8000 };
       else if (wxFrozenMirror === 'Open-Meteo (allorigins)') locked = { url: 'https://api.allorigins.win/raw?url=' + enc, name: wxFrozenMirror, T: 8000 };
       else if (wxFrozenMirror === 'Open-Meteo (codetabs)')   locked = { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, name: wxFrozenMirror, T: 8000 };
 
       if (locked) {
-        tryMirror(locked.url, locked.T, locked.name).then(function (res) {
+        tryMirror(locked.url, locked.T, locked.name, locked.parser).then(function (res) {
           if (res && res.val !== null) {
             handleResponse(res);
             finalize();
@@ -8723,17 +8782,18 @@ function updateMoonPos() {
     }
 
     /* Гонка: какъ было, но мёртвыя зеркала выкидываемъ изъ старта. */
-    function runRace() {
-      var all = [
-        { url: OM, t: 6000, name: 'Open-Meteo (прямой)' },
-        { url: 'https://corsproxy.io/?url=' + enc, t: 8000, name: 'Open-Meteo (corsproxy)' },
-        { url: 'https://api.allorigins.win/raw?url=' + enc, t: 8000, name: 'Open-Meteo (allorigins)' },
-        { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, t: 8000, name: 'Open-Meteo (codetabs)' }
-      ];
+   function runRace() {
+  var all = [
+    { url: OM, t: 6000, name: 'Open-Meteo (прямой)' },
+    { url: 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', t: 7000, name: 'MET-Norway', parser: parseMetPrecip },
+    { url: 'https://corsproxy.io/?url=' + enc, t: 8000, name: 'Open-Meteo (corsproxy)' },
+    { url: 'https://api.allorigins.win/raw?url=' + enc, t: 8000, name: 'Open-Meteo (allorigins)' },
+    { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, t: 8000, name: 'Open-Meteo (codetabs)' }
+  ];
       var tries = [];
       for (var mi = 0; mi < all.length; mi++) {
         if (wxDeadMirrors[all[mi].name]) continue;   /* ← мёртвыхъ не запускаемъ */
-        tries.push(tryMirror(all[mi].url, all[mi].t, all[mi].name));
+        tries.push(tryMirror(all[mi].url, all[mi].t, all[mi].name, all[mi].parser));
       }
       if (!tries.length) {
         /* всѣ зеркала помѣчены мёртвыми — сбрасываемъ списокъ, пробуемъ снова */
