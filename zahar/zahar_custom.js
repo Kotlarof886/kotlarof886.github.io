@@ -277,7 +277,8 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.11 (№60.0а) — черви: запасаю�
 
   /* ---------- пары поверх двери мозга ---------- */
   function wrapAsk() {
-    if (typeof window.ZAHAR_ASK !== 'function' || window.ZAHAR_ASK.__zaharCustomWrap) return;
+  if (typeof window.ZAHAR_ASK !== 'function' || window.__zaharCustomWrapDone) return;
+  window.__zaharCustomWrapDone = true;
     var _ask = window.ZAHAR_ASK;
     /* нижняя дверь: слой болтовни + мозг, безъ тетради — для заказа родного пула */
     window.ZAHAR_ASK_INNER = _ask;
@@ -305,9 +306,9 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.11 (№60.0а) — черви: запасаю�
   wordsToStorage();
   var injected = false;
   function tick() {
-    if (!injected && typeof window.ZAHAR_BATCH === 'function') { injectWords(); injected = true; }
-    if (typeof window.ZAHAR_ASK === 'function' && !window.ZAHAR_ASK.__zaharCustomWrap) wrapAsk();
-  }
+  if (!injected && typeof window.ZAHAR_BATCH === 'function') { injectWords(); injected = true; }
+  if (typeof window.ZAHAR_ASK === 'function' && !window.__zaharCustomWrapDone) wrapAsk();
+}
   var capDone = false;
   function capAndApply() {
     memApplyEdits();
