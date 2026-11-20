@@ -279,7 +279,7 @@
     if (ok) return null;
     var msg = (data && typeof data === 'object' && (data.message || data.error))
       ? String(data.message || data.error) : 'ответъ безъ подтвержденія';
-    if (/open this page through a web server|file:\\/\\//i.test(msg)) {
+    if (msg.indexOf('open this page through a web server') >= 0 || msg.indexOf('file://') >= 0) {
       return 'страница открыта локально (file://) — FormSubmit отказываетъ. Откройте сайт по адресу GitHub Pages и повторите zaharLogFlush()';
     }
     if (/activat/i.test(msg)) {
