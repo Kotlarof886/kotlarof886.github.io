@@ -1976,6 +1976,36 @@
   var NAME_LIST_SET = {};
   'александр,алексей,анатолий,андрей,анисим,арсений,артем,борис,валериан,валерий,василий,виктор,виталий,владимир,владислав,всеволод,вячеслав,гаврила,геннадий,георгий,григорий,даниил,данила,дмитрий,евгений,егор,ефим,захар,иван,игнат,игорь,иларион,иннокентий,иосиф,ипполит,кирилл,константин,кузьма,леонид,максим,матвей,михаил,никита,николай,осип,павел,петр,ростислав,семен,сергей,степан,тихон,федор,филипп,юрий,яков,тимофей,прохор,богдан,савелий,лука,ефрем,демид,наум,мирон,трофим,глеб'.split(',').forEach(function (w) { NAME_LIST_SET[w] = 'm'; });
   'агата,агафья,алевтина,александра,анна,анфиса,анастасия,вера,вероника,виктория,галина,дарья,екатерина,елизавета,елена,зинаида,инна,ирина,клавдия,ксения,лариса,любовь,людмила,марина,мария,марья,матрена,надежда,наталья,нина,ольга,полина,прасковья,раиса,софья,таисия,тамара,татьяна,ульяна,фаина,юлия'.split(',').forEach(function (w) { NAME_LIST_SET[w] = 'f'; });
+  /* №81: сходство имени — «Макимъ» узнается какъ «Максимъ» (расстояніе ≤ 2) */
+  function _zaharLev81(a, b) {
+    var m = a.length, n2 = b.length;
+    if (!m) return n2; if (!n2) return m;
+    var prev = [], cur = [];
+    for (var j = 0; j <= n2; j++) prev[j] = j;
+    for (var i = 1; i <= m; i++) {
+      cur[0] = i;
+      for (var j2 = 1; j2 <= n2; j2++) {
+        var c = a.charAt(i - 1) === b.charAt(j2 - 1) ? 0 : 1;
+        cur[j2] = Math.min(prev[j2] + 1, cur[j2 - 1] + 1, prev[j2 - 1] + c);
+      }
+      var t = prev; prev = cur; cur = t;
+    }
+    return prev[n2];
+  }
+  function zaharNameNear81(w) {
+    try {
+      var s = norm(String(w || ''));
+      if (s.length < 3) return null;
+      var best = null, bd = 99;
+      for (var k81 in NAME_LIST_SET) {
+        if (Math.abs(k81.length - s.length) > 2) continue;
+        var d81 = _zaharLev81(s, k81);
+        if (d81 < bd) { bd = d81; best = k81; }
+      }
+      return (best && bd <= 2) ? best : null;
+    } catch (e81n) { return null; }
+  }
+  window.zaharNameNear81 = zaharNameNear81;
   /* №75: полъ по имени — единый помощникъ (списки имён и стражъ-73); прежній полъ не переживаетъ смену имени */
   function zaharSetGender74(w) {
     if (!w) return;
@@ -2036,6 +2066,32 @@
     if (NAME_LIST_SET[_mx50g] || (mb[1].charAt(0) === mb[1].charAt(0).toUpperCase() && _mx50g.length >= 3 && !NAME_STOP[_mx50g])) return mb[1];
     return null;
   }
+    /* №81: стражъ станціи вынесенъ въ общую функцию — зовется и изъ introStep,
+     и прежде стража «станці» въ chat() (стражъ 62 отвечаетъ, но не записываетъ).
+     Узоръ №79б: городъ передъ «станціей», городъ послѣ нея и голый городъ
+     (съ/со/изъ + названіе) — всѣ съ сверкой по картѣ станцій. */
+  function zaharStationStep79(n) {
+    try {
+      var _m1 = n.match(/(?:^|[^а-яё])(?:с|съ|со|от|отъ|из|изъ)\s+([а-яё]+)\s+станц[а-яё]*/);
+      var _m2 = n.match(/станц[а-яё]*\s+([а-яё]+)/);
+      var _m3 = n.match(/(?:^|[^а-яё])(?:с|съ|со|из|изъ|от|отъ)\s+([а-яё]+)(?=\s|$)/);
+      var _cand = _m1 ? _m1[1] : (_m2 ? _m2[1] : (_m3 ? _m3[1] : null));
+      if (!_cand) return null;
+      var _root = null;
+      for (var _i81 = 0; _i81 < STATION_ROOTS.length; _i81++) {
+        if (_cand.indexOf(STATION_ROOTS[_i81]) === 0) { _root = STATION_ROOTS[_i81]; break; }
+      }
+      if (!_root) return null;
+      var _disp = STATION_NAME[_root] || _cand;
+      var _fresh = (FRAME.station !== _root);
+      if (_fresh) {
+        FRAME.station = _root;
+        if (typeof window.zaharSetStation === 'function') window.zaharSetStation(_disp);
+        return fill('Станція ' + _disp + ', {N} — въ журналъ записалъ. Депеши съ вашей линіи теперь слышны. Слушаю.');
+      }
+      return fill('Станція ' + _disp + ' въ журнале, {N} — помню. Слушаю депешу.');
+    } catch (e79) { return null; }
+  }
   function introStep(n, q) {
     /* 45: узнавание после перезагрузки — сверяемся с тетрадкой */
     /* №79 (21.11.2026): стражъ станціи — работаетъ всегда, прежде сдачи рамки.
@@ -2061,6 +2117,21 @@
         }
       }
     } catch (e79) {}
+    /* №81: подтвержденіе редкого имени — прежде рамочныхъ вопросовъ (буферъ №74):
+       «не Максимъ ли васъ звать?» + «да» — записываемъ подсказанное ходовое имя. */
+    try {
+      var _G81c = window.__zahar73;
+      if (_G81c && _G81c.mode === 'rare' && _G81c.pending) {
+        if (((window.__zaharTurn59e || 0) - (_G81c.pendTick || 0)) > 2) {
+          _G81c.mode = null; _G81c.pending = null; /* №62: буферъ живётъ два хода */
+        } else if (/^(да|верно|так точно|именно|ага|записывай|точно)$/.test(n)) {
+          window.ZAHAR_USER_NAME = _G81c.pending;
+          if (typeof zaharSetGender74 === 'function') zaharSetGender74(_G81c.pending);
+          var _nm81c = _G81c.pending; _G81c.mode = null; _G81c.pending = null;
+          return fill(_nm81c + ' — записано въ тетрадку, {A}. Теперь депеши пойду по имени.');
+        }
+      }
+    } catch (e81c) {}
     if (!FRAME.done) {
       var rn45 = window.ZAHAR_USER_NAME || null;
       var rs45 = null;
@@ -2147,6 +2218,19 @@
       if (nm) {
         var prev45 = window.ZAHAR_USER_NAME;
         var same45 = prev45 && norm(prev45) === norm(nm);
+        if (!same45 && !NAME_LIST_SET[norm(nm)]) {
+          /* №81: имя съ опечаткой — переспросъ съ подсказкой ходового (буферъ №74 пойметъ «да») */
+          var _nearI = zaharNameNear81(nm);
+          if (_nearI) {
+            var _nearCapI = _nearI.charAt(0).toUpperCase() + _nearI.slice(1);
+            try {
+              window.__zahar73 = window.__zahar73 || { thread: null, left: 0, alt: 0, used: [], tikhN: 0, pending: null, mode: null, age: null, pendPat: null, pendTick: 0 };
+              window.__zahar73.pending = _nearCapI; window.__zahar73.mode = 'rare';
+              window.__zahar73.pendTick = (window.__zaharTurn59e || 0);
+            } catch (e81n2) {}
+            return fill('Имени «' + nm + '» въ спискахъ нашихъ нѣтъ — не «' + _nearCapI + '» ли васъ звать, сударь? Подтвердите — запишу.');
+          }
+        }
         if (!same45) {
           window.ZAHAR_USER_NAME = nm;
           zaharSetGender74(nm); /* №75: полъ при всякой записы имени */
@@ -3591,6 +3675,54 @@ function tryName(raw) {
     'Позвольте вопросить... покуда самъ отвечу: {B} {T}'
   ];
   var COMP_FACTS = [
+    { name: 'штемпель',
+      keys: [/штемпел/],
+      texts: [
+        'Штемпель, {N}, — оттискъ почтовый: на немъ число, мѣсто да вѣдомство казенное. Накинутъ на письмо — и пошло по трактамъ; безъ штемпеля корреспонденція ходу не имѣетъ.',
+        'Въ нашей конторѣ бланкъ депеши штемпелуется: вѣдомство, мѣсто, число. Безъ того казенная бумага — бумага и только, {N}.'
+      ] },
+    { name: 'волокита',
+      keys: [/волокит/],
+      texts: [
+        'Волокита, {N}, — казенная переписка да умышленное затягиваніе дѣлъ въ канцеляріяхъ: бумага по присутствіямъ ходитъ, докладу дожидается, въ архивѣ осѣдаетъ.',
+        'Самъ знаю, {N}: приписка на полулиста, а волокиты на цѣлую недѣлю — въ присутствіяхъ такъ ведется. Слово старое, а дѣло вечное.'
+      ] },
+    { name: 'дилижанс',
+      keys: [/дилижан/],
+      texts: [
+        'Дилижансъ, {N}, — большекрытый почтовый экипажъ: почту, баулы и пассажировъ по казеннымъ трактамъ возитъ.',
+        'Дилижансъ отъ почтовой конторы отходитъ, {N}: быстрее ямской тройки — но душно, зато по чину.'
+      ] },
+    { name: 'зпт-тчк',
+      keys: [/(зпт|тчк)/],
+      texts: [
+        'ЗПТ и ТЧК, {N}, — телеграфные знаки: запятая и точка. Провода буквъ не понимаютъ — точекъ да тире только, потому въ депешѣ ихъ прописью пишутъ.',
+        'Наша служба въ знакахъ точна, {N}: «зпт» — запятая, «тчк» — точка. Перепутаешь — вѣсть перекорежится.'
+      ] },
+    { name: 'морзе',
+      keys: [/(азбук[аѣ]\s+морз|морзе)/],
+      texts: [
+        'Азбука Морзе, {N}, — то, чемъ линия говоритъ: точка, тире и промежутки; каждой буквѣ свой ходъ ключа.',
+        'Азбуку Морзе въ горнозаводской школѣ выучилъ, {N}: въначалѣ точка съ тире путались, теперь и во сонѣ отстучу.'
+      ] },
+    { name: 'ямщик',
+      keys: [/ямщик|ямщиц/],
+      texts: [
+        'Ямщикъ, {N}, — кучеръ на почтовой дорогѣ: трактами гоняетъ, почту да пассажировъ возитъ; бляха у него казенная.',
+        'Ямщицкій колокольчикъ подъ дугой, {N}, — голосъ сибирскихъ трактовъ: безъ него и почта не съ духомъ.'
+      ] },
+    { name: 'колыванский трактъ',
+      keys: [/колыванск|тракт/],
+      texts: [
+        'Колыванскій трактъ, {N}, — почтовая дорога отъ Барнаула: нить сибирскихъ разъѣздовъ, на Великій Сибирскій трактъ выходитъ.',
+        'Тракты здѣсь — кровеносные жилы, {N}: по нимъ и почта, и дилижансы, и обозы съ хлѣбомъ.'
+      ] },
+    { name: 'бляха',
+      keys: [/блях/],
+      texts: [
+        'Бляха почтовая, {N}, — металлическій знакъ почтово-телеграфнаго служителя: возница и почтальонъ тоже при ней ходятъ.',
+        'Бляха на груди — казенное доказательство, {N}: вѣдомство покажетъ, кто въ службѣ.'
+      ] },
     { name: 'одежда',
       keys: [/(шуб|пальто|тулуп|шинел|валенк|рукавиц|перчатк)/, /(одет|надеть|носить|тепле|тепло|холодн|мороз|градус|минус|погод)/],
       texts: [
@@ -3682,8 +3814,24 @@ function tryName(raw) {
         }
         if (cand) out.push(String(cand.b) + (cand.d ? ' ' + cand.d : ''));
       }
-      /* полка 2: казенныя статьи — только съ дореформенной статьей b */
+      /* полка 2 (№81): казенныя статьи — сперва по смыслу депеши (стемменое
+         сходство съ 1127 статей words.js), при промахѣ — случайная;
+         всѣ только съ дореформенной статьей b, безъ повторовъ */
       if (out.length < 2 && typeof ENTRIES !== 'undefined' && Array.isArray(ENTRIES) && ENTRIES.length) {
+        var candW81 = null;
+        try {
+          var words81 = qn.split(/\s+/);
+          for (var w81 = 0; w81 < words81.length && !candW81; w81++) {
+            var wq81 = words81[w81];
+            if (!wq81 || wq81.length < 5) continue;
+            var st81 = wq81.slice(0, Math.max(4, wq81.length - 2));
+            for (var e81 = 0; e81 < ENTRIES.length; e81++) {
+              var en81 = ENTRIES[e81];
+              if (en81 && en81.w && en81.b && String(en81.b).length > 40 && norm(String(en81.w)).indexOf(st81) === 0 && !zaharShelfSeen(en81.b)) { candW81 = en81; break; }
+            }
+          }
+        } catch (e81w) { candW81 = null; }
+        if (candW81) out.push(String(candW81.b) + (candW81.d ? ' ' + candW81.d : ''));
         for (var tr2 = 0; tr2 < 12 && out.length < 2; tr2++) {
           var e2 = ENTRIES[(Math.random() * ENTRIES.length) | 0];
           if (e2 && e2.b && String(e2.b).length > 40 && !zaharShelfSeen(e2.b)) { out.push(String(e2.b)); break; }
@@ -4279,7 +4427,10 @@ function tryName(raw) {
     'Станція въ нашихъ краяхъ одна, {N}, — Барнаулъ, Иркутская улица, домъ 47. Депеши беру по чину.',
     'Иркутская улица, домъ сорокъ седьмой, {N}, — тамъ стою при аппаратѣ. Служба казенная.'
   ];
-/* №61: станція — прежде кастома */
+/* №81: захват станціи ДО стража «станці» — стражъ 62 отвечаетъ про
+       Иркутскую улицу, но ничего не записываетъ; теперь сперва запись */
+    try { var _r81s = zaharStationStep79(n); if (_r81s) return _r81s; } catch (e81s) {}
+    /* №61: станція — прежде кастома */
     if (/(станці|станци)/.test(_shM)) {
       awaitingJob = false;
       return pickNorep66(STANC_POOL62);
@@ -5195,6 +5346,14 @@ function tryName(raw) {
           return null;
         }
         if (Z73_STOP_NAME.test(w)) { G.mode = null; G.pending = null; } /* №62: глаголы — не имена */
+        else if (zaharNameNear81(w)) {
+          /* №81: имя съ опечаткой — предлагаю ходовое съ списковъ */
+          var _nearCap81 = zaharNameNear81(w);
+          _nearCap81 = _nearCap81.charAt(0).toUpperCase() + _nearCap81.slice(1);
+          G.pending = _nearCap81; G.mode = 'rare';
+          G.pendTick = (window.__zaharTurn59e || 0);
+          return femizeOut(fill('Имени «' + cap + '» въ спискахъ нашихъ нѣтъ, {N} — не «' + _nearCap81 + '» ли васъ звать? Подтвердите — запишу.'));
+        }
         else {
           G.pending = cap; G.mode = 'rare';
           G.pendTick = (window.__zaharTurn59e || 0);
