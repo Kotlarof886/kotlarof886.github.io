@@ -1,15 +1,21 @@
 /* ============================================================
-   zahar_log.js v7 — журнальная лента (почта → kotlarof@yandex.ru)
-   v7: частичная отправка по ~45 КБ — рана v6 (keepalive-предѣлъ ~64 КБ,
-   при переполненном буферѣ каждое отправленіе падало съ «сбоя сети»
-   и лента молчала навсегда) устранена; буферъ чистится только когда
-   ушли всѣ части. Шапка письма — «Версіи обвязки: …» снимается съ файлов,
-   которые отдал браузеръ (fetch по подключеннымъ скриптамъ, прогрѣвъ при
-   загрузкѣ). Отказъ виденъ запиской въ углу страницы; запасная дорожка —
-   zaharLogMailto() открываетъ почтовую программу. Флешъ накопленій старше
-   получаса. Изъ v3–v6 сохранено: крючокъ двери со сторожемъ, дедупликація,
-   очи́стка только по подтвержденію, повторъ при сбое сети.
-   API: zaharLogStatus(), zaharLogFlush(), zaharLogVersions(), zaharLogMailto()
+   zahar_log.js v8 — журнальная лента (почта → kotlarof@yandex.ru)
+   v8: расписание отправки по чину хозяина —
+     • бездѣйствіе 1 часъ (послѣ послѣдней реплики);
+     • обновленіе или закрытіе страницы (pagehide);
+     • выходъ изъ режима чата — по вызову zaharLogSendNow()
+       изъ переключателя вкладокъ (телеграфъ, мои слова…);
+     • переполненіе ленты (запасъ от потери старыхъ записей).
+   Убрано: 5 минутъ тишины, 30-минутный сбросъ, отправка при скрытіи
+   вкладки. Тостъ «журналъ отправленъ» убранъ совсѣмъ; записка въ углу
+   теперь появляется ТОЛЬКО при отказѣ (сбой сети, file://, форма
+   не активирована) — чтобы отказъ не проходилъ незаметно. Консоль:
+   сторож перехватываетъ дверь молча, безъ строчки «перехвачена (разъ N)».
+   Изъ v3–v7 сохранено: крючокъ двери со сторожемъ, дедуплікація,
+   очи́стка только по подтвержденію, отправка частями по ~45 КБ,
+   повторъ при сбое сети.
+   API: zaharLogStatus(), zaharLogFlush(), zaharLogSendNow(причина),
+        zaharLogVersions(), zaharLogMailto()
    Подключать ПОСЛЕ zahar_chat.js (лучше — последнимъ, после zahar_ether.js).
    ============================================================ */
 (function () {
@@ -18,8 +24,8 @@
 
   var CFG = {
     email: 'kotlarof@yandex.ru',
-    idleMs: 5 * 60 * 1000,
-    hideMs: 60 * 1000,
+    idleMs: 60 * 60 * 1000, /* v8: бездѣйствіе — часъ */
+    hideMs: 60 * 1000,      /* v8: только для записки объ отказѣ */
     maxBuf: 400
   };
 
@@ -29,7 +35,7 @@
   var guardFrozen = false;
   var lastKey = '', lastAt = 0;
 
-  /* v6: память о попытках отправки — для zaharLogStatus() */
+  /* память о попытках отправки — для zaharLogStatus() */
   var LOG = { lastTry: null, lastOk: null, lastErr: null, retryTimer: null };
 
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -53,9 +59,9 @@
     if (text == null) return;
     text = String(text).trim();
     if (!text) return;
-    /* v5: дедупликация — по ядру реплики (первые 40 знаков, окно 60 сек):
+    /* дедупликация — по ядру реплики (первые 40 знаков, окно 60 сек):
        ответы с хвостом «Впрочемъ…» и без него склеиваются в один вход.
-       Гость — по полному тексту, окно 10 секунд, как в v4. */
+       Гость — по полному тексту, окно 10 секунд. */
     var flat = text.replace(/\s+/g, ' ').trim();
     var now = Date.now();
     var core = (who === 'zakhar') ? flat.slice(0, 40) : flat;
@@ -67,6 +73,9 @@
     if (BUF.length > CFG.maxBuf) BUF.splice(0, BUF.length - CFG.maxBuf);
     persist();
     armIdle();
+    /* v8: лента подошла къ краю — отсылаемъ сразу, чтобы старые записи
+       не срезались молча */
+    if (BUF.length >= CFG.maxBuf) send('лента переполнена');
   }
 
   function extract(r) {
@@ -145,20 +154,21 @@
     }
   }
 
-  /* --- сторож v3: дверь проверяется каждые 800 мс --- */
+  /* --- сторож: дверь проверяется каждые 800 мс, перехватъ МОЛЧАЛІВЫЙ (v8) --- */
   function installDoor() {
     if (doorMarked()) return;
     if (!capture()) { guardFrozen = true; return; }
     recaps++;
-    try { console.log('[zahar_log] дверьъ ZAHAR_ASK перехвачена (разъ ' + recaps + ')'); } catch (e) {}
+    /* v8: строка «дверъ перехвачена (разъ N)» изъ консоли убрана —
+       сторожъ работаетъ тихо */
   }
   if (capture()) recaps = 1;
-  try { console.log('[zahar_log] v7: журнальная лента на линіи, крючокъ на двери, отправка частями'); } catch (e) {}
+  try { console.log('[zahar_log] v8: лента на линіи (часъ бездѣйствія, обновленіе, смена режима)'); } catch (e) {}
   setInterval(function () {
     if (!guardFrozen) installDoor();
   }, 800);
 
-  /* --- v7: сборъ версій обвязки (снимается съ файлов, отъ которыхъ отдал браузеръ) --- */
+  /* --- сборъ версій обвязки (снимается съ файлов, отъ которыхъ отдал браузеръ) --- */
   var VER = { map: {}, done: false };
   var PRETTY = {
     'zahar_brain.js': 'мозгъ', 'zahar_chat.js': 'чатъ', 'words.js': 'words',
@@ -203,7 +213,7 @@
     });
   }
   function versionHeader() {
-    var rows = ['лента: v7'];
+    var rows = ['лента: v8'];
     Object.keys(PRETTY).forEach(function (f) {
       if (f === 'zahar_brain.js') return; /* ниже — по порядку важности */
       rows.push(PRETTY[f] + ': ' + (VER.map[f] || '—'));
@@ -213,7 +223,7 @@
   }
   try { collectVersions(); } catch (e) {}
 
-  /* --- v7: нарезка буфера по байтамъ (кириллица веситъ вдвое) --- */
+  /* --- нарезка буфера по байтамъ (кириллица веситъ вдвое) --- */
   var MAXB = 45 * 1024;
   function byteLen(s) {
     var n = 0;
@@ -242,7 +252,7 @@
     return parts;
   }
 
-  /* --- v7: записка на странице — отказъ виденъ безъ консоли --- */
+  /* --- v8: записка на странице — ТОЛЬКО объ отказѣ (тост об удачѣ убранъ) --- */
   var noteEl = null;
   function noteShow(txtNote) {
     try {
@@ -260,7 +270,7 @@
     } catch (e) {}
   }
 
-  /* --- v7: отправка — последовательно, частями; буферъ чистится только когда ушли всѣ части --- */
+  /* --- отправка — последовательно, частями; буферъ чистится только когда ушли всѣ части --- */
   function payloadFor(reason, body) {
     return JSON.stringify({
       _subject: 'Журналъ бесѣдъ съ Захаромъ — ' + reason,
@@ -268,7 +278,7 @@
       message: body
     });
   }
-  /* v6: вердикт разбирается по телу ответа, а не по HTTP-статусу */
+  /* вердикт разбирается по телу ответа, а не по HTTP-статусу */
   function verdict(data) {
     var ok = false;
     if (data && typeof data === 'object') {
@@ -294,17 +304,16 @@
   }
 
   function send(reason) {
+    if (!BUF.length) return false;
+    LOG.lastTry = stamp();
     var header = versionHeader();
     var chunks = buildChunks(reason, header);
-    if (!chunks.length) return false;
-    LOG.lastTry = stamp();
     var idx = 0, total = chunks.length;
     function step() {
       if (idx >= total) {
         LOG.lastOk = stamp(); LOG.lastErr = null;
         BUF = []; persist();
-        try { console.log('[zahar_log] журналъ отправленъ на ' + CFG.email + ' (частей: ' + total + ')'); } catch (e) {}
-        noteShow('журналъ отправленъ (' + total + ' част.)');
+        /* v8: удачная отправка — полная тишина (ни консоли, ни тоста) */
         return;
       }
       var url = 'https://formsubmit.co/ajax/' + CFG.email;
@@ -322,7 +331,7 @@
             if (v) {
               LOG.lastErr = stamp() + ' — ' + v;
               try { console.warn('[zahar_log] отправка НЕ ушла: ' + v); } catch (e) {}
-              noteShow(v);
+              noteShow(v); /* записка только при отказѣ */
               armRetry(reason);
             } else {
               idx++;
@@ -345,7 +354,7 @@
     return true;
   }
 
-  /* v7: запасная дорожка — почтовая программа с готовым письмом */
+  /* запасная дорожка — почтовая программа с готовым письмом */
   function zaharLogMailto() {
     var body = versionHeader() + '\n\n' + (BUF.length
       ? BUF.slice(-30).map(function (e) { return '[' + e.t + '] ' + (e.who === 'guest' ? 'Гость' : 'Захаръ') + ': ' + e.text; }).join('\n')
@@ -358,21 +367,22 @@
 
   function armIdle() {
     if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(function () { send('пять минутъ тишины'); }, CFG.idleMs);
+    idleTimer = setTimeout(function () { send('часъ тишины'); }, CFG.idleMs);
   }
 
-  window.addEventListener('pagehide', function () { send('вкладка закрыта или обновлена'); });
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'hidden') {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(function () {
-        if (document.visibilityState === 'hidden') send('вкладка скрыта дольше минуты');
-      }, CFG.hideMs);
-    } else {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = null;
-    }
-  });
+  /* v8: отправка при обновленіи/закрытіи страницы */
+  window.addEventListener('pagehide', function () { send('страница обновлена или закрыта'); });
+
+  /* v8: слушатель visibilitychange УБРАНЪ — переходъ на другую вкладку
+     больше не отправляетъ журналъ.
+     v8: 30-минутный сбросъ УБРАНЪ. */
+
+  /* v8: крючокъ для смены режима — зовите изъ переключателя вкладокъ
+     (чатъ → телеграфъ, чатъ → «мои слова»): window.zaharLogSendNow() */
+  window.zaharLogSendNow = function (причина) {
+    var r = send(причина || 'смена режима');
+    return r ? 'Отправка журнала запущена.' : 'Журналъ пустъ — отправлять нечего.';
+  };
 
   window.zaharLogStatus = function () {
     var doorState;
@@ -380,6 +390,7 @@
     else if (doorMarked()) doorState = 'дверь обернута журналом';
     else doorState = 'дверь не обернута (сторож подхватит за 0,8 сек)';
     return { 'стоитъ': true, 'каналъ': 'почта → ' + CFG.email,
+      'безъдѣйствіе': 'часъ',
       'репликъВъБуферѣ': BUF.length,
       'дверьОбернута': doorMarked(),
       'состояниеДвери': doorState,
@@ -392,19 +403,8 @@
   window.zaharLogFlush = function () {
     if (!BUF.length) return 'Журналъ пустъ — отправлять нечего.';
     send('пробная отправка');
-    return 'Пробная отправка запущена. Черезъ несколько секундъ откройте консоль (F12) — тамъ будетъ либо «журналъ отправленъ (частей: N)», либо точная причина отказа; она же всплыветъ запиской въ углу страницы.';
+    return 'Пробная отправка запущена. Черезъ несколько секундъ откройте консоль (F12) — при отказѣ будетъ строка «отправка НЕ ушла» съ точной причиной, она же всплыветъ запиской въ углу страницы. При удачѣ лента молчитъ.';
   };
-
-  /* v7: флешъ накопленій старше получаса */
-  function tsOf(s) {
-    var m = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(s));
-    return m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]).getTime() : 0;
-  }
-  setInterval(function () {
-    if (!BUF.length) return;
-    var t0 = tsOf(BUF[0].t);
-    if (t0 && Date.now() - t0 > 30 * 60 * 1000) send('полчаса накопленій');
-  }, 60000);
 
   restore();
 })();
