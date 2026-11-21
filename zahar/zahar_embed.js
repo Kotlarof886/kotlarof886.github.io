@@ -29,8 +29,18 @@
 (function () {
 'use strict';
 
-const VERSION = 'правка №61 (имена съ пробеломъ и отчествомъ; на „л“ — не имя; стоп-слова: кто/такой/тихон/…)';
+const VERSION = 'правка №82 (молчаніе мозга добирается семантикой; финальный отказъ; щупъ zaharEmbedProbe)';
 const TAG = '[zahar_embed]';
+  /* №82: щупъ семантики — zaharEmbedProbe('депеша') → топ-3 интента с баллами */
+  window.zaharEmbedProbe = function (q82) {
+    try {
+      var qq = String(q82 || '');
+      return embed(qq).then(function (vec) { state.lastVec = vec; return match(qq); })
+        .then(function (hit) { return { top: (window.__zaharEmbedLastProbe || []).slice(), hit: hit ? hit.name : null }; })
+        .catch(function (e) { return { error: String(e && e.message || e) }; });
+    } catch (e) { return Promise.resolve({ error: String(e && e.message || e) }); }
+  };
+
 
 const CFG = {
   wakeDelay: 0,              // №59.9я: модель грузится сразу, безъ будильника
@@ -293,6 +303,7 @@ function match(text) {
     scored.push({ name: item.name, intent: item.intent, score: best });
   }
   scored.sort((a, b) => b.score - a.score);
+  try { window.__zaharEmbedLastProbe = scored.slice(0, 3).map(function (t) { return t.name + ' ' + t.score.toFixed(3); }); } catch (ePr) {}
   const top = scored.slice(0, CFG.topK);
   console.log(TAG, 'top-3: ' + top.map(t => t.name + ' ' + t.score.toFixed(3)).join(' · '));
   const w = scored[0], r = scored[1];
@@ -410,8 +421,10 @@ function tryHook() {
           state.lastVec = vec;
           const hit = match(q);
           if (!hit) {
-            console.log(TAG, 'семантика пропустила (за ' + Math.round(nowMs() - t0) + ' мс)');
-            return null;
+            console.log(TAG, 'семантика пропустила — финальный отказъ (за ' + Math.round(nowMs() - t0) + ' мс)');
+            var _nf82 = null;
+            try { var P82 = (window.ZAHAR_PHRASES || {}).notFound; if (P82 && P82.length) _nf82 = P82[(Math.random() * P82.length) | 0]; } catch (eP82) {}
+            return _nf82 || 'Сіе внѣ моей компетенціи, сударь. Помехи на линіи — васъ сквозь трескъ слышу. Извольте спросить о другомъ словѣ.';
           }
           if (hit.name === 'weather') {
             console.log(TAG, 'погода — отдает слою (живые данные)');

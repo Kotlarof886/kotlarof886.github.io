@@ -1,3 +1,4 @@
+/* №82 (22.11.2026): мозгъ молчитъ на отказѣ (семантика добираетъ); свежесть статьей — дефолтъ «старое»; стражъ null. */
 /* №78 (22.11.2026): ремарки въ looks/fishing сняты; «съ семьей» → «съ родителями»; дата рожденія — просто 1877 годъ. */
 /* №68 (20.11.2026): забвенье «забыть» — узоръ приведенъ къ (?:забуд(?:ьте|ь)?|забыть);
    проверено: «забуду» и «забывчивый» не задѣваны, «забыть всё/забыть: работа» ловятся. */
@@ -719,7 +720,7 @@ async function ZAHAR_ASK(raw) {
   /* продолженіе */
   if (/^(а\s+)?(да|давай|давайте|ну давай|расскажи|разкажи|подробнее|а подробнее|продолжай|продолжите|хорошо|ладно|ок|окей|валяй|желаю|он|она|оно|они|еще|ещё|больше|еще раз|ещё раз)\s*\??$/.test(low) && ZAHAR_SESSION.lastWord) {
     /* №59.9и: согласіе дозвучиваетъ лишь тему свежее двухъ ходовъ */
-    var _fr59b = (typeof window.__zaharTurn59e === 'undefined' || typeof window.__zaharFreshTick59e === 'undefined') ? 0 : (window.__zaharTurn59e - window.__zaharFreshTick59e);
+    var _fr59b = (typeof window.__zaharTurn59e === 'undefined' || typeof window.__zaharFreshTick59e === 'undefined') ? 99 : (window.__zaharTurn59e - window.__zaharFreshTick59e);
     if (_fr59b > 2) { ZAHAR_SESSION.lastWord = null; }
     else return zaharFollowUp();
   }
@@ -835,10 +836,8 @@ async function ZAHAR_ASK(raw) {
   /* №59.9е: отрицаніе — «дѣло ваше», а не приглашеніе учить слово */
   if (_neg59e) return zaharOut(pick('refusal') || 'Дѣло ваше, сударь — извольте другое дѣло.');
 
-  /* отказъ */
-  var nf = pick('notFound');
-  if (ZAHAR_SESSION.lastWord) nf += '\n\nВпрочемъ, сударь, мы какъ разъ толковали о словѣ «' + zaharHardSign(ZAHAR_SESSION.lastWord.w) + '». Извольте спросить о немъ еще — или задайте другую депешу.';
-  return nf;
+  /* №82: отказъ → молчаніе (семантика добираетъ) */
+  return null;
 }
 
 /* ---------- инициализация ---------- */
@@ -848,6 +847,7 @@ zaharMergeAll();
 
 /* v2.16: конвертация пола на выходе мозга — любые пулы говорят при даме «сударыня» */
 function zaharFemizeOut(s) {
+  if (s === null || s === undefined) return s;
   if (window.ZAHAR_USER_GENDER !== 'f') return s;
   return String(s)
     .replace(/(^|[^а-яё])сударь([^а-яё]|$)/gi, '$1сударыня$2')

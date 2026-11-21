@@ -1,3 +1,4 @@
+/* === №82 (22.11.2026): рыбий узор свободной формы; мерж полок из файла (35 новых); полка пишет слово в тетрадку со свежестью; страж null (stripTail/femizeOut); финальный отказ при молчании всех слоёв. Лор трактира не тронут. === */
 /* === №73 эт.2 (21.11.2026): стражъ-73 — очередь новостей (одна за ход, «еще» везъ \b), сезонный пулъ по мѣсяцу и градусу, нить Тихона, редкое имя, отчество, соцпулы. === */
 /* === №73 эт.1 (21.11.2026): М.Ю. съ границами слова; стопы «кажется/заболел»; правило «на „л“ не имя»; ружьё Морозовъ въ двухъ мѣстахъ; двойная выдача новостей снята; солнце по датѣ «26 ноября»; возрастъ «мне N» въ ярусе. === */
 /* === №72 (21.11.2026): новости съ нитью «ещё»; звёзды по облачности; ружьё «хочу/надобно»; намеренье безъ «завтра»; нить Тихона (товары/гдѣ онъ); трактиръ зовется; возрастъ «мне 43» + вспоминанье; деликатный вопросъ; переспрашиваніе имёнъ; рассветъ/закатъ по Барнаулу до семи дней. === */
@@ -2278,7 +2279,7 @@
     return null;
   }
   /* ===== №44: «сударыня» послойно — одна точка на выходе ===== */
-  function femizeOut(s) {
+  function femizeOut(s) { if (s === null || s === undefined) return s;
     if (window.ZAHAR_USER_GENDER !== 'f') {
       /* №59.9г: полъ не ведомъ — выводимъ изъ имени (страничная переменная embed'а или тетрадка) */
       var _nmF = window.ZAHAR_USER_NAME;
@@ -3761,7 +3762,31 @@ function tryName(raw) {
       ] }
   ];
 
-  /* №59.9о: пять полокъ конструктора — словарь+выученное, казенныя статьи,
+  
+  /* №82: мержъ полокъ казенныхъ дѣлъ изъ файла (zahar_shelves.js подключается до чата) */
+  (function () {
+    try {
+      var SH82 = window.ZAHAR_SHELVES_KAZEN || [];
+      if (!SH82.length) return;
+      function n82(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/і/g, 'и').replace(/[\u0456]/g, 'и').replace(/[\u0463]/g, 'и').replace(/[\u0467]/g, '').replace(/[ъь]/g, '').replace(/[^а-я ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+      var have82 = {};
+      COMP_FACTS.forEach(function (F) { have82[n82(F.name)] = 1; });
+      var add82 = 0;
+      SH82.forEach(function (S) {
+        var nm = n82(S.label);
+        if (!nm || have82[nm]) return;
+        have82[nm] = 1;
+        var w0 = nm.split(' ')[0];
+        var stem = w0.replace(/(ов|ев|ин|ам|ах|ой|ем|им|ом|ум|ым|ій|а|я|ы|и|у|ю|е|о|й)$/, '');
+        if (stem.length < 4) stem = w0;
+        var pat = stem.split('').map(function (ch) { return (ch === 'и') ? '[иі]' : (ch === 'е') ? '[еѣ]' : ch; }).join('');
+        COMP_FACTS.push({ name: S.label, keys: [new RegExp(pat, 'i')], texts: [String(S.fact || '')] });
+        add82++;
+      });
+      try { console.log('[zahar_chat] №82: полокъ изъ файла казенныхъ дѣлъ добавлено: ' + add82); } catch (eL82) {}
+    } catch (e82) {}
+  })();
+/* №59.9о: пять полокъ конструктора — словарь+выученное, казенныя статьи,
      кастомъ по темамъ, память репликъ; анти-повторъ — COMP_SHELF_RING */
   var COMP_SHELF_RING = [];
   function zaharShelfPush(t) {
@@ -3924,7 +3949,7 @@ function tryName(raw) {
       for (var fi = 0; fi < COMP_FACTS.length; fi++) {
         var F = COMP_FACTS[fi], ok = true, ki;
         for (ki = 0; ki < F.keys.length; ki++) if (!F.keys[ki].test(n)) { ok = false; break; }
-        if (ok) return zaharAssemble(q, F.texts, 'справка:' + F.name);
+        if (ok) { try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null }; window.ZAHAR_SESSION.lastWord = { w: F.name, b: F.texts[0] || '', d: null, a: null }; window.ZAHAR_SESSION.lastField = 'b'; window.__zaharFreshTick59e = (window.__zaharTurn59e || 0); } catch (eR82) {} return zaharAssemble(q, F.texts, 'справка:' + F.name); }
       }
       /* 2. явное приглашеніе к болтовнѣ или продолженіе темы */
       var lw = null;
@@ -4346,7 +4371,7 @@ function tryName(raw) {
       else return femizeOut(fill('Съ Богомъ, {N}: ружье наведите съ вечера — смазка на морозе дубеетъ, по свежему снѣгу тропу держите.'));
     }
     /* сводка о рыбахъ */
-    if (/как[иеы]+х?\s+рыб|рыб[ыи]\s+ловят|ловятся\s+ли|какая\s+рыба/.test(_shM) && !/(что такое|кто такой)/.test(_shM)) {
+    if (/как[иеы]+х?\s+рыб|рыб[ыи]\s+ловят|ловятся\s+ли|какая\s+рыба|с\s+рыб|со\s+рыб|про\s+рыб/.test(_shM) && !/(что такое|кто такой)/.test(_shM)) {
       lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); lastFish59 = 'налим';
       return femizeOut(fill('Ноябрь по чину, {N}: налимъ — самая пора, ночами на живца беретъ; щука по перволедью на жерлицы; окунь да ершъ у дна — мормышка съ червемъ; судакъ у омутовъ на закидку. Карась въ иле зимовать собрался — до весны.'));
     }
@@ -4776,6 +4801,7 @@ function tryName(raw) {
   /* ---------- установка поверх мозга ---------- */
   var TAIL_RE = /Впрочем[ъь]?,?[^\n]*?задайте другую депешу\.?/g;
   function stripTail(s) {
+    if (s === null || s === undefined) return s;
     return String(s).replace(TAIL_RE, '').replace(/\s{2,}/g, ' ').trim();
   }
   /* хвост отцепляем только у строк; обещания мозга проходят насквозь */
@@ -4815,13 +4841,13 @@ function tryName(raw) {
         try { var _b55 = stripSafe(_ask.call(this, q));
           if (_b55 && typeof _b55.then === 'function') {
             return _b55.then(function (v55) {
-              var _g55 = repeatGuard56(String(v55 || ''), q);
+              var _g55 = repeatGuard56(String(v55 || ''), q); if (!_g55) _g55 = (window.ZAHAR_PHRASES && ZAHAR_PHRASES.notFound && ZAHAR_PHRASES.notFound.length) ? ZAHAR_PHRASES.notFound[(Math.random() * ZAHAR_PHRASES.notFound.length) | 0] : 'Сіе внѣ моей компетенціи, сударь. Извольте спросить о другомъ словѣ.';
               try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null };
                     pushRep56(_g55); } catch (e55c) {}
               return _g55;
             });
           }
-          var _g55 = repeatGuard56(String(_b55 || ''), q);
+          var _g55 = repeatGuard56(String(_b55 || ''), q); if (!_g55) _g55 = (window.ZAHAR_PHRASES && ZAHAR_PHRASES.notFound && ZAHAR_PHRASES.notFound.length) ? ZAHAR_PHRASES.notFound[(Math.random() * ZAHAR_PHRASES.notFound.length) | 0] : 'Сіе внѣ моей компетенціи, сударь. Извольте спросить о другомъ словѣ.';
           try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null };
                 pushRep56(_g55); } catch (e55c) {}
           return _g55; }
@@ -4830,7 +4856,7 @@ function tryName(raw) {
       if (h && typeof h.then === 'function') {
         /* №62: обещанья мозга тоже отчищаются отъ хвоста — «пароходъ» не прилипаетъ */
         return h.then(stripSafe).then(function (v55) {
-          var _g55 = repeatGuard56(String(v55 || ''), q);
+          var _g55 = repeatGuard56(String(v55 || ''), q); if (!_g55) _g55 = (window.ZAHAR_PHRASES && ZAHAR_PHRASES.notFound && ZAHAR_PHRASES.notFound.length) ? ZAHAR_PHRASES.notFound[(Math.random() * ZAHAR_PHRASES.notFound.length) | 0] : 'Сіе внѣ моей компетенціи, сударь. Извольте спросить о другомъ словѣ.';
           try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null };
                 pushRep56(_g55); } catch (e55e) {}
           return femizeOut(_g55);
