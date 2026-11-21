@@ -1,5 +1,5 @@
 /* ============================================================
-   zahar_sky.js — мостъ неба для Захара (правка №60.0а)
+   zahar_sky.js — мостъ неба для Захара (правка №73: температура изъ barnaul-wx2)
    Луна — той же формулой, что въ сценѣ «Начала»:
    новолуніе — точка отсчёта (JD 2451550.1), синодическій мѣсяцъ 29.530588853 сут.
    Тринадцать ярусовъ: 0 — новорождённый серпъ за мгновенье ПОСЛЕ чёрного
@@ -16,6 +16,7 @@
   var LAT = 53.35, LON = 83.78;
   var SYNODIC = 29.530588853, NEW_MOON_JD = 2451550.1;
   var TTL = 4 * 60 * 1000;          /* свежесть кэша сцены */
+  var WX_TTL = 10 * 60 * 1000;      /* №73: свежесть погоднаго кэша barnaul-wx2 */
   var HALF_TIER_H = 12;             /* ярусы 0 и 12 держатся по ~12 часовъ */
   var RECALC_MS = 60 * 1000;        /* пересчёт не чаще раза въ минуту */
 
@@ -118,6 +119,20 @@
     return { cloud: null, wind: null, fresh: false };
   }
 
+  /* --- №73: температура изъ погоднаго конвейера (barnaul-wx2, свежесть 10 минутъ,
+     какъ у wxVal въ погодномъ скриптѣ). Число цѣлое: −12 = минусъ 12. --- */
+  function readWxCache() {
+    try {
+      var wraw = localStorage.getItem('barnaul-wx2');
+      if (!wraw) return { temp: null, fresh: false };
+      var w = JSON.parse(wraw);
+      if (w && typeof w.t === 'number' && typeof w.ts === 'number' && Date.now() - w.ts < WX_TTL) {
+        return { temp: w.t, fresh: true };
+      }
+    } catch (e) {}
+    return { temp: null, fresh: false };
+  }
+
   var _last = 0, _cached = null;
 
   function info() {
@@ -129,6 +144,7 @@
     var night = sun < -6;
     var sky = readSkyCache();
     var tier = tierFromPhase(md.phase);
+    var wx = readWxCache();
     var out = {
       phase:   md.phase,            /* 0..1, новолуніе = 0 */
       ph12:    tier,                /* ярусъ 0..12, как на сайтѣ */
@@ -139,6 +155,8 @@
       cloud:   sky.cloud,           /* 0..100 изъ кэша сцены */
       wind:    sky.wind,            /* м/с изъ кэша сцены */
       fresh:   sky.fresh,           /* кэш сцены ещё живой? */
+      temp:    wx.temp,             /* №73: настоящій градусъ изъ barnaul-wx2 или null */
+      wxFresh: wx.fresh,            /* №73: погодный кэшъ ещё живой? */
       moon:    TIER_NAME[tier],
       stars:   starsDesc(sky.cloud)
     };
