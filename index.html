@@ -1847,40 +1847,28 @@ body.curtain-on .tab .tab-label { visibility: hidden; }
 <script src="zahar/zahar_log.js?v=25"></script>
 <script src="rugatelstva.js"></script>
 <script>
-/* крючокъ журнала на смену режима: поверхъ switchTab и toggleTelegraph */
+/* крючокъ журнала на смену режима: стойкій, переживаетъ перезаписи эфира */
 (function () {
-  var tries = 0;
-  var iv = setInterval(function () {
-    if (typeof window.switchTab !== 'function' ||
-        typeof window.zaharLogSendNow !== 'function') {
-      if (++tries > 400) clearInterval(iv); /* ждём до ~20 секундъ */
-      return;
-    }
-    clearInterval(iv);
-    if (!window.switchTab.__zaharLogTab) {
-      var _sw = window.switchTab;
-      var sw2 = function (tab) {
-        var leaving = document.body.classList.contains('zahar-ether') &&
-                      tab !== 'online';
-        var r = _sw.apply(this, arguments);
-        if (leaving && window.zaharLogSendNow) window.zaharLogSendNow('смена режима');
-        return r;
-      };
-      sw2.__zaharLogTab = true;
-      window.switchTab = sw2;
-    }
-    if (!window.toggleTelegraph.__zaharLogTab) {
-      var _tg = window.toggleTelegraph;
-      var tg2 = function () {
-        var leaving = document.body.classList.contains('zahar-ether');
-        var r = _tg.apply(this, arguments);
-        if (leaving && window.zaharLogSendNow) window.zaharLogSendNow('смена режима');
-        return r;
-      };
-      tg2.__zaharLogTab = true;
-      window.toggleTelegraph = tg2;
-    }
-  }, 50);
+  function wrapOnce(name, isLeaving) {
+    var fn = window[name];
+    if (typeof fn !== 'function' || fn.__zaharLogTab) return;
+    var orig = fn;
+    var w = function () {
+      var leaving = false;
+      try {
+        leaving = document.body.classList.contains('zahar-ether') && isLeaving(arguments[0]);
+      } catch (e) {}
+      var r = orig.apply(this, arguments);
+      if (leaving && window.zaharLogSendNow) window.zaharLogSendNow('смена режима');
+      return r;
+    };
+    w.__zaharLogTab = true;   /* метка ставится ДО обёртки — без рекурсіи */
+    window[name] = w;
+  }
+  setInterval(function () {
+    wrapOnce('switchTab', function (tab) { return tab !== 'online'; });
+    wrapOnce('toggleTelegraph', function () { return true; });
+  }, 300);
 })();
 </script>
 
