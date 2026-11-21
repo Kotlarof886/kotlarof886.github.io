@@ -367,7 +367,7 @@
   window.__zaharChatLoaded = true;
   /* №60.0а: карта рыбы — до всякаго скана */
   var FISH_K2W59 = { 'карас':'карась','налим':'налим','судак':'судак','щук':'щука','окун':'окунь','ерш':'ерш','лещ':'лещ','яз':'язь','хариус':'хариус','таймен':'таймень','стерля':'стерлядь','осетр':'осетр','пескар':'пескарь','плотв':'плотва','сорог':'сорога','чебак':'сорога','чабак':'сорога','сазан':'сазан','карп':'сазан','елец':'елец','ельц':'елец','нельм':'нельма','муксун':'муксун','пеляд':'пелядь','сырок':'сырок','ленок':'ленок' };
-  var VERSION = 'правка №71 (21.11.2026: страж-оболочка поверхъ кастома — сводка клёва, полнолуніе, ружье, кто такой, отецъ и мать, «завтра на рыбалку»; новостной пулъ 15 новыхъ)';
+  var VERSION = 'правка №74 (21.11.2026: чиненія №62 — единый словарь фазъ, отчество одиночное, инверсія пола, буферъ имени со стоп-листомъ и срокомъ, тетрадка канонична, стражъ родни, хвост обещаній)';
   if (typeof window.ZAHAR_CHAT_1896 === 'undefined') window.ZAHAR_CHAT_1896 = true;
   if (!window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = null;
   if (!window.ZAHAR_USER_GENDER) window.ZAHAR_USER_GENDER = null;
@@ -2278,8 +2278,10 @@ function tryName(raw) {
     try {
       var _nbR = (window.zaharMemory && window.zaharMemory().notebook.name) || '';
       /* №59.9о: тетрадка канонична, но сомнительное имя лечится страничнымъ */
-      if (_nbR && !COMP_BADNAME.test(norm(_nbR)) && !window.ZAHAR_USER_NAME) window.ZAHAR_USER_NAME = _nbR;
-      else if (window.ZAHAR_USER_NAME && _nbR && COMP_BADNAME.test(norm(_nbR))) {
+      /* №62: тетрадка канонична — страничная память тетрадку не перебиваетъ */
+      if (_nbR && !COMP_BADNAME.test(norm(_nbR))) {
+        if (!window.ZAHAR_USER_NAME || norm(window.ZAHAR_USER_NAME) !== norm(_nbR)) window.ZAHAR_USER_NAME = cap(_nbR);
+      } else if (window.ZAHAR_USER_NAME && _nbR && COMP_BADNAME.test(norm(_nbR))) {
         try {
           if (window.zaharMemory && window.zaharMemory() && window.zaharMemory().notebook) {
             window.zaharMemory().notebook.name = window.ZAHAR_USER_NAME;
@@ -2298,6 +2300,12 @@ function tryName(raw) {
     var _seen72 = window.__zaharNamePrev72 === norm(name);
     window.__zaharNamePrev72 = norm(name);
     if (!NAME_LIST_SET[_fN72] && !_seen72) {
+      /* №74 (П5г): переспросъ ставитъ буферъ — «ДА» на следующий ходъ записываетъ имя */
+      try {
+        var _Gn74 = window.__zahar73 || (window.__zahar73 = { thread: null, left: 0, alt: 0, used: [], tikhN: 0, pending: null, mode: null, age: null });
+        _Gn74.pending = String(name).split(/\s+/)[0].charAt(0).toUpperCase() + String(name).split(/\s+/)[0].slice(1);
+        _Gn74.mode = 'rare'; _Gn74.pendTick = (window.__zaharTurn59e || 0);
+      } catch (eNP74) {}
       return fill(pick(['Васъ зовутъ {X}? Позвольте переспросить: имя редкое — не оговорка ли?', 'Не слыхалъ такого имени, {N}... васъ зовутъ {X}? Повторите — и запишу.', 'Переспрошу на всякій случай: {X} — такъ и записать?'])).replace(/\{X\}/g, name);
     }
     /* №59.8: прежнее имя — тетрадка первымъ, журналъ запасомъ */
@@ -3125,7 +3133,7 @@ function tryName(raw) {
   /* нечеткий запас: те же намерения, но с опечатками */
   var FUZZ = [
     { keys: ['погод', 'температур', 'погодк'], run: function () { return answerWeather(); } },
-    { keys: ['зовут', 'зоведе', 'зовете', 'зовите', 'зовешь'], run: function (n) { var _tn8 = (typeof tryName === 'function') ? tryName(n) : null; if (_tn8) return nameReply(_tn8); return /меня|мое имя/.test(n) ? recallName() : fill(pick(IDENTITY)); } },
+    { keys: ['зовут', 'зоведе', 'зовете', 'зовите', 'зовешь'], run: function (n) { /* №62: вопросы о родне и отчестве — дорога въ стражи, не въ самопредставленіе */ if (/(мат[уе]|мам|батюшк|отц[ае]|отчеств|е[ея]\s*\??$)/.test(n)) return null; var _tn8 = (typeof tryName === 'function') ? tryName(n) : null; if (_tn8) return nameReply(_tn8); return /меня|мое имя/.test(n) ? recallName() : fill(pick(IDENTITY)); } },
     { keys: ['привет', 'здравству', 'здрави', 'здорово', 'салют'], run: function (qq, nn) { var _g59e = (typeof zaharFindReplica === 'function') ? zaharFindReplica(String(nn || '')) : null; if (_g59e) return zaharReplicaAnswer(_g59e); lastCounter = true; if (/ноч/.test(String(nn || ''))) return fill(pick(NIGHT_GREETS)); /* №59.9м: ночь не встречаетъ встречнымъ вопросомъ */ return fill(pick(GREETS)) + ' ' + counterText(); } },
     { keys: ['свидани', 'прощай'], run: function () { lastCounter = true; return fill(pick(FAREWELL)); } },
     { keys: ['выглядиш', 'внешност'], run: function () { return fill(pick(APPEAR)); } },
@@ -3907,7 +3915,7 @@ function tryName(raw) {
       if (_sky59 && _sky59.tierName) {
         /* №60.0б: «луна» изъ яруса срезается (двоеніе слова), тире — по приказу;
            три формулировки — стражъ повтора не гаситъ соседнюю депешу */
-        var _tn59 = String(_sky59.tierName).replace(/^\s*луна[\s,—-]*/i, '');
+        var _tn59 = String(_sky59.tierName).replace(/\s*[лЛ]уна\.?(?=[\s,]|$)/g, '').replace(/\s{2,}/g, ' ').trim();
         var _mm59 = [
           fill('Луна нынчѣ, {N}, ' + _tn59 + '.'),
           fill('Луна, {N}, нынчѣ ' + _tn59 + '.'),
@@ -3938,11 +3946,15 @@ function tryName(raw) {
       var _ph59m = (((_d59m - new Date(2000, 0, 6)) / 86400000) % 29.530588853 + 29.530588853) % 29.530588853 / 29.530588853;
       var _fz59m;
       if (_ph59m < 0.03 || _ph59m > 0.97) _fz59m = 'новолуніе — не видна';
-      else if (_ph59m < 0.25) _fz59m = 'молодая, серпъ растущий';
-      else if (_ph59m < 0.47) _fz59m = 'на прибавѣ, половинка круга';
-      else if (_ph59m < 0.53) _fz59m = 'полная';
-      else if (_ph59m < 0.75) _fz59m = 'горбатая, на убыли';
-      else _fz59m = 'старѣющая, серпъ тонкій';
+      else if (_ph59m < 0.21) _fz59m = 'молодой серпъ, растётъ';
+      else if (_ph59m < 0.29) _fz59m = 'первая четверть';
+      else if (_ph59m < 0.46) _fz59m = 'наливная луна (прибывающая)';
+      else if (_ph59m < 0.54) _fz59m = 'полная луна';
+      else if (_ph59m < 0.71) _fz59m = 'ущербная луна';
+      else if (_ph59m < 0.79) _fz59m = 'послѣдняя четверть';
+      else _fz59m = 'старый серпъ';
+      /* №62б: единый словарь — «луна» въ ответѣ не двоится */
+      _fz59m = _fz59m.replace(/\s*[лЛ]уна\.?(?=[\s,]|$)/g, '').replace(/\s{2,}/g, ' ').trim();
       return femizeOut(fill('Луна нынчѣ, {N}, ' + _fz59m + '.'));
     }
 
@@ -3955,13 +3967,20 @@ function tryName(raw) {
       var _ref59 = new Date(2000, 0, 6); /* новолуніе 6.1.2000 */
       var _syn59 = 29.530588853;
       var _ph59 = (((_hd59 - _ref59) / 86400000) % _syn59 + _syn59) % _syn59 / _syn59;
+      var _skH59 = null;
+      try { _skH59 = (typeof window.ZAHAR_SKY_INFO === 'function') ? window.ZAHAR_SKY_INFO() : null; } catch (eSkH59) { _skH59 = null; }
       var _fz59;
-      if (_ph59 < 0.03 || _ph59 > 0.97) _fz59 = 'новолуніе — не видна';
-      else if (_ph59 < 0.25) _fz59 = 'молодая, серпъ растущий';
-      else if (_ph59 < 0.47) _fz59 = 'на прибавѣ, половинка круга';
-      else if (_ph59 < 0.53) _fz59 = 'полная';
-      else if (_ph59 < 0.75) _fz59 = 'горбатая, на убыли';
-      else _fz59 = 'старѣющая, серпъ тонкій';
+      if (_skH59 && _skH59.tierName) _fz59 = String(_skH59.tierName);
+      else if (_ph59 < 0.03 || _ph59 > 0.97) _fz59 = 'новолуніе — не видна';
+      else if (_ph59 < 0.21) _fz59 = 'молодой серпъ, растётъ';
+      else if (_ph59 < 0.29) _fz59 = 'первая четверть';
+      else if (_ph59 < 0.46) _fz59 = 'наливная луна (прибывающая)';
+      else if (_ph59 < 0.54) _fz59 = 'полная луна';
+      else if (_ph59 < 0.71) _fz59 = 'ущербная луна';
+      else if (_ph59 < 0.79) _fz59 = 'послѣдняя четверть';
+      else _fz59 = 'старый серпъ';
+      /* №62б: единый словарь — «луна» не двоится */
+      _fz59 = _fz59.replace(/\s*[лЛ]уна\.?(?=[\s,]|$)/g, '').replace(/\s{2,}/g, ' ').trim();
       if (_hol59) return femizeOut(fill('Нынчѣ ' + _hd59.getDate() + '-е ' + _MN2b[_hd59.getMonth()] + ', ' + _dw59b + '. Праздникъ — ' + _hol59 + '. Луна нынчѣ — ' + _fz59 + '.'));
       return femizeOut(fill('Нынчѣ ' + _hd59.getDate() + '-е ' + _MN2b[_hd59.getMonth()] + ', ' + _dw59b + ' — праздника въ святцахъ на сей день не значится. Луна нынчѣ — ' + _fz59 + '. А ежели что праздновать надобно — телеграфъ тому не помѣха.'));
     }
@@ -4613,7 +4632,8 @@ function tryName(raw) {
         catch (e2) { warn('сбой линіи: ' + e2); return 'Помѣха на линіи, сударь. Повторите депешу — аппаратъ вторую попытку держитъ.'; }
       }
       if (h && typeof h.then === 'function') {
-        return h.then(function (v55) {
+        /* №62: обещанья мозга тоже отчищаются отъ хвоста — «пароходъ» не прилипаетъ */
+        return h.then(stripSafe).then(function (v55) {
           var _g55 = repeatGuard56(String(v55 || ''), q);
           try { window.ZAHAR_SESSION = window.ZAHAR_SESSION || { lastWord: null, lastField: null };
                 pushRep56(_g55); } catch (e55e) {}
@@ -4915,7 +4935,7 @@ function tryName(raw) {
       awaitingJob = false;
       return femizeOut(fill('Отецъ мой, Давыдъ Венедиктовичъ, {N}: въ мануфактурѣ служитъ, Кенигсбергъ и Ко снабженіемъ заведуетъ. При аппаратѣ я, а на выходныхъ къ нимъ наведываюсь.'));
     }
-    if (/кто\s+(твоя|ваша)\s+(мать|матушка|мама)|как\s+зовут\s+(твою|вашу)?\s*мат|твоей\s+матери|твоя\s+мат/.test(nq)) {
+    if (/кто\s+(твоя|ваша)\s+(мать|матушка|мама)|как\s+зовут\s+(?:тво[яю]|ваш[ау])?\s*(?:мам[уае]|матер|матушк)|твоей\s+матери|твоя\s+мат|твоя\s+мам|как\s+зовут\s+е[ея](?=[\s?!.]|$)/.test(nq)) {
       awaitingJob = false;
       return femizeOut(fill('Мать моя, Елена Игнатовна, {N}: въ конторѣ нотаріуса служитъ. Живы-здоровы — слава Богу; видимся по праздникамъ да на выходныхъ.'));
     }
@@ -4933,6 +4953,8 @@ function tryName(raw) {
     '{X}? Имя изъ редкихъ, {N}: не ослышался ли? Подтвердите — запишу.',
     'Погляделъ въ журналъ: имя {X} — не встречалось. Не оговорка ли? Повторите — записываю.'
   ];
+  /* №62: глаголы и служебныя словеса — въ буферъ имени не попадаютъ */
+  var Z73_STOP_NAME = /^(помнишь|помню|помните|работаю|работал|пойдем|пойду|пойдемте|пошли|куплю|купим|купите|покажи|расскажи|разскажи|растолкуй|объясни|придумай|спой|напиши|запиши|забудь|забудьте|скажи|отвечай|проверка|здравствуй|здравствуйте|привет|спасибо|прощай|сегодня|завтра|вчера|сейчас|потом|когда|сколько|куда|зачем|почему|да|нет|ага|ошибка)$/i;
   var Z73_TIH = [
     'Тихонъ нынче возитъ: соль, гвозди, керосинъ, рукавицы да сушеную воблу. Что надобно — доложите.',
     'У Тихона нынче: самовары паяные, топоры, деготь да чай фунтами. Гляди поблизко.',
@@ -5002,17 +5024,43 @@ function tryName(raw) {
     var nq = String(q || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '')
       .replace(/[іi]/g, 'и').replace(/[^а-я0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
     if (!nq) return null;
-    var G = window.__zahar73 || (window.__zahar73 = { thread: null, left: 0, alt: 0, used: [], tikhN: 0, pending: null, mode: null, age: null });
+    var G = window.__zahar73 || (window.__zahar73 = { thread: null, left: 0, alt: 0, used: [], tikhN: 0, pending: null, mode: null, age: null, pendPat: null, pendTick: 0 });
     var words = nq.split(' ');
     var isMore = words.indexOf('еще') >= 0 || words.indexOf('ещё') >= 0;
     var isNewsAsk = /(^| )(новост|что слышно|какие вести|что новенького)/.test(nq);
     /* смена темы гаситъ нить */
     if (!isMore && G.thread) { G.thread = null; G.left = 0; }
+    /* №62: инверсія чинена — «не сударыня» значитъ сударь, «не сударь» значитъ сударыня */
+    if (/я\s+не\s+судар/.test(nq)) {
+      var _nm62 = /не\s+сударын/.test(nq);
+      window.ZAHAR_USER_GENDER = _nm62 ? 'm' : 'f';
+      return femizeOut(fill(_nm62
+        ? 'Виноватъ: званіе перепуталъ. Буду звать васъ сударемъ — извольте, говорить стану какъ съ господиномъ.'
+        : 'Виноватъ: званіе перепуталъ. Буду звать васъ сударыней — извольте, говорить стану какъ съ дамой.'));
+    }
+    /* №62а: одиночное имя въ ответъ на переспросъ отчества */
+    if (G.pendPat && /^[а-я-]{2,}$/.test(nq) && !Z73_STOP_NAME.test(nq)) {
+      var nm62 = nq.charAt(0).toUpperCase() + nq.slice(1);
+      window.ZAHAR_USER_NAME = nm62 + ' ' + G.pendPat;
+      if (Z73_F.indexOf(nq.toUpperCase()) >= 0) window.ZAHAR_USER_GENDER = 'f';
+      G.pendPat = null; G.mode = null; G.pending = null;
+      return femizeOut(fill('Запишу, {N}: теперь такъ и звать-величать.'));
+    }
     /* подтвержденіе редкого имени */
     if (G.mode === 'rare' && G.pending) {
-      if (/^(да|верно|так точно|именно|ага|записывай|точно)$/.test(nq)) {
+      /* №62: буфер живётъ два хода — чужая тема гаситъ переспросъ */
+      if (((window.__zaharTurn59e || 0) - (G.pendTick || 0)) > 2) { G.mode = null; G.pending = null; }
+      else if (/^(да|верно|так точно|именно|ага|записывай|точно)$/.test(nq)) {
         window.ZAHAR_USER_NAME = G.pending;
         if (Z73_F.indexOf(G.pending.toUpperCase()) >= 0) window.ZAHAR_USER_GENDER = 'f';
+        G.mode = null; G.pending = null;
+        return femizeOut(fill('{N} — записано въ тетрадку. Теперь депеши пойду по имени.'));
+      }
+      else if (nq === String(G.pending).toLowerCase()) {
+        /* №74: имя повторено — это и есть согласіе, переспросъ не зацикливается */
+        window.ZAHAR_USER_NAME = G.pending;
+        if (Z73_F.indexOf(G.pending.toUpperCase()) >= 0) window.ZAHAR_USER_GENDER = 'f';
+        if (typeof window.zaharSetName === 'function') { try { window.zaharSetName(G.pending); } catch (eRep62) {} }
         G.mode = null; G.pending = null;
         return femizeOut(fill('{N} — записано въ тетрадку. Теперь депеши пойду по имени.'));
       }
@@ -5029,10 +5077,29 @@ function tryName(raw) {
     /* возрастъ въ стражѣ — для отчества */
     var mA73 = nq.match(/мне\s+(\d{1,2})\b/);
     if (mA73) G.age = +mA73[1];
+    /* №62а: одиночное отчество — «моё отчество Юрьевичъ», «я Юрьевичъ» */
+    var mPat62 = nq.match(/(?:мо[еи]\s*)?отчество\s+([а-я]+(?:вич|ович|евич|вна|евна|овна|ична))(?=$|[\s,.;!?])/) ||
+                 nq.match(/(?:^|\s)я\s+([а-я]+(?:вич|ович|евич))\s*$/);
+    if (mPat62) {
+      var wPat62 = mPat62[1].charAt(0).toUpperCase() + mPat62[1].slice(1);
+      wPat62 = wPat62.replace(/ревич$/, 'рьевич'); /* №74: нормалізація съѣла «ь» — возвращаю */
+      if (window.ZAHAR_USER_NAME) {
+        var _full62 = /\s/.test(window.ZAHAR_USER_NAME)
+          ? window.ZAHAR_USER_NAME.replace(/\s+\S+$/, ' ' + wPat62)
+          : (window.ZAHAR_USER_NAME + ' ' + wPat62);
+        window.ZAHAR_USER_NAME = _full62;
+        if (typeof window.zaharSetName === 'function') { try { window.zaharSetName(_full62); } catch (ePN62) {} }
+        G.mode = null; G.pending = null; G.pendPat = null;
+        return femizeOut(fill('Запишу, {N}: теперь такъ и звать-величать.'));
+      }
+      G.pendPat = wPat62; G.mode = null; G.pending = null;
+      return femizeOut(fill('Отчество записалъ, но одного его мало, ' + (window.ZAHAR_USER_GENDER === 'f' ? 'сударыня' : 'сударь') + ': какъ звать-величать васъ целикомъ?'));
+    }
     /* имя + отчество одной депешей */
     var mP = nq.match(/(?:меня зовут|зовут меня|^я)\s+([а-я-]+)\s+([а-я]+ич)(\s|$)/);
     if (mP) {
       var wFirst = mP[1], wPat = mP[2];
+      wPat = wPat.replace(/ревич$/, 'рьевич'); /* №74: нормалізація съѣла «ь» — возвращаю */
       var isCommon = Z73_COMMON.indexOf(wFirst.toUpperCase()) >= 0;
       var endsL = /л$/.test(wFirst) && Z73_COMMON.indexOf(wFirst.toUpperCase()) < 0;
       if (!endsL) {
@@ -5056,11 +5123,21 @@ function tryName(raw) {
         if (Z73_COMMON.indexOf(w.toUpperCase()) >= 0) {
           window.ZAHAR_USER_NAME = cap;
           if (Z73_F.indexOf(w.toUpperCase()) >= 0) window.ZAHAR_USER_GENDER = 'f';
+          /* №62а: отчество уже ждало въ буферѣ — сливаемъ */
+          if (G.pendPat) {
+            window.ZAHAR_USER_NAME = cap + ' ' + G.pendPat;
+            G.pendPat = null;
+            return femizeOut(fill('Запишу, {N}: теперь такъ и звать-величать.'));
+          }
           return null;
         }
-        G.pending = cap; G.mode = 'rare';
-        var ask73 = Z73_RARE_ASK[Math.floor(Math.random() * Z73_RARE_ASK.length)];
-        return femizeOut(fill(ask73.replace(/\{X\}/g, cap)));
+        if (Z73_STOP_NAME.test(w)) { G.mode = null; G.pending = null; } /* №62: глаголы — не имена */
+        else {
+          G.pending = cap; G.mode = 'rare';
+          G.pendTick = (window.__zaharTurn59e || 0);
+          var ask73 = Z73_RARE_ASK[Math.floor(Math.random() * Z73_RARE_ASK.length)];
+          return femizeOut(fill(ask73.replace(/\{X\}/g, cap)));
+        }
       }
     }
     /* соцпулы */
