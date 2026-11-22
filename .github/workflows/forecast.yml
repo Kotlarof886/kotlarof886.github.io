@@ -18,6 +18,10 @@ jobs:
         run: |
           git config user.name "ob-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/forecast.json
-          git diff --cached --quiet || git commit -m "прогноз: авто-обновление"
-          git push
+          if [ -f data/forecast.json ]; then
+            git add data/forecast.json
+            git diff --cached --quiet || git commit -m "прогноз: авто-обновление"
+            git push
+          else
+            echo "forecast.json не создан — коммитить нечего"
+          fi
