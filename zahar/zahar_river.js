@@ -57,8 +57,9 @@
     return null;   /* набора нѣтъ — идемъ въ запасъ */
   }
 
-  /* запасъ: старая сборка по полямъ (на случайъ старого JSON) */
+  /* запасъ: готовая phrase изъ JSON, а ежели и ея нѣтъ — сборка по полямъ */
   function fallback(d) {
+    if (d.phrase && typeof d.phrase === 'string') return d.phrase;
     var s;
     if (d.trend === 'подъём') {
       s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, рѣка идеть на подъемъ: за сутки прибыло ' + Math.abs(d.delta) + ' смъ.';
@@ -69,11 +70,7 @@
     } else {
       s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, за сутки — безъ переменъ.';
     }
-    if (!d.phrase) {
-      s += ' Измереніе отъ ' + (d.date || new Date(d.ts).toLocaleDateString('ru-RU')) + ', данные: ' + (d.source || 'fishingsib.ru') + '.';
-    } else {
-      s = d.phrase;
-    }
+    s += ' Измереніе отъ ' + (d.date || new Date(d.ts).toLocaleDateString('ru-RU')) + ', данные: ' + (d.source || 'fishingsib.ru') + '.';
     return s;
   }
 
