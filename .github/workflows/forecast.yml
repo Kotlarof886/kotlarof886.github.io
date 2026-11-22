@@ -14,14 +14,11 @@ jobs:
         with:
           node-version: '20'
       - run: node scripts/zahar_forecast.js
+      - run: node scripts/zahar_klev.js
       - name: commit
         run: |
           git config user.name "ob-bot"
           git config user.email "actions@users.noreply.github.com"
-          if [ -f data/forecast.json ]; then
-            git add data/forecast.json
-            git diff --cached --quiet || git commit -m "прогноз: авто-обновление"
-            git push
-          else
-            echo "forecast.json не создан — коммитить нечего"
-          fi
+          git add data/
+          git diff --cached --quiet || git commit -m "прогноз и клёв: авто-обновление"
+          git push
