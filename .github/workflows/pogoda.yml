@@ -16,8 +16,8 @@ jobs:
       - name: Текущая погода → data/wxnow.json
         run: |
           curl -s "https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m" -o /tmp/om.json
-          T=$(node -e "const d=require('/tmp/om.json');console.log(d.current.temperature_2m)")
-          node -e "const fs=require('fs');fs.writeFileSync('data/wxnow.json',JSON.stringify({t:parseFloat(process.argv[1]),ts:Date.now(),source:'open-meteo.com'},null,2))" "$T"
+          export WX_T="$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/om.json','utf8')).current.temperature_2m)")"
+          node -e "const fs=require('fs');fs.writeFileSync('data/wxnow.json',JSON.stringify({t:parseFloat(process.env.WX_T),ts:Date.now(),source:'open-meteo.com'},null,2))"
           cat data/wxnow.json
       - name: Записать
         run: |
