@@ -5433,6 +5433,79 @@ function tryName(raw) {
     return null;
   }
 
+    /* === мостъ клёва: живая сводка из data/klev.json (смотритель 74) === */
+  var K74 = { data: null, ts: 0 };
+
+  function zaharKlevPrefetch() {
+    var now = Date.now();
+    if (K74.data && now - K74.ts < 10 * 60 * 1000) return; /* кэш на 10 минут */
+    try {
+      fetch('/data/klev.json').then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (d) {
+        if (d && d.days && d.days.length) { K74.data = d; K74.ts = Date.now(); }
+      }).catch(function () { /* старый запас остаётся */ });
+    } catch (eK74p) {}
+  }
+
+  function zaharKlevDayIndex(nq) {
+    var d = K74.data;
+    if (!d || !d.days || !d.days.length) return 0;
+    if (/завтра/.test(nq) && d.days.length > 1) return 1;
+    var DOW = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+    for (var i = 0; i < DOW.length; i++) {
+      if (nq.indexOf(DOW[i].slice(0, 4)) >= 0) {
+        for (var j = 0; j < d.days.length; j++) if (d.days[j].dow === DOW[i]) return j;
+      }
+    }
+    return 0; /* сегодня */
+  }
+
+  function zaharKlevReply(nq) {
+    var d = K74.data;
+    if (!d || !d.days || !d.days.length) return null;
+    var day = d.days[zaharKlevDayIndex(nq)] || d.days[0];
+    var p = [];
+        var isToday = (day.date === d.date);
+    var head = 'Клѣвъ ' + (isToday ? 'нынчѣ' : 'на ' + day.dow) + ' — ' + day.score + ' изъ сотни, ' + day.word + '.';
+    p.push(femizeOut(fill(head + (isToday ? ' ' + (day.verdict || '') : ''))));
+
+    if (day.top && day.top.length) {
+      var t = [], g = [], i;
+      for (i = 0; i < day.top.length; i++) t.push(day.top[i].n + ' (' + day.top[i].s + ')');
+      for (i = 0; i < day.top.length; i++) g.push(day.top[i].n + ' — ' + day.top[i].g);
+            p.push('Берётъ ' + (isToday ? 'нынчѣ' : day.dow) + ': ' + t.join(', ') + '.');
+      p.push('Снасти: ' + g.join('; ') + '.');
+    }
+    if (day.avoid && day.avoid.length) {
+      var a = [], k;
+      for (k = 0; k < day.avoid.length; k++) a.push(day.avoid[k].n + ' — ' + day.avoid[k].why);
+      p.push('Не донимайте: ' + a.join('; ') + '.');
+    }
+    if (day.why && day.why.length) p.push(day.why.join('. ') + '.');
+    if (d.ice) p.push('Обь подъ берегомъ скоро схватитъ — снасти берите зимніе.');
+    var w = d.level || {};
+    if (typeof w.level === 'number') {
+      p.push('Обь нынчѣ на ' + w.level + ' смъ' +
+        (typeof w.delta === 'number' ? (w.delta < 0 ? ' (спадъ ' + Math.abs(w.delta) + ' смъ)' : ' (прибытокъ ' + w.delta + ' смъ)') : '') +
+        (typeof w.temp === 'number' ? ', вода ' + String(w.temp).replace('.', ',') + '°' : '') + '.');
+    }
+    var st = Math.floor((Date.now() - d.ts) / 86400000);
+    if (st > 1) p.push('(Летопись моя отстала на ' + st + ' сут. — таковы вѣсти.)');
+    return p.join(' ');
+  }
+
+  function zaharGuard74Klev(nq) {
+        var s = String(nq || '').toLowerCase();
+        if (!/(клев|клёв|клѣв)/.test(s)) return null;
+    if (!K74.data) { zaharKlevPrefetch(); return null; } /* сводка ещё не поспѣла — ответит старый страж */
+    return zaharKlevReply(s);
+  }
+
+  zaharKlevPrefetch();
+  setInterval(function () { try { zaharKlevPrefetch(); } catch (eK74i) {} }, 10 * 60 * 1000);
+
   function zaharWrap71() {
     var f = window.ZAHAR_ASK;
     if (typeof f !== 'function') return;
@@ -5440,6 +5513,8 @@ function tryName(raw) {
     var g = function () {
       var args = arguments;
       var r = null;
+      try { r = zaharGuard74Klev(args[0]); } catch (eK74) { r = null; }
+      if (r != null) return r;
       try { r = zaharGuard73Answer(args[0]); } catch (eG73) { r = null; }
       if (r != null) return r;
       try { r = zaharGuard71Answer(args[0]); } catch (eG71) { r = null; }
@@ -5453,3 +5528,4 @@ function tryName(raw) {
   setInterval(function () { try { zaharWrap71(); } catch (eW71) {} }, 500);
 
 })();
+
