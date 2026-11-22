@@ -3575,25 +3575,22 @@ function wxParseMet(t) {
   return null;
 }
 /* Фабрика: маршруты собираются свѣжими на каждый вызовъ.
-   URL/парсеры/имена — въ одномъ мѣстѣ; _cb пересчитывается,
-   чтобы кэшъ проксія бился даже для залипшаго зеркала. */
+   Порядокъ: open-meteo (свежій), посредники со своими лимитами,
+   wttr.in — запасной послѣднимъ (его кэшъ отстаётъ на полдня). */
 function wxRoutes() {
   var OM = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m';
   var OMcb = OM + '&_cb=' + Date.now();
   var enc = encodeURIComponent(OMcb);
   return [
-    /* wttr.in — теперь первым и безъ задержки: исторически живучій источникъ */
-    { name: 'wttr.in',       run: function () { return wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in'); } },
     { name: 'open-meteo',    run: function () { return wxTry(OM, wxParseOM, 7000, 'open-meteo'); } },
-    { name: 'OM-corsproxy',  run: function () { return wxTry('https://corsproxy.io/?url=' + enc, wxParseOM, 7000, 'OM-corsproxy'); } },
+    { name: 'OM-codetabs',   run: function () { return wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'); } },
     { name: 'OM-allorigins', run: function () { return wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'); } },
-    { name: 'OM-codetabs',   run: function () { return wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'); } }
+    { name: 'wttr.in',       run: function () { return wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in'); } }
   ];
 }
 
-
 function wxFetch() {
-    if (wxBusy || Date.now() < wxSilence) return;
+  if (wxBusy || Date.now() < wxSilence) return;
 
   wxBusy = true;
 
@@ -3604,22 +3601,13 @@ function wxFetch() {
     var v = p && p.v;
     if (state.settled || v === null || v === undefined) return;
     state.settled = true;
-    if (p && p.name) wxLockName = p.name;   /* ← ЗАМОК: запоминаемъ побѣдителя */
     wxVal = Math.round(v); wxTs = Date.now();
     console.log('[погода] маршрутъ отвѣтилъ: ' + ((p && p.name) || '?') + ' \u2192 ' + wxVal + ' C');
     wxDone(true);
   }
 
   function race() {
-    var tries = routes.map(function (r) {
-      if (!r.delay) return r.run();
-      return new Promise(function (res) {
-        setTimeout(function () {
-          if (state.settled) return res({ v: null, name: r.name + '-otmena' });
-          r.run().then(res);
-        }, r.delay);
-      });
-    });
+    var tries = routes.map(function (r) { return r.run(); });
     tries.forEach(function (p) { p.then(finish); });
     Promise.all(tries).then(function () {
       if (!state.settled) {
@@ -3629,29 +3617,12 @@ function wxFetch() {
     });
   }
 
-  /* ЗАМОКЪ СТОИТЪ — гонки нѣтъ, дёргаемъ ТОЛЬКО залипшее зеркало.
-     Провѣрка «есть ли такой маршрутъ» — на случай, если имя убрали изъ списка. */
-  if (wxLockName) {
-    var locked = null;
-    for (var i = 0; i < routes.length; i++) {
-      if (routes[i].name === wxLockName) { locked = routes[i]; break; }
-    }
-    if (locked) {
-      locked.run().then(function (p) {
-        var v = p && p.v;
-        if (v !== null && v !== undefined) return finish(p);   /* живъ — работаемъ дальше */
-                console.log('[погода] залипшее зеркало «' + wxLockName + '» отвалилось — переборъ заново');
-        wxLockName = null;
-        try { localStorage.removeItem('barnaul-wx-lock'); } catch (e) {}
-        race();
-      });
-      return;   /* ⚠️ важно: выходимъ, чтобы не запустить race ниже */
-    }
-    wxLockName = null;   /* маршрута уже нѣтъ въ спискѣ — забываемъ */
-  }
-
   race();
 }
+
+
+
+
 function wxInject() {   /* дозапись градуса въ набирающееся приветствіе — ударами, какъ весь текстъ */
   if (wxVal === null || wxInjectDone) return;
   if (!telegraphOn || teleRev) return;
