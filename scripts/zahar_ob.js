@@ -1,12 +1,10 @@
 /* scripts/zahar_ob.js — уровень Оби в Барнауле, каскад источников.
-   Версия 6 (22.11.2026): перед разбором страница чистится от тегов и
-   markdown-звёздочек (цифры у allrivers и fishingsib сидят в <b>/<strong>);
-   глаголы сдвига расширены (снизился, вырос, упал и пр.); дата ищется и
-   в виде «21 ноября 2026»; порядок источников — allrivers, fishingsib,
-   velobarnaul; пути: прямой, jina с ожиданием, allorigins, codetabs;
-   шесть классов суточного сдвига, случайная фраза; год в мире Захара —
-   всегда 1896; подпись «водомѣрный постъ „Барнаулъ“». Молчание источников
-   не роняет запуск — старый ob-level.json сохраняется. */
+   Версия 8 (22.11.2026): температура воды — отдельный каскад источников
+   (temperaturavody.com, запас rybalku.ru); заглушку allrivers «0.00» и
+   климатическую модель pogoda1 не используем; температура вшивается во
+   фразы и пишется в JSON полем temp. Остальное как в версии 7: порядок
+   источников уровня — allrivers, fishingsib, velobarnaul; пути — прямой,
+   jina, allorigins, codetabs; чистка тегов; шесть классов сдвига; 1896. */
 const fs = require('fs');
 const path = require('path');
 
@@ -20,6 +18,12 @@ const SOURCES = [
   { name: 'allrivers.info', url: 'https://allrivers.info/gauge/ob-barnaul/waterlevel/' },
   { name: 'fishingsib.ru',  url: 'https://www.fishingsib.ru/waterinfo/gauging-station/barnaul/H9fBSqncw8U2T4Hc/' },
   { name: 'velobarnaul.ru', url: 'https://velobarnaul.ru/info/water/ob/' },
+];
+
+/* температура воды — отдельные источники (замер/модель по месту) */
+const TEMP_SOURCES = [
+  { name: 'temperaturavody.com', url: 'https://temperaturavody.com/v/russia/barnaul-in-ob-river' },
+  { name: 'rybalku.ru',          url: 'https://rybalku.ru/prognoz/userplaces/56628' },
 ];
 
 const MONTHS = {
@@ -89,7 +93,7 @@ function pick(level, delta, day, monthName) {
   ];
 }
 
-/* чистка: HTML-теги и markdown-звёздочки долой — цифры должны стоять голыми */
+/* чистка: HTML-теги и markdown-звёздочки долой */
 function clean(text) {
   return String(text)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -97,6 +101,23 @@ function clean(text) {
     .replace(/\*+/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ');
+}
+
+/* температура воды: узоры наших источников */
+function parseTemp(text) {
+  const patterns = [
+    /* temperaturavody: «Текущая температура воды 1.4°C» */
+    /Текущая\s+температура\s+воды\s+(-?\d+(?:[.,]\d+)?)/i,
+    /* temperaturavody: «…составляет 1.4°C» */
+    /составля[её]т\s+(-?\d+(?:[.,]\d+)?)\s*°\s*[CcС]/i,
+    /* rybalku: «температура воды … поверхность/глубина +12 … / +13» — берём поверхность */
+    /температура\s+воды[^+]{0,60}?\+(\d+(?:[.,]\d+)?)/i,
+  ];
+  for (const p of patterns) {
+    const t = text.match(p);
+    if (t) return parseFloat(t[1].replace(',', '.'));
+  }
+  return null;
 }
 
 function parse(rawText, name) {
@@ -113,6 +134,7 @@ function parse(rawText, name) {
     delta = parseInt(t[2], 10) * (down ? -1 : 1);
   }
 
+  /* температуру со страницы уровня не берём: у allrivers там заглушка */
   let day = '', month = '', year = '';
   const dn = text.match(/[Нн]а\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/);
   if (dn) { day = dn[1]; month = dn[2]; year = dn[3]; }
@@ -120,7 +142,6 @@ function parse(rawText, name) {
     const dw = text.match(/[Нн]а\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i);
     if (dw && MONTHS[dw[2].toLowerCase()]) { day = dw[1]; month = MONTHS[dw[2].toLowerCase()]; year = dw[3]; }
     else {
-      /* запасъ: любая дата словами — «Дата проверки: 21 ноября 2026» и пр. */
       const dg = text.match(/(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})/i);
       if (dg) { day = dg[1]; month = MONTHS[dg[2].toLowerCase()]; year = dg[3]; }
     }
@@ -133,13 +154,44 @@ function parse(rawText, name) {
   }
   const variants = pick(level, delta, day, MONTH_NAMES[month] || month);
   const trend = delta > 0 ? 'подъём' : delta < 0 ? 'спад' : 'без изменений';
-    return {
-    level, delta, trend, klass: klass(delta),
+  return {
+    level, delta, trend, klass: klass(delta), temp: null,
     date: `${day}.${month}.${year}`,
     phrases: variants,
     phrase: variants[Math.floor(Math.random() * variants.length)],
     source: name, ts: Date.now(),
   };
+}
+
+/* температура — своим каскадом: прямой, потом jina */
+async function ensureTemp(d) {
+  for (const s of TEMP_SOURCES) {
+    for (const via of ['direct', 'jina']) {
+      try {
+        const text = via === 'direct'
+          ? (await rawFetch(s.url)).text
+          : await fetchJina(s.url);
+        const t = parseTemp(clean(text));
+        if (t !== null) {
+          d.temp = t;
+          d.tempSource = s.name;
+          return;
+        }
+        console.warn(s.name, '(' + via + ') — температура не распознана. Фрагмент:', clean(text).slice(0, 200));
+      } catch (e) {
+        console.warn(s.name, '(' + via + ') — не прошёл:', e.message);
+      }
+    }
+  }
+}
+
+/* температурная строка для всех фраз */
+function tempTail(d) {
+  if (d.temp === null || d.temp === undefined) return '';
+  const t = (Math.abs(d.temp) % 1 === 0)
+    ? String(Math.abs(d.temp))
+    : String(Math.abs(d.temp)).replace('.', ',');
+  return ` Вода въ Оби нынче ${t}°.`;
 }
 
 async function rawFetch(url, extra) {
@@ -199,10 +251,16 @@ function staleness(dateStr) {
 }
 
 function save(d, dir, name, via) {
+  const tail = tempTail(d);
+  if (tail) {
+    d.phrases = d.phrases.map(p => p + tail);
+    d.phrase = d.phrase + tail;
+  }
   const lag = staleness(d.date);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'ob-level.json'), JSON.stringify(d, null, 2), 'utf8');
   console.log('OK:', d.level, 'см,', d.trend, '(' + (d.delta > 0 ? '+' : '') + d.delta + ' см), класс:', d.klass,
+    '| вода:', d.temp === null ? 'н/д' : d.temp + '° (темп: ' + (d.tempSource || 'н/д') + ')',
     '| источник:', name, '(' + via + ') | на', d.date);
   if (lag > 1) console.warn('Внимание: данные отстают от реального дня на', lag, 'сут. — источник не обновился.');
 }
@@ -213,13 +271,13 @@ function save(d, dir, name, via) {
     try {
       const r1 = await fetchDirect(s.url);
       let d = parse(r1.text, s.name);
-      if (d) { save(d, dataDir, s.name, 'прямой запрос'); process.exit(0); }
+      if (d) { await ensureTemp(d); save(d, dataDir, s.name, 'прямой запрос'); process.exit(0); }
       diag(s.name, 'прямой запрос', r1.text);
       if (r1.jar) {
         const r2 = await rawFetch(s.url, { Cookie: r1.jar });
         if (r2.status === 200) {
           d = parse(r2.text, s.name);
-          if (d) { save(d, dataDir, s.name, 'прямой запрос (2-й ход с куки)'); process.exit(0); }
+          if (d) { await ensureTemp(d); save(d, dataDir, s.name, 'прямой запрос (2-й ход с куки)'); process.exit(0); }
           diag(s.name, 'прямой запрос + куки', r2.text);
         }
       }
@@ -229,7 +287,7 @@ function save(d, dir, name, via) {
     try {
       const text = await fetchJina(s.url);
       const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'jina (с ожиданием)'); process.exit(0); }
+      if (d) { await ensureTemp(d); save(d, dataDir, s.name, 'jina (с ожиданием)'); process.exit(0); }
       diag(s.name, 'jina', text);
     } catch (e) {
       console.warn(s.name, '— jina не прошёл:', e.message);
@@ -237,7 +295,7 @@ function save(d, dir, name, via) {
     try {
       const text = await fetchAllorigins(s.url);
       const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'allorigins'); process.exit(0); }
+      if (d) { await ensureTemp(d); save(d, dataDir, s.name, 'allorigins'); process.exit(0); }
       diag(s.name, 'allorigins', text);
     } catch (e) {
       console.warn(s.name, '— allorigins не прошёл:', e.message);
@@ -245,7 +303,7 @@ function save(d, dir, name, via) {
     try {
       const text = await fetchCodetabs(s.url);
       const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'codetabs'); process.exit(0); }
+      if (d) { await ensureTemp(d); save(d, dataDir, s.name, 'codetabs'); process.exit(0); }
       diag(s.name, 'codetabs', text);
     } catch (e) {
       console.warn(s.name, '— codetabs не прошёл:', e.message);
