@@ -3575,19 +3575,28 @@ function wxParseMet(t) {
   return null;
 }
 /* Фабрика: маршруты собираются свѣжими на каждый вызовъ.
-   Порядокъ: open-meteo (свежій), посредники со своими лимитами,
-   wttr.in — запасной послѣднимъ (его кэшъ отстаётъ на полдня). */
+   wttr.in снятъ съ поста: кэшъ отстаётъ на полдня и врётъ градусомъ.
+   Каждый маршрутъ рапортуетъ въ консоль — видно, кто живъ. */
 function wxRoutes() {
   var OM = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=temperature_2m';
   var OMcb = OM + '&_cb=' + Date.now();
   var enc = encodeURIComponent(OMcb);
+  function tag(p, name) {
+    return p.then(function (r) {
+      console.log('[погода] ' + name + ' → ' + ((r && r.v !== null && r.v !== undefined) ? r.v + ' C' : 'молчитъ'));
+      return r;
+    }, function (e) {
+      console.log('[погода] ' + name + ' → ошибка: ' + (e && e.message ? e.message : e));
+      return { v: null, name: name };
+    });
+  }
   return [
-    { name: 'open-meteo',    run: function () { return wxTry(OM, wxParseOM, 7000, 'open-meteo'); } },
-    { name: 'OM-codetabs',   run: function () { return wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'); } },
-    { name: 'OM-allorigins', run: function () { return wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'); } },
-    { name: 'wttr.in',       run: function () { return wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in'); } }
+    { name: 'open-meteo',    run: function () { return tag(wxTry(OM, wxParseOM, 7000, 'open-meteo'), 'open-meteo'); } },
+    { name: 'OM-codetabs',   run: function () { return tag(wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'), 'OM-codetabs'); } },
+    { name: 'OM-allorigins', run: function () { return tag(wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'), 'OM-allorigins'); } }
   ];
 }
+
 
 function wxFetch() {
   if (wxBusy || Date.now() < wxSilence) return;
