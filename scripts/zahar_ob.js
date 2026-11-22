@@ -1,7 +1,9 @@
 /* scripts/zahar_ob.js — уровень Оби в Барнауле, каскад источников.
-   Версия 2 (22.11.2026): полные браузерные заголовки; запасной путь через
-   текстовый прокси r.jina.ai; диагностика фрагмента в логе; дата «21 ноября 2026»;
-   молчание источников не роняет запуск — старый ob-level.json сохраняется. */
+   Версия 3 (22.11.2026): шесть классов суточного сдвига (штиль, обычный,
+   заметный, сильный, экстраординарный), случайный выбор фразы внутри класса;
+   дата в мире Захара — всегда 1896 год; подпись «водомѣрный постъ „Барнаулъ“».
+   Полные браузерные заголовки; запасной путь через r.jina.ai; диагностика
+   фрагмента в логе; молчание источников не роняет запуск — старый JSON цел. */
 const fs = require('fs');
 const path = require('path');
 
@@ -22,73 +24,95 @@ const MONTHS = {
   'мая': '05', 'июня': '06', 'июля': '07', 'августа': '08',
   'сентября': '09', 'октября': '10', 'ноября': '11', 'декабря': '12',
 };
+/* обратная карта: «11» -> «ноября» — для даты в мире Захара */
+const MONTH_NAMES = Object.fromEntries(Object.entries(MONTHS).map(([n, m]) => [m, n]));
+
+function klass(delta) {
+  const a = Math.abs(delta);
+  if (a === 0) return 'безъ перемѣнъ';
+  if (a < 15) return 'обычный';
+  if (a < 30) return 'заметный';
+  if (a < 50) return 'сильный';
+  return 'экстраординарный';
+}
+
+function pick(level, delta, day, monthName) {
+  const a = Math.abs(delta);
+  const S = `Измереніе отъ ${day} ${monthName} 1896 года, передаетъ водомѣрный постъ „Барнаулъ“ на Оби.`;
+  if (a === 0) return [
+    `Уровень Оби въ Барнаулѣ нынче ${level} смъ, за сутки безъ перемѣнъ. ${S}`,
+    `Обь въ Барнаулѣ стоитъ на ${level} смъ: за сутки ни прибыли, ни убыли. ${S}`,
+  ];
+  if (delta > 0) {
+    if (a < 15) return [
+      `Уровень Оби въ Барнаулѣ нынче ${level} смъ, идётъ на подъёмъ (+${a} смъ за сутки). ${S}`,
+      `Уровень Оби въ Барнаулѣ — ${level} смъ, за сутки прибыло ${a} смъ. ${S}`,
+      `Обь въ Барнаулѣ держится на ${level} смъ и понемногу прибываетъ: плюсъ ${a} смъ за сутки. ${S}`,
+    ];
+    if (a < 30) return [
+      `Уровень Оби въ Барнаулѣ нынче ${level} смъ, вода заметно прибываетъ: плюсъ ${a} смъ за сутки. ${S}`,
+      `Обь въ Барнаулѣ заметно пошла вверхъ: нынче ${level} смъ, за сутки прибыло ${a} смъ. ${S}`,
+      `Уровень Оби въ Барнаулѣ подросъ — ${level} смъ, за сутки плюсъ ${a} смъ. ${S}`,
+    ];
+    if (a < 50) return [
+      `Уровень Оби въ Барнаулѣ нынче ${level} смъ — вода быстро прибываетъ: плюсъ ${a} смъ за сутки. ${S}`,
+      `Обь въ Барнаулѣ пошла въ ростъ: нынче ${level} смъ, за сутки прибыло целыхъ ${a} смъ. ${S}`,
+      `Уровень Оби въ Барнаулѣ рванулъ вверхъ — ${level} смъ, прибавка за сутки ${a} смъ. ${S}`,
+    ];
+    return [
+      `Уровень Оби въ Барнаулѣ нынче ${level} смъ — такой прибыли старожилы и не помнятъ: плюсъ ${a} смъ за сутки. ${S}`,
+      `Обь въ Барнаулѣ пошла большою водойъ: нынче ${level} смъ, за сутки прибыло разомъ ${a} смъ. ${S}`,
+      `Уровень Оби въ Барнаулѣ рванулъ вверхъ — ${level} смъ, за сутки плюсъ ${a} смъ. Постъ такого давно не записывалъ. ${S}`,
+    ];
+  }
+  if (a < 15) return [
+    `Уровень Оби въ Барнаулѣ нынче ${level} смъ, идётъ на спадъ (−${a} смъ за сутки). ${S}`,
+    `Уровень Оби въ Барнаулѣ — ${level} смъ, за сутки рѣка опала на ${a} смъ. ${S}`,
+    `Обь въ Барнаулѣ держится на ${level} смъ и понемногу убываетъ: минусъ ${a} смъ за сутки. ${S}`,
+  ];
+  if (a < 30) return [
+    `Уровень Оби въ Барнаулѣ нынче ${level} смъ, вода заметно убываетъ: минусъ ${a} смъ за сутки. ${S}`,
+    `Обь въ Барнаулѣ заметно идётъ на убыль: нынче ${level} смъ, за сутки опала на ${a} смъ. ${S}`,
+    `Уровень Оби въ Барнаулѣ приселъ — ${level} смъ, за сутки минусъ ${a} смъ. ${S}`,
+  ];
+  if (a < 50) return [
+    `Уровень Оби въ Барнаулѣ нынче ${level} смъ — вода быстро убываетъ: минусъ ${a} смъ за сутки. ${S}`,
+    `Обь въ Барнаулѣ быстро идётъ на убыль: нынче ${level} смъ, за сутки опала на ${a} смъ. ${S}`,
+    `Уровень Оби въ Барнаулѣ резко упалъ — ${level} смъ, за сутки минусъ ${a} смъ. ${S}`,
+  ];
+  return [
+    `Уровень Оби въ Барнаулѣ нынче ${level} смъ — вода валится стремительно: минусъ ${a} смъ за сутки. ${S}`,
+    `Обь въ Барнаулѣ провалилась: нынче ${level} смъ, за сутки убило разомъ ${a} смъ. ${S}`,
+    `Уровень Оби въ Барнаулѣ рухнулъ — ${level} смъ, за сутки минусъ ${a} смъ. Старожилы такихъ спадовъ и не припомнятъ. ${S}`,
+  ];
+}
 
 function parse(text, name) {
   const m = text.match(/составля[её]т\s+(-?\d+)\s*[cс]м/i);
   if (!m) return null;
   const level = parseInt(m[1], 10);
-  let delta = 0, trend = 'без изменений';
+  let delta = 0;
   const t = text.match(/(повысился|понизился|прибыло|убыло)\D{0,30}?(\d+)\s*[cс]м/i);
-  if (t) {
-    const down = (t[1] === 'понизился' || t[1] === 'убыло');
-    delta = parseInt(t[2], 10) * (down ? -1 : 1);
-    trend = delta > 0 ? 'подъём' : 'спад';
+  if (t) delta = parseInt(t[2], 10) * ((t[1] === 'понизился' || t[1] === 'убыло') ? -1 : 1);
+
+  /* день и месяц измерения: «На 20.11.2026» либо «на 20 ноября 2026» */
+  let day = '', month = '', year = '';
+  const dn = text.match(/[Нн]а\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (dn) { day = dn[1]; month = dn[2]; year = dn[3]; }
+  else {
+    const dw = text.match(/[Нн]а\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i);
+    if (dw && MONTHS[dw[2].toLowerCase()]) { day = dw[1]; month = MONTHS[dw[2].toLowerCase()]; year = dw[3]; }
   }
-  /* дата измерения: «На 21.11.2026» либо «на 21 ноября 2026» */
-  let date = '';
-  const dm = text.match(/[Нн]а\s+(\d{1,2})[.\s]+((?:\d{1,2}[.\s]+)?\d{4})/);
-  if (dm) date = (dm[2].includes('.') ? dm[1] + '.' + dm[2] : dm[1] + ' ' + dm[2]).trim();
-  if (!date) {
-    const dn = text.match(/[Нн]а\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i);
-    if (dn && MONTHS[dn[2].toLowerCase()]) date = dn[1] + '.' + MONTHS[dn[2].toLowerCase()] + '.' + dn[3];
+  /* если дату в тексте не нашли — барнаульское «сегодня» */
+  if (!day || !month) {
+    const now = new Date(Date.now() + 7 * 3600 * 1000);
+    day = String(now.getUTCDate()).padStart(2, '0');
+    month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    year = String(now.getUTCFullYear());
   }
-  const phrase = trend === 'подъём'
-    ? `Уровень Оби въ Барнаулѣ нынче ${level} смъ, идётъ на подъёмъ (+${delta} смъ за сутки).`
-    : trend === 'спад'
-      ? `Уровень Оби въ Барнаулѣ нынче ${level} смъ, идётъ на спадъ (${delta} смъ за сутки).`
-      : `Уровень Оби въ Барнаулѣ нынче ${level} смъ, за сутки безъ перемѣнъ.`;
-  return { level, delta, trend, date, phrase, source: name, ts: Date.now() };
+  const date = `${day}.${month}.${year}`;
+  const monthName = MONTH_NAMES[month] || month;
+  const phrase = pick(level, delta, day, monthName)[Math.floor(Math.random() * 3) % (level && 1 ? pick(level, delta, day, monthName).length : 1)];
+  const trend = delta > 0 ? 'подъём' : delta < 0 ? 'спад' : 'без изменений';
+  return { level, delta, trend, class: klass(delta), date, phrase, source: name, ts: Date.now() };
 }
-
-async function fetchText(url) {
-  const r = await fetch(url, { headers: HEADERS, redirect: 'follow' });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return await r.text();
-}
-
-async function fetchViaProxy(url) {
-  const r = await fetch('https://r.jina.ai/' + url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (!r.ok) throw new Error('прокси HTTP ' + r.status);
-  return await r.text();
-}
-
-function save(d, dir, name, via) {
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'ob-level.json'), JSON.stringify(d, null, 2), 'utf8');
-  console.log('OK:', d.level, 'см,', d.trend, '(' + (d.delta > 0 ? '+' : '') + d.delta + ' см) | источник:', name, '(' + via + ') | на', d.date);
-}
-
-(async () => {
-  const dataDir = path.join(__dirname, '..', 'data');
-  for (const s of SOURCES) {
-    let text = '';
-    try {
-      text = await fetchText(s.url);
-      const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'прямой запрос'); process.exit(0); }
-    } catch (e) {
-      console.warn(s.name, '— прямой запрос не прошёл:', e.message);
-    }
-    /* запасной путь: страница через текстовый прокси */
-    try {
-      text = await fetchViaProxy(s.url);
-      const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'текстовый прокси'); process.exit(0); }
-      console.warn(s.name, '— страница не распознана. Фрагмент:', text.replace(/\s+/g, ' ').slice(0, 240));
-    } catch (e) {
-      console.warn(s.name, '— запасной путь не прошёл:', e.message);
-    }
-  }
-  console.error('Ни один источник не ответил — старый ob-level.json не трогаем');
-  process.exit(0);
-})();
