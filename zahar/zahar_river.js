@@ -1,8 +1,9 @@
 /* ============================================================
    zahar_river.js — мостъ рѣки для Захара (уровень Оби въ Барнаулѣ)
-   Источникъ: data/ob-level.json, обновляетъ GitHub Actions (раз въ часъ).
-   Версія 3: къ уровню добавлена температура воды изъ data/klev.json.
-   Прежняя логика не тронута — вода лишь хвостомъ въ концѣ.
+   Версія 4: фразологія живётъ въ scripts/zahar_ob.js и приходитъ
+   готовой въ data/ob-level.json (полѣ phrase). Мостъ только несётъ:
+   кэшъ полчаса, запасъ — старая сборка изъ полей, вода въ запасѣ изъ
+   data/klev.json. Ничего не дублируемъ.
    ============================================================ */
 (function () {
   'use strict';
@@ -40,73 +41,7 @@
     x.send();
   }
 
-  /* температура воды: кэш полчаса, не тормозит главный ответъ */
-  function readWater(cb) {
-    try {
-      var raw = localStorage.getItem(WKEY);
-      if (raw) {
-        var o = JSON.parse(raw);
-        if (o && typeof o.temp === 'number' && typeof o.ts === 'number' && Date.now() - o.ts < TTL) return cb(o.temp);
-      }
-    } catch (e) {}
-    load(KSRC, function (o) {
-      var t = (o && o.level && typeof o.level.temp === 'number') ? o.level.temp : null;
-      if (t !== null) {
-        try { localStorage.setItem(WKEY, JSON.stringify({ temp: t, ts: Date.now() })); } catch (e) {}
-      }
-      cb(t);
-    });
-  }
-
-  var WATER_TAILS = [
-    'Вода въ Оби теперича {W} град.',
-    'Да и вода въ рекѣ — {W} град.',
-    'Вода въ Оби на {W} град.'
-  ];
-
-  /* готовая фраза Захара въ дореформенной орѳографіи */
-  function phrase(d, stale, tw) {
-    var s;
-    if (d.trend === 'подъём') {
-      s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, рѣка идеть на подъемъ: за сутки прибыло ' + Math.abs(d.delta) + ' смъ.';
-    } else if (d.trend === 'спад') {
-      s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, рѣка идетъ на спадъ: за сутки убыло ' + Math.abs(d.delta) + ' смъ.';
-    } else if (d.trend === null || d.trend === undefined) {
-      s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ; динамику за сутки не доносятъ — распоряженійе не прислали.';
-    } else {
-      s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, за сутки — безъ переменъ.';
-    }
-        s += ' Измереніе отъ ' + (d.date || new Date(d.ts).toLocaleDateString('ru-RU')) + ', данные: ' + (d.source || 'fishingsib.ru') + '.';
-    if (stale) s += ' (Данные могли устарѣть — запрошу свежіе при следующей депешѣ.)';
-    if (tw !== null && tw !== undefined) {
-      s += ' ' + WATER_TAILS[Math.floor(Math.random() * WATER_TAILS.length)].replace(/\{W\}/g, String(tw).replace('.', ','));
-    }
-    return s;
-  }
-
-  /* главный входъ: Promise со строкой-ответомъ, вода — хвостомъ въ концѣ */
-  function ask() {
-    var d = readCache();
-    if (d && Date.now() - d.ts < TTL) {   /* кэшъ живой — отвечаемъ сразу */
-      readWater(function (tw) { /* вода догрузится къ следующему вопросу, ответъ не ждёмъ */ });
-      return Promise.resolve(phrase(d, false, waterNow()));
-    }
-    return new Promise(function (res) {
-      load(SRC, function (o) {
-        if (o) {
-          writeCache(o);
-          readWater(function (tw) {});
-          res(phrase(o, false, waterNow()));
-        } else if (d) {   /* источникъ не ответилъ — старый кэшъ лучше пустоты */
-          res(phrase(d, true, waterNow()));
-        } else {
-          res('Про уровень Оби сведеній пока нѣтъ — гляньте на метеорную станцію или спросите черезъ минуту.');
-        }
-      });
-    });
-  }
-
-  /* вода изъ кэша мгновенно, безъ ожиданія — при нѣтъ, хвостъ молчитъ */
+  /* вода изъ кэша мгновенно — для запасной сборки, если въ JSON фразы нѣтъ */
   function waterNow() {
     try {
       var raw = localStorage.getItem(WKEY);
@@ -118,6 +53,44 @@
     return null;
   }
 
+  /* запасная сборка — только если въ ob-level.json фраза не доехала */
+  function fallbackPhrase(d) {
+    var s;
+    var delta = (typeof d.delta === 'number') ? d.delta : 0;
+    if (delta > 0) s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, идётъ на подъёмъ (+' + delta + ' смъ за сутки)';
+    else if (delta < 0) s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, идётъ на спадъ (−' + Math.abs(delta) + ' смъ за сутки)';
+    else s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, за сутки — безъ перемѣнъ';
+    var tw = waterNow();
+    if (tw !== null) s += ', вода въ Оби ' + String(tw).replace('.', ',') + '°С';
+    return s + '.';
+  }
+
+  function serve(d, stale) {
+    var s = d.phrase ? String(d.phrase) : fallbackPhrase(d);
+    if (stale) s += ' (Данные могли устарѣть — запрошу свежіе при следующей депешѣ.)';
+    return s;
+  }
+
+  /* главный входъ: Promise со строкой-ответомъ */
+  function ask() {
+    var d = readCache();
+    if (d && Date.now() - d.ts < TTL) {   /* кэшъ живой — отвечаемъ сразу */
+      return Promise.resolve(serve(d, false));
+    }
+    return new Promise(function (res) {
+      load(SRC, function (o) {
+        if (o) {
+          writeCache(o);
+          load(KSRC, function () {}); /* вода прогрѣвается впрокъ для запаса */
+          res(serve(o, false));
+        } else if (d) {   /* источникъ не ответилъ — старый кэшъ лучше пустоты */
+          res(serve(d, true));
+        } else {
+          res('Про уровень Оби сведеній пока нѣтъ — гляньте на метеорную станцію или спросите черезъ минуту.');
+        }
+      });
+    });
+  }
+
   window.ZAHAR_RIVER_ASK = ask;
 })();
-
