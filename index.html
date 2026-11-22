@@ -3493,6 +3493,8 @@ curtainBeginReverse();   /* №212: занавесъ въ обратную ст�
    вчеращній дневной градусъ больше не доедетъ первымъ. Печать ленты погоду НЕ ждётъ:
    если температура ещё не готова — приветствие идётъ безъ нея, а запросъ дозаполняетъ кэшъ фономъ. */
 var wxVal = null, wxTs = 0, wxBusy = false, wxLastTry = 0, wxInjectDone = true;
+var wxSilence = 0;
+
 /* Залипающее зеркало: имя маршрута, что отвѣтилъ послѣднимъ.
    Пока стоитъ — гонки нѣтъ, дёргаемъ ТОЛЬКО его.
    Отвалилось — снимаемъ и снова полный переборъ. */
@@ -3511,15 +3513,10 @@ function wxLoadCache() {
         wxVal = o.t; wxTs = o.ts;
       }
     }
-  } catch (e) {}
-  /* Замокъ переживаетъ перезагрузку страницы: послѣ первой удачной гонки
-     полнаго перебора больше нѣтъ — дёргаемъ только залипшее зеркало.
-     Существованіе маршрута провѣряетъ wxFetch: убрали изъ списка — замокъ снимется. */
-    try {
-    if (wxFrozenMirror) localStorage.setItem('barnaul-precip-lock', wxFrozenMirror);
-    else localStorage.removeItem('barnaul-precip-lock');
+  
   } catch (e) {}
 }
+
 function wxSaveCache() {
   try { localStorage.setItem('barnaul-wx2', JSON.stringify({ t: wxVal, ts: wxTs })); } catch (e) {}
   try {
@@ -3531,12 +3528,14 @@ function wxDone(ok) {
   wxBusy = false;
   if (ok) {
     wxSaveCache();
-    wxInject();   /* градусъ пришёлъ — дописываемъ въ приветствіе, если оно ещё печатается */
-    setTimeout(wxFetch, 10 * 60 * 1000);   /* обновленіе каждые 10 минутъ */
+    wxInject();
+    setTimeout(wxFetch, 10 * 60 * 1000);
   } else {
-    setTimeout(wxFetch, 10000);   /* повторка черезъ 10 сек. */
+    wxSilence = Date.now() + 3 * 60 * 1000;
+    setTimeout(wxFetch, 3 * 60 * 1000);
   }
 }
+
 function wxTry(url, parse, T, name) {
   return new Promise(function (res) {
     var fin = false;
@@ -3583,20 +3582,19 @@ function wxRoutes() {
   var OMcb = OM + '&_cb=' + Date.now();
   var enc = encodeURIComponent(OMcb);
   return [
-    /* прямыя пути — безъ посредниковъ */
+    /* wttr.in — теперь первым и безъ задержки: исторически живучій источникъ */
+    { name: 'wttr.in',       run: function () { return wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in'); } },
     { name: 'open-meteo',    run: function () { return wxTry(OM, wxParseOM, 7000, 'open-meteo'); } },
-    { name: 'MET-Norway',    run: function () { return wxTry('https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', wxParseMet, 7000, 'MET-Norway'); } },
-    /* запасныя — open-meteo черезъ проксіи */
     { name: 'OM-corsproxy',  run: function () { return wxTry('https://corsproxy.io/?url=' + enc, wxParseOM, 7000, 'OM-corsproxy'); } },
     { name: 'OM-allorigins', run: function () { return wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'); } },
-    { name: 'OM-codetabs',   run: function () { return wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'); } },
-    /* wttr.in — отложенный стартъ, какъ было (Сшивъ №103) */
-    { name: 'wttr.in',       delay: 3000, run: function () { return wxTry('https://wttr.in/Barnaul?format=%t', wxParseWttr, 7000, 'wttr.in'); } }
+    { name: 'OM-codetabs',   run: function () { return wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'); } }
   ];
 }
 
+
 function wxFetch() {
-  if (wxBusy) return;
+    if (wxBusy || Date.now() < wxSilence) return;
+
   wxBusy = true;
 
   var state = { settled: false };
@@ -8146,6 +8144,7 @@ window.addEventListener('error', function (e) {
         var wCode = null, wFall = null, wRain = null, wPrecip = null;
   var wWind = null, wWDir = null, wVis = null, wCloud = null;
     var TTL = 4 * 60 * 1000, busy = false;
+    var wxSilence2 = 0;
 
     var PRECIP_URL = 'https://api.open-meteo.com/v1/forecast?latitude=53.35&longitude=83.78&current=weather_code,snowfall,rain,precipitation,wind_speed_10m,wind_direction_10m,visibility,cloud_cover&wind_speed_unit=ms';
 
@@ -8588,6 +8587,33 @@ function updateMoonPos() {
     }
     return null;
   }
+function parseWttrPrecip(t) {
+  try {
+    var o = JSON.parse(t);
+    var c = o && o.current_condition && o.current_condition[0];
+    if (!c) return null;
+    var desc = ((c.weatherDesc && c.weatherDesc[0] && c.weatherDesc[0].value) || '').toLowerCase();
+    var code = null;
+    if (desc.indexOf('thunder') >= 0) code = 95;
+    else if (desc.indexOf('snow') >= 0) code = 71;
+    else if (desc.indexOf('sleet') >= 0) code = 66;
+    else if (desc.indexOf('rain') >= 0 || desc.indexOf('drizzle') >= 0) code = 61;
+    else if (desc.indexOf('fog') >= 0 || desc.indexOf('mist') >= 0) code = 45;
+    else if (desc.indexOf('overcast') >= 0 || desc.indexOf('cloud') >= 0) code = 3;
+    else if (desc.indexOf('clear') >= 0 || desc.indexOf('sunny') >= 0) code = 0;
+    return {
+      code: code,
+      fall: (code === 71) ? ((c.precipMM !== undefined) ? +c.precipMM : null) : null,
+      rain: (c.precipMM !== undefined && +c.precipMM > 0 && code !== 71) ? +c.precipMM : null,
+      precipitation: (c.precipMM !== undefined) ? +c.precipMM : null,
+      wind: (c.windspeedKmph !== undefined) ? Math.round(+c.windspeedKmph * 1000 / 3600 * 10) / 10 : null,
+      wdir: (c.winddirDegree !== undefined) ? +c.winddirDegree : null,
+      vis: (c.visibility !== undefined) ? +c.visibility * 1000 : null,
+      cloud: (c.cloudcover !== undefined) ? Math.round(+c.cloudcover) : null
+    };
+  } catch (e) { return null; }
+}
+
 /* MET-Norway (compact) → тот же формат, что parseOM.
    Поля Open-Meteo берём из MET-структуры:
    - code       ← symbol_code (text → WMO-приближение)
@@ -8662,9 +8688,11 @@ function parseMetPrecip(t) {
   }
 
     function fetchWeather() {
-    if (busy) return;
+        if (busy || Date.now() < wxSilence2) return;
+
     busy = true;
-    var OM = PRECIP_URL + '&t=' + Date.now();   /* _cb → t: Open-Meteo его игнорирует, кэш не сбивает */
+        var OM = PRECIP_URL;   /* безъ метки времени: браузер кэширует, лимиты Open-Meteo не дразним */
+
     var enc = encodeURIComponent(OM);
 
     var responses = [];        /* все пришедшие ответы зеркал */
@@ -8775,16 +8803,24 @@ if (_winner) wxFrozenMirror = _winner;   /* ← замокъ: побѣдител
   }
 }
 
-        function scheduleNext() {
+                function scheduleNext() {
       busy = false;
+      if (!responses.length) {
+        wxSilence2 = Date.now() + 5 * 60 * 1000;
+        console.log('[погода-осадки] всѣ зеркала молчатъ — тишь 5 минутъ');
+        setTimeout(fetchWeather, 5 * 60 * 1000);
+        return;
+      }
       setTimeout(fetchWeather, TTL);
     }
+
 
     /* ЗАМОКЪ СТОИТЪ — дёргаемъ ТОЛЬКО залипшее зеркало, безъ гонки и безъ 401-хъ. */
     if (wxFrozenMirror && !wxDeadMirrors[wxFrozenMirror]) {
       var locked = null;
             if (wxFrozenMirror === 'Open-Meteo (прямой)')         locked = { url: OM, name: wxFrozenMirror, T: 6000 };
-      else if (wxFrozenMirror === 'MET-Norway')              locked = { url: 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', name: wxFrozenMirror, T: 7000, parser: parseMetPrecip };
+            else if (wxFrozenMirror === 'wttr.in')                 locked = { url: 'https://wttr.in/53.35,83.78?format=j1', name: wxFrozenMirror, T: 8000, parser: parseWttrPrecip };
+
       else if (wxFrozenMirror === 'Open-Meteo (corsproxy)')  locked = { url: 'https://corsproxy.io/?url=' + enc, name: wxFrozenMirror, T: 8000 };
       else if (wxFrozenMirror === 'Open-Meteo (allorigins)') locked = { url: 'https://api.allorigins.win/raw?url=' + enc, name: wxFrozenMirror, T: 8000 };
       else if (wxFrozenMirror === 'Open-Meteo (codetabs)')   locked = { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, name: wxFrozenMirror, T: 8000 };
@@ -8811,13 +8847,14 @@ if (_winner) wxFrozenMirror = _winner;   /* ← замокъ: побѣдител
 
     /* Гонка: какъ было, но мёртвыя зеркала выкидываемъ изъ старта. */
    function runRace() {
-  var all = [
+    var all = [
+    { url: 'https://wttr.in/53.35,83.78?format=j1', t: 7000, name: 'wttr.in', parser: parseWttrPrecip },
     { url: OM, t: 6000, name: 'Open-Meteo (прямой)' },
-    { url: 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=53.35&lon=83.78', t: 7000, name: 'MET-Norway', parser: parseMetPrecip },
     { url: 'https://corsproxy.io/?url=' + enc, t: 8000, name: 'Open-Meteo (corsproxy)' },
     { url: 'https://api.allorigins.win/raw?url=' + enc, t: 8000, name: 'Open-Meteo (allorigins)' },
     { url: 'https://api.codetabs.com/v1/proxy?quest=' + enc, t: 8000, name: 'Open-Meteo (codetabs)' }
   ];
+
       var tries = [];
       for (var mi = 0; mi < all.length; mi++) {
         if (wxDeadMirrors[all[mi].name]) continue;   /* ← мёртвыхъ не запускаемъ */
