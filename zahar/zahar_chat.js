@@ -5433,8 +5433,12 @@ function tryName(raw) {
     return null;
   }
 
-    /* === мостъ клёва: живая сводка из data/klev.json (смотритель 74) === */
-  var K74 = { data: null, ts: 0 };
+      /* === мостъ клёва: живая сводка из data/klev.json (смотритель 74) === */
+  var K74 = { data: null, ts: 0, lastAsk: 0 };
+
+  function z74canon(x) {
+    return String(x || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '');
+  }
 
   function zaharKlevPrefetch() {
     var now = Date.now();
@@ -5449,33 +5453,65 @@ function tryName(raw) {
     } catch (eK74p) {}
   }
 
-  function zaharKlevDayIndex(nq) {
+  function zaharKlevDayIndex(s) {
     var d = K74.data;
     if (!d || !d.days || !d.days.length) return 0;
-    if (/завтра/.test(nq) && d.days.length > 1) return 1;
+    if (/послезавтра/.test(s)) return (d.days.length > 2) ? 2 : 0;
+    if (/завтра/.test(s)) return (d.days.length > 1) ? 1 : 0;
     var DOW = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
     for (var i = 0; i < DOW.length; i++) {
-      if (nq.indexOf(DOW[i].slice(0, 4)) >= 0) {
+      if (s.indexOf(DOW[i].slice(0, 4)) >= 0) {
         for (var j = 0; j < d.days.length; j++) if (d.days[j].dow === DOW[i]) return j;
       }
     }
     return 0; /* сегодня */
   }
 
-  function zaharKlevReply(nq) {
+  /* десятка клёва: живыя слова Захара */
+  var Z74_KLEVW = {
+    1: ['Клёва вовсе нѣтъ: и снасть разматывать не стоитъ.', 'Рыба точно сговорилась — нынчѣ ни одна не беретъ.', 'Клёва нѣтъ какъ нѣтъ: ставьте жерлицы али не ставьте — всё едино.'],
+    2: ['Клёва почти нѣтъ: лучше къ другому дѣлу.', 'Рыба заперлась — сидитъ въ ямахъ и не шевелится.', 'Нынчѣ не рыболовный день: поклёвки редкіе, какъ вишни въ марте.'],
+    3: ['Клёвъ жидкій: сидѣть можно, а рыба мимо.', 'Рыба нынчѣ не въ духѣ — едва беретъ.', 'Клёвъ скудный: развѣ что мелочь позарится.'],
+    4: ['Клёвъ вялый: рыба капризна.', 'Худо-бѣдно: поклёвка и та черезъ часъ.', 'Клёвъ слабый — больше времяпровожденіе, чѣмъ промыселъ.'],
+    5: ['Клёвъ половинчатый: надежда есть, да не велика.', 'Такъ себѣ день: что поймаете — тому и рады.', 'Клёвъ серединный съ худомъ — запастись терпѣніемъ.'],
+    6: ['Клёвъ серединный: половить можно, только снасть тонкая да тишь.', 'Ни туды ни сюды, {N}: беретъ, да разборчиво.', 'Клёвъ ровный, безъ азарта — на зарѣ пробуйте.'],
+    7: ['Клёвъ серединный съ добромъ: половить можно.', 'Не худо, {N}: рыба отзывается, да безъ жара.', 'Клёвъ исправный — терпѣніе вознаградится.'],
+    8: ['Клёвъ ладный: безъ пустыхъ забросовъ.', 'Рыба беретъ усердно — о снастяхъ только помышляйте.', 'Клёвъ добрый, честный — какъ нарочно для рыбака.'],
+    9: ['Клёвъ добрый превыше всякой хвалы: рыба деятельна.', 'Беретъ на совесть — редкій день выдался.', 'Клёвъ отличный: скучать на Оби не придетсяъ.'],
+    10: ['Клёвъ сильный, яръ: что ни забросъ — то поклёвка.', 'Рыба сама на крюкъ лезетъ, {N}, — не оторвёшься.', 'Такого клёва и въ добрые годы дай Богъ: бери — не ленись.']
+  };
+  var Z74_KLABEL = { 1: 'нѣтъ вовсе', 2: 'почти нѣтъ', 3: 'жидкій', 4: 'вялый', 5: 'половинчатый', 6: 'серединный', 7: 'серединный съ добромъ', 8: 'добрый', 9: 'добрый превыше хвалы', 10: 'сильный, яръ' };
+  var Z74_KSHORT = { 1: 'нѣтъ', 2: 'нѣтъ', 3: 'жидкій', 4: 'вялый', 5: 'половинчатый', 6: 'серединный', 7: 'серединный', 8: 'добрый', 9: 'добрый', 10: 'сильный' };
+  var Z74_KRING = {};
+  function z74kphrase(sc) {
+    sc = Math.min(10, Math.max(1, sc));
+    var pool = Z74_KLEVW[sc];
+    var i, tries = 0;
+    do { i = Math.floor(Math.random() * pool.length); tries++; }
+    while (pool.length > 1 && Z74_KRING[sc] === i && tries < 8);
+    Z74_KRING[sc] = i;
+    return pool[i];
+  }
+  function z74kshort(sc) {
+    sc = Math.min(10, Math.max(1, sc));
+    return Z74_KSHORT[sc];
+  }
+
+  function zaharKlevReply(s) {
     var d = K74.data;
     if (!d || !d.days || !d.days.length) return null;
-    var day = d.days[zaharKlevDayIndex(nq)] || d.days[0];
+    var day = d.days[zaharKlevDayIndex(s)] || d.days[0];
     var p = [];
-        var isToday = (day.date === d.date);
-    var head = 'Клѣвъ ' + (isToday ? 'нынчѣ' : 'на ' + day.dow) + ' — ' + day.score + ' изъ сотни, ' + day.word + '.';
-    p.push(femizeOut(fill(head + (isToday ? ' ' + (day.verdict || '') : ''))));
-
+    var isToday = (day.date === d.date);
+    var sc = Math.round((day.score || 0) / 10);
+    var head = 'Клѣвъ ' + (isToday ? 'нынчѣ' : 'на ' + day.dow) + ' — ' + Z74_KLABEL[sc] + '.';
+    var vd = (isToday && day.verdict) ? day.verdict : z74kphrase(sc);
+    p.push(femizeOut(fill(head + ' ' + vd)));
     if (day.top && day.top.length) {
       var t = [], g = [], i;
-      for (i = 0; i < day.top.length; i++) t.push(day.top[i].n + ' (' + day.top[i].s + ')');
+      for (i = 0; i < day.top.length; i++) t.push(day.top[i].n + ' — клѣвъ ' + z74kshort(Math.round((day.top[i].s || 0) / 10)));
       for (i = 0; i < day.top.length; i++) g.push(day.top[i].n + ' — ' + day.top[i].g);
-            p.push('Берётъ ' + (isToday ? 'нынчѣ' : day.dow) + ': ' + t.join(', ') + '.');
+      p.push('Берётъ ' + (isToday ? 'нынчѣ' : day.dow) + ': ' + t.join(', ') + '.');
       p.push('Снасти: ' + g.join('; ') + '.');
     }
     if (day.avoid && day.avoid.length) {
@@ -5496,15 +5532,304 @@ function tryName(raw) {
     return p.join(' ');
   }
 
+  /* рыба въ вопросѣ — краткій ответъ на три дня, съ совѣтомъ къ лучшей */
+  var Z74_FISH = [
+    { re: /налим/, s: 'налимъ' },
+    { re: /щук/, s: 'щука' },
+    { re: /судак/, s: 'судакъ' },
+    { re: /окун/, s: 'окунь' },
+    { re: /карас/, s: 'карась' },
+    { re: /сазан/, s: 'сазанъ' },
+    { re: /лещ|леш/, s: 'лещъ' },
+    { re: /сорог|плотв/, s: 'сорога' },
+    { re: /елец/, s: 'елецъ' },
+    { re: /писк[ао]р|пескар/, s: 'пескарь' },
+    { re: /язь|язов/, s: 'язь' },
+    { re: /нельм/, s: 'нельма' },
+    { re: /хар[ию]з/, s: 'хариусъ' },
+    { re: /таймен/, s: 'таймень' },
+    { re: /стерляд|осетр/, s: 'стерлядь' }
+  ];
+  var Z74_FGIRL = ['щука', 'сорога', 'плотва', 'нельма', 'стерлядь'];
+  function z74genderOf(name) {
+    var c = z74canon(name);
+    for (var i = 0; i < Z74_FGIRL.length; i++) if (c.indexOf(Z74_FGIRL[i]) === 0) return 'f';
+    return 'm';
+  }
+  function z74fishOf(day, stem) {
+    var arrs = [day.fish, day.list, day.all, day.fishes, day.top, day.avoid];
+    for (var L = 0; L < arrs.length; L++) {
+      var arr = arrs[L];
+      if (!Array.isArray(arr)) continue;
+      for (var i = 0; i < arr.length; i++) {
+        var e = arr[i];
+        if (!e) continue;
+        if (z74canon(e.n || e.name || '').indexOf(stem) === 0) return e;
+      }
+    }
+    return null;
+  }
+  function z74inList(arr, stem) {
+    if (!Array.isArray(arr)) return false;
+    for (var i = 0; i < arr.length; i++) {
+      var e = arr[i]; if (!e) continue;
+      if (z74canon(e.n || e.name || '').indexOf(stem) === 0) return true;
+    }
+    return false;
+  }
+
+  function zaharFishReply(s) {
+    var d = K74.data;
+    if (!d || !d.days || !d.days.length) return null;
+    var fi = null;
+    for (var i = 0; i < Z74_FISH.length; i++) { if (Z74_FISH[i].re.test(s)) { fi = Z74_FISH[i]; break; } }
+    if (!fi) return null;
+    var parts = [], todayBad = false, todayReason = null, best = null;
+    for (var j = 0; j < d.days.length && j < 3; j++) {
+      var day = d.days[j];
+      var e = z74fishOf(day, fi.s);
+      var when = (j === 0) ? 'нынчѣ' : (j === 1 ? 'завтра, ' + day.dow : 'послезавтра, ' + day.dow);
+      var v = e ? ((typeof e.s === 'number') ? e.s : ((typeof e.score === 'number') ? e.score : null)) : null;
+      var sc10 = (v !== null) ? Math.round(v / 10) : null;
+      if (v !== null && sc10 > 3) {
+        parts.push(when + ' — клѣвъ ' + z74kshort(sc10) + (e.g ? ' (' + e.g + ')' : ''));
+      } else {
+        var why = (e && e.why) ? e.why : null;
+        if (!why && z74inList(day.avoid, fi.s)) why = 'въ спискѣ худыхъ нынчѣ';
+        parts.push(when + ' — не беретъ' + (why ? ': ' + why : ''));
+        if (j === 0) { todayBad = true; todayReason = why; }
+      }
+      if (!best && day.top && day.top.length) best = day.top[0];
+    }
+    var name = fi.s.charAt(0).toUpperCase() + fi.s.slice(1);
+    var out = femizeOut(fill(name + ', {N}: ' + parts.join('; ') + '.'));
+    /* худой клѣвъ нынчѣ — совѣтую лучшую рыбу дня, съ родомъ въ слово */
+    if (todayBad && best) {
+      var bn = best.n || best.name || '';
+      if (z74canon(bn).indexOf(fi.s) !== 0) {
+        var gnd = z74genderOf(bn);
+        var W = todayReason || ((d.days[0].why && d.days[0].why.length) ? d.days[0].why[0] : 'причину станція не донесла');
+        var bword = (typeof best.s === 'number') ? ('клѣвъ ' + z74kshort(Math.round(best.s / 10))) : 'беретъ';
+        var tpls = (gnd === 'f')
+          ? [' Оставьте ея въ покое — перекиньте снасть на ' + bn + ': та нынчѣ во всю (' + bword + ').',
+             ' А ' + bn + ' нынчѣ беретъ — за ней и снасть (' + bword + ').']
+          : [' Оставьте его въ покое — перекиньте снасть на ' + bn + ': тотъ нынчѣ во всю (' + bword + ').',
+             ' А ' + bn + ' нынчѣ беретъ — за нимъ и снасть (' + bword + ').'];
+        out += femizeOut(fill(tpls[Math.floor(Math.random() * tpls.length)]));
+      }
+    }
+    return out;
+  }
+
   function zaharGuard74Klev(nq) {
-        var s = String(nq || '').toLowerCase();
-        if (!/(клев|клёв|клѣв)/.test(s)) return null;
-    if (!K74.data) { zaharKlevPrefetch(); return null; } /* сводка ещё не поспѣла — ответит старый страж */
+    var s = z74canon(nq);
+    if (!s) return null;
+    var isKlev = /клев/.test(s);
+    var isWhen = /(завтра|суббот|воскресен|понедельн|вторник|сред[ауы]|четверг|пятниц)/.test(s);
+    var isFish = /(рыб|клю|улов|снаст|лов)/.test(s);
+    if (!isFish && /тихон|новост|груст|страш|одинок|бол[еи]т|болен|погод/.test(s)) return null;
+    var follow = isWhen && ((Date.now() - (K74.lastAsk || 0)) < 10 * 60 * 1000); /* добивка после клёва */
+    if (!(isKlev || isFish || follow)) return null;
+    if (!K74.data) { zaharKlevPrefetch(); return null; }
+    K74.lastAsk = Date.now();
+    var fr = zaharFishReply(s);
+    if (fr) return fr;
     return zaharKlevReply(s);
   }
 
+  /* === смотритель 75: погода из data/forecast.json === */
+  var W75 = { data: null, ts: 0 };
+
+  function zaharWxPrefetch() {
+    var now = Date.now();
+    if (W75.data && now - W75.ts < 10 * 60 * 1000) return; /* кэш на 10 минут */
+    try {
+      fetch('/data/forecast.json').then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (d) {
+        if (d && d.days && d.days.length) { W75.data = d; W75.ts = Date.now(); }
+      }).catch(function () { /* старый запас остаётся */ });
+    } catch (eW75p) {}
+  }
+
+  var Z75_WTXT = { 'ясно': 'ясно', 'переменная облачность': 'перемѣнная облачность', 'пасмурно': 'пасмурно', 'туман': 'туманъ', 'морось': 'морось', 'дождь': 'дождь', 'снег': 'снѣгъ', 'ливни': 'ливни', 'снег ливнями': 'снѣгъ ливнями', 'гроза': 'гроза' };
+  function z75wtxt(t) { return Z75_WTXT[t] || t; }
+
+  var Z75_TR = { 'падает': 'падаетъ', 'растёт': 'растетъ', 'растет': 'растетъ', 'ровно': 'ровно' };
+
+  var Z75_NODAY = [
+    'На {D} сводки еще нѣтъ, {N}: депеши отъ метеорной станціи не дошли. Загляните опосля — дамъ вѣсть.',
+    'Про {D} молчу, {N}: метеорологія дальнюю неделю не меряла. Спросите черезъ день-другой.',
+    'На {D} данныхъ нѣтъ, {N}: станція таку даль не телеграфируетъ.'
+  ];
+  var Z75_NOWAT = [
+    'Водную меру не доносятъ, {N}: термометръ въ рекѣ простылъ. Попрошу опосля.',
+    'Про воду, {N}, молчу — депеша не дошла. Спросите опосля.',
+    'Градуса воды въ сводкѣ покуда нѣтъ, {N}: измерятъ — донесу.'
+  ];
+  var Z75_NOPRES = [
+    'Давленія на сей день не доносятъ, {N}: барометръ отсыхаетъ. Спросите опосля.',
+    'Про давленіе молчу, {N}: столба ртутнаго въ сводкѣ нѣтъ.',
+    'Барометръ безгласенъ, {N}: меры не прислалъ — спросите опосля.'
+  ];
+  var Z75_NOTEMP = [
+    'Тепра на сей день не доносятъ, {N}: приборы молчатъ. Загляните опосля.',
+    'Градусъ на сей день въ сводкѣ нѣтъ, {N}: метеорологія недосмотрѣла.',
+    'О тепрѣ не скажу, {N}: ленты сей день не содержатъ.'
+  ];
+  var Z75_WATER = [
+    'Вода въ Оби теперича {W} град.',
+    'Да и вода въ рекѣ — {W} град.',
+    'Вода въ Оби на {W} град.'
+  ];
+
+  function z75pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function z75t(v, gen) {
+    if (v === null || v === undefined || isNaN(v)) return null;
+    var x = Math.round(v * 10) / 10;
+    if (x === 0) return gen ? 'нуля' : 'ноль';
+    return (x < 0) ? '−' + String(-x) : String(x);
+  }
+  function z75range(day) {
+    var a = z75t(day.tmin, true), b = z75t(day.tmax, true);
+    if (a === null && b === null) return null;
+    if (a === null) return z75t(day.tmax, false) + ' град.';
+    if (b === null) return z75t(day.tmin, false) + ' град.';
+    if (String(a) === String(b)) return z75t(day.tmax, false) + ' град.';
+    return 'отъ ' + a + ' до ' + b + ' град.';
+  }
+  function z75windWord(ms) {
+    ms = Number(ms) || 0;
+    if (ms < 1.5) return 'штиль';
+    if (ms < 4) return 'слабый';
+    if (ms < 8) return 'умеренный';
+    if (ms < 12) return 'свежий';
+    if (ms < 17) return 'сильный';
+    return 'крепкій';
+  }
+
+  var Z75_DOWP = [['воскресен', 'воскресенье'], ['понедельн', 'понедельник'], ['вторник', 'вторник'], ['сред[ауы]', 'среда'], ['четверг', 'четверг'], ['пятниц', 'пятница'], ['суббот', 'суббота']];
+  var Z75_MON = [['январ', '01'], ['феврал', '02'], ['март', '03'], ['апрел', '04'], ['ма[йя]', '05'], ['июн', '06'], ['июл', '07'], ['август', '08'], ['сентябр', '09'], ['октябр', '10'], ['ноябр', '11'], ['декабр', '12']];
+
+  function z75dayIndex(s) {
+    var d = W75.data;
+    if (!d || !d.days || !d.days.length) return 0;
+    if (/послезавтра/.test(s)) return (d.days.length > 2) ? 2 : -1;
+    if (/завтра/.test(s)) return (d.days.length > 1) ? 1 : -1;
+    for (var i = 0; i < Z75_DOWP.length; i++) {
+      if (new RegExp(Z75_DOWP[i][0]).test(s)) {
+        for (var j = 0; j < d.days.length; j++) if (d.days[j].dow === Z75_DOWP[i][1]) return j;
+        return -1; /* день названъ — но въ семидневной сводкѣ его нѣтъ */
+      }
+    }
+    /* число съ мѣсяцемъ: «23-е ноября», «25 ноября» */
+    var m = s.match(/(\d{1,2})\s*(?:-?\s*е\b|-?\s*го\b|\.)?\s*(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)/);
+    if (m && m[1]) {
+      var num = parseInt(m[1], 10);
+      for (var k = 0; k < Z75_MON.length; k++) {
+        if (m[2].indexOf(Z75_MON[k][0]) === 0) {
+          for (var q = 0; q < d.days.length; q++) {
+            var dd = String(d.days[q].date || '');
+            if (parseInt(dd.slice(8), 10) === num && dd.slice(5, 7) === Z75_MON[k][1]) return q;
+          }
+          return -1;
+        }
+      }
+    }
+    return 0; /* сегодня */
+  }
+
+  function zaharWxReply(s) {
+    var d = W75.data;
+    if (!d || !d.days || !d.days.length) return null;
+    var j = z75dayIndex(s);
+    var isWat = /вод/.test(s) && /(температур|градус|тепл|скольк)/.test(s);
+    var isPres = /давлен|ртутн|барометр/.test(s);
+    var isTemp = !/вод/.test(s) && /(температур|тепл|градус|мороз|жарк|холодн)/.test(s);
+    var isGen = /погод|за окн|на двор/.test(s);
+    var label = 'тотъ день';
+    for (var q = 0; q < Z75_DOWP.length; q++) { if (new RegExp(Z75_DOWP[q][0]).test(s)) { label = Z75_DOWP[q][1]; break; } }
+    if (/послезавтра/.test(s)) label = 'послезавтра'; else if (/завтра/.test(s)) label = 'завтра';
+
+    if (j === -1) return femizeOut(fill(z75pick(Z75_NODAY).replace(/\{D\}/g, label)));
+
+    var day = d.days[j] || d.days[0];
+    var whenP = (j <= 0) ? 'нынчѣ' : 'на ' + day.dow;
+
+    if (isWat) {
+      var kw = (K74.data && K74.data.level && typeof K74.data.level.temp === 'number') ? K74.data.level.temp : null;
+      if (kw === null) return femizeOut(fill(z75pick(Z75_NOWAT)));
+      return femizeOut(fill(z75pick(Z75_WATER).replace(/\{W\}/g, String(kw).replace('.', ','))));
+    }
+    if (isGen) {
+      var p = [];
+      p.push(femizeOut(fill('Погода ' + whenP + ', {N}: ' + z75wtxt(day.wtext) + '.')));
+      var rng = z75range(day);
+      if (rng) p.push('Тепръ ' + rng + '.');
+      if (day.wind !== null && day.wind !== undefined) {
+        var ms = Math.round((day.wind / 3.6) * 10) / 10;
+        var vr = Math.round(day.wind * 0.9374);
+        p.push('Вѣтръ ' + (day.wdirName || 'перѣменный') + ', ' + z75windWord(ms) +
+          ': до ' + vr + ' вёрстъ въ часъ (' + String(ms).replace('.', ',') + ' метра въ секунду).');
+      }
+      if (day.pressure !== null && day.pressure !== undefined) {
+        var P2 = Math.round(day.pressure);
+        var M2 = Math.round(day.pressure * 0.750062);
+        var TR2 = Z75_TR[day.ptrend] || null;
+        p.push('Давленіе ' + P2 + ' гектопаскалей (' + M2 + ' ммъ ртутнаго столба)' + (TR2 ? ' — ' + TR2 : '') + '.');
+      }
+      if (day.precip !== null && day.precip !== undefined && day.precip > 0.5) {
+        p.push('Осадковъ за сутки — ' + String(day.precip).replace('.', ',') + ' ммъ.');
+      }
+      if (j === 0 && K74.data && K74.data.level && typeof K74.data.level.temp === 'number') {
+        p.push(z75pick(Z75_WATER).replace(/\{W\}/g, String(K74.data.level.temp).replace('.', ',')));
+      }
+      if (j === 0 && typeof wxTailByTemp === 'function' && day.tmean !== null && day.tmean !== undefined) {
+        try { p.push(String(wxTailByTemp(day.tmean))); } catch (eT75) {}
+      }
+      return p.join(' ');
+    }
+    if (isPres) {
+      if (day.pressure === null || day.pressure === undefined) return femizeOut(fill(z75pick(Z75_NOPRES)));
+      var P = Math.round(day.pressure);
+      var M = Math.round(day.pressure * 0.750062);
+      var TR = Z75_TR[day.ptrend] || null;
+      var pv = [
+        'Давленіе ' + whenP + ' — ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба)' + (TR ? ', ' + TR : '') + '.',
+        (TR && TR !== 'ровно') ? ('Столбъ ртути ' + whenP + ' на ' + M + ' ммъ — ' + TR + '.') : ('Столбъ ртути ' + whenP + ' на ' + M + ' ммъ, не пляшетъ.'),
+        TR ? ('Давленіе ' + whenP + ' ' + TR + ': ' + P + ' гектопаскалей — ' + M + ' ммъ ртутнаго столба.') : ('Давленіе ' + whenP + ' — ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба).')
+      ];
+      return femizeOut(fill(pv[Math.floor(Math.random() * pv.length)]));
+    }
+    if (isTemp) {
+      var rngT = z75range(day);
+      if (!rngT) return femizeOut(fill(z75pick(Z75_NOTEMP)));
+      var tv = [
+        'Тепръ ' + whenP + ' ' + rngT + '.',
+        'На градусникѣ ' + whenP + ' ' + rngT + '.',
+        ((day.tmax !== null && day.tmax !== undefined && day.tmax < 0) ? 'Морозъ стоитъ: ' : 'Тепло стоитъ: ') + rngT + '.'
+      ];
+      return femizeOut(fill(tv[Math.floor(Math.random() * tv.length)]));
+    }
+    return null;
+  }
+
+  function zaharGuard75Wx(nq) {
+    var s = z74canon(nq);
+    if (!s) return null;
+    if (/клев/.test(s)) return null; /* клѣвъ — дѣло смотрителя 74 */
+    if (/уровен/.test(s)) return null; /* уровень — дѣло моста рѣки */
+    if (!/погод|за окн|на двор|температур|тепл|градус|мороз|жарк|холодн|давлен|ртутн|барометр/.test(s)) return null;
+    if (!W75.data) { zaharWxPrefetch(); return null; }
+    return zaharWxReply(s);
+  }
+
   zaharKlevPrefetch();
+  zaharWxPrefetch();
   setInterval(function () { try { zaharKlevPrefetch(); } catch (eK74i) {} }, 10 * 60 * 1000);
+  setInterval(function () { try { zaharWxPrefetch(); } catch (eW75i) {} }, 10 * 60 * 1000);
 
   function zaharWrap71() {
     var f = window.ZAHAR_ASK;
@@ -5514,6 +5839,8 @@ function tryName(raw) {
       var args = arguments;
       var r = null;
       try { r = zaharGuard74Klev(args[0]); } catch (eK74) { r = null; }
+      if (r != null) return r;
+      try { r = zaharGuard75Wx(args[0]); } catch (eW75) { r = null; }
       if (r != null) return r;
       try { r = zaharGuard73Answer(args[0]); } catch (eG73) { r = null; }
       if (r != null) return r;

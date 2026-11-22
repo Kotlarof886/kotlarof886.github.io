@@ -1,18 +1,17 @@
 /* ============================================================
    zahar_river.js — мостъ рѣки для Захара (уровень Оби въ Барнаулѣ)
-   Источникъ: data/ob-level.json въ репозитории, обновляетъ GitHub Actions
-   (scripts/zahar_ob.js, разъ въ часъ). Версія 4 (22.11.2026): если въ JSON
-   есть наборъ фразъ (phrases) — жребій брошается при каждомъ вопросѣ,
-   подрядъ не повторяемъ; готовая phrase — запасъ на старый JSON.
-   Ответъ — обещаніемъ (Promise), какъ погодныя ветки чата.
+   Источникъ: data/ob-level.json, обновляетъ GitHub Actions (раз въ часъ).
+   Версія 3: къ уровню добавлена температура воды изъ data/klev.json.
+   Прежняя логика не тронута — вода лишь хвостомъ въ концѣ.
    ============================================================ */
 (function () {
   'use strict';
 
-  var TTL = 30 * 60 * 1000;   /* свежесть кэша: полчаса */
+  var TTL = 30 * 60 * 1000;
   var KEY = 'barnaul-ob-level';
-  var KEY_LAST = KEY + '-last';
-  var SRC = 'data/ob-level.json';   /* относительный путь — переживетъ смену домена */
+  var WKEY = 'zahar-klev-water';
+  var SRC = 'data/ob-level.json';
+  var KSRC = 'data/klev.json';
 
   function readCache() {
     try {
@@ -28,38 +27,45 @@
     try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
   }
 
-  function load(cb) {
+  function load(src, cb) {
     var x = new XMLHttpRequest();
-    x.open('GET', SRC, true);
+    x.open('GET', src, true);
     x.timeout = 10000;
     x.onload = function () {
       if (x.status !== 200) return cb(null);
-      try {
-        var o = JSON.parse(x.responseText);
-        cb(o && typeof o.level === 'number' ? o : null);
-      } catch (e) { cb(null); }
+      try { cb(JSON.parse(x.responseText)); } catch (e) { cb(null); }
     };
     x.onerror = function () { cb(null); };
     x.ontimeout = function () { cb(null); };
     x.send();
   }
 
-  /* жребій: случайная фраза изъ набора, не та что въ прошлый разъ */
-  function drawPhrase(d) {
-    if (Array.isArray(d.phrases) && d.phrases.length) {
-      var last = null;
-      try { last = localStorage.getItem(KEY_LAST); } catch (e) {}
-      var pool = d.phrases.filter(function (p) { return p !== last; });
-      var s = pool[Math.floor(Math.random() * pool.length)];
-      try { localStorage.setItem(KEY_LAST, s); } catch (e) {}
-      return s;
-    }
-    return null;   /* набора нѣтъ — идемъ въ запасъ */
+  /* температура воды: кэш полчаса, не тормозит главный ответъ */
+  function readWater(cb) {
+    try {
+      var raw = localStorage.getItem(WKEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && typeof o.temp === 'number' && typeof o.ts === 'number' && Date.now() - o.ts < TTL) return cb(o.temp);
+      }
+    } catch (e) {}
+    load(KSRC, function (o) {
+      var t = (o && o.level && typeof o.level.temp === 'number') ? o.level.temp : null;
+      if (t !== null) {
+        try { localStorage.setItem(WKEY, JSON.stringify({ temp: t, ts: Date.now() })); } catch (e) {}
+      }
+      cb(t);
+    });
   }
 
-  /* запасъ: готовая phrase изъ JSON, а ежели и ея нѣтъ — сборка по полямъ */
-  function fallback(d) {
-    if (d.phrase && typeof d.phrase === 'string') return d.phrase;
+  var WATER_TAILS = [
+    'Вода въ Оби теперича {W} град.',
+    'Да и вода въ рекѣ — {W} град.',
+    'Вода въ Оби на {W} град.'
+  ];
+
+  /* готовая фраза Захара въ дореформенной орѳографіи */
+  function phrase(d, stale, tw) {
     var s;
     if (d.trend === 'подъём') {
       s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, рѣка идеть на подъемъ: за сутки прибыло ' + Math.abs(d.delta) + ' смъ.';
@@ -70,29 +76,29 @@
     } else {
       s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, за сутки — безъ переменъ.';
     }
-    s += ' Измереніе отъ ' + (d.date || new Date(d.ts).toLocaleDateString('ru-RU')) + ', данные: ' + (d.source || 'fishingsib.ru') + '.';
-    return s;
-  }
-
-  function phrase(d, stale) {
-    var s = drawPhrase(d) || fallback(d);
+        s += ' Измереніе отъ ' + (d.date || new Date(d.ts).toLocaleDateString('ru-RU')) + ', данные: ' + (d.source || 'fishingsib.ru') + '.';
     if (stale) s += ' (Данные могли устарѣть — запрошу свежіе при следующей депешѣ.)';
+    if (tw !== null && tw !== undefined) {
+      s += ' ' + WATER_TAILS[Math.floor(Math.random() * WATER_TAILS.length)].replace(/\{W\}/g, String(tw).replace('.', ','));
+    }
     return s;
   }
 
-  /* главный входъ: возвращаетъ Promise со строкой-ответомъ (контрактъ чата) */
+  /* главный входъ: Promise со строкой-ответомъ, вода — хвостомъ въ концѣ */
   function ask() {
     var d = readCache();
     if (d && Date.now() - d.ts < TTL) {   /* кэшъ живой — отвечаемъ сразу */
-      return Promise.resolve(phrase(d, false));
+      readWater(function (tw) { /* вода догрузится къ следующему вопросу, ответъ не ждёмъ */ });
+      return Promise.resolve(phrase(d, false, waterNow()));
     }
     return new Promise(function (res) {
-      load(function (o) {
+      load(SRC, function (o) {
         if (o) {
           writeCache(o);
-          res(phrase(o, false));
+          readWater(function (tw) {});
+          res(phrase(o, false, waterNow()));
         } else if (d) {   /* источникъ не ответилъ — старый кэшъ лучше пустоты */
-          res(phrase(d, true));
+          res(phrase(d, true, waterNow()));
         } else {
           res('Про уровень Оби сведеній пока нѣтъ — гляньте на метеорную станцію или спросите черезъ минуту.');
         }
@@ -100,5 +106,18 @@
     });
   }
 
+  /* вода изъ кэша мгновенно, безъ ожиданія — при нѣтъ, хвостъ молчитъ */
+  function waterNow() {
+    try {
+      var raw = localStorage.getItem(WKEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && typeof o.temp === 'number' && typeof o.ts === 'number' && Date.now() - o.ts < TTL) return o.temp;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   window.ZAHAR_RIVER_ASK = ask;
 })();
+
