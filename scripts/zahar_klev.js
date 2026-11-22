@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SYN = 29.530588853;
-const REF = Date.UTC(2000, 0, 6, 18, 14);
+const REF = Date.UTC(2000, 0, 6, 18, 14); /* новолуние — как въ zahar_chat */
 
 const MOON_NAMES = {
   new: 'новолуніе — не видна',
@@ -37,8 +37,8 @@ function moonOf(dateStr) {
   return { key: 'oldC', name: MOON_NAMES.oldC };
 }
 
-/* направление: 210–330° — добрый ветер (юго-запад…северо-запад),
-   330–120° через север и восток — худой; прочее — серединка */
+/* направление: 210–330° (юго-запад…северо-запад) — добрый;
+   330–120° (север…юго-восток через восток) — худой; прочее — серединка */
 function dirClass(deg) {
   if (deg == null) return null;
   const a = ((deg % 360) + 360) % 360;
@@ -47,6 +47,9 @@ function dirClass(deg) {
   return 'mid';
 }
 
+/* рыбы Оби у Барнаула: нерест (месяцы 1..12), преднерестовый жор,
+   зимняя спячка, реакция на давление/ветер/погоду/воду/луну.
+   wT — таблица [порог температуры воды, прибавка]. */
 const FISHES = [
   { name: 'налимъ', pred: 1, spawnM: [12, 1, 2], spawnSoft: 1, preM: [11],
     wT: [[2, 15], [6, 10], [8, 0], [99, -15]], pdF: 6, pdR: -4,
@@ -152,7 +155,7 @@ function fishScore(f, d, ctx, mo, ice) {
 
   const pd = d.pdelta;
   if (pd != null) {
-    if (pd <= -3) { s += f.pdF; if (f.pdF >= 6 && f.pred) s += 2; }
+    if (pd <= -3) s += f.pdF;
     else if (pd >= 3) s += f.pdR;
     else s += f.pred ? 2 : 5;
   }
@@ -165,14 +168,16 @@ function fishScore(f, d, ctx, mo, ice) {
     else if (w > 20) s += f.windB;
   }
   const dc = dirClass(d.wdir);
-  if (dc === 'good') s += f.wW || 0;
-  else if (dc === 'bad') s += f.wE || 0;
+  if (dc === 'good') s += (f.wW || 0);
+  else if (dc === 'bad') s += (f.wE || 0);
 
+  /* сдвиг тепла: похолодание — хищнику на руку, потепление — наоборот */
   if (d.tshift != null) {
     if (d.tshift <= -3) s += f.pred ? 3 : -2;
     else if (d.tshift >= 3) s += f.pred ? -2 : 1;
   }
 
+  /* осадки количеством: лёгкий снег подкармливает, ливень глушит */
   if (d.precip != null) {
     if (d.precip > 0 && d.precip <= 2) s += f.pred ? 3 : 0;
     else if (d.precip > 10) s -= 6;
@@ -192,16 +197,16 @@ function fishScore(f, d, ctx, mo, ice) {
     s += dv;
   }
 
-  if (d.moonKey === 'full') s += f.fullMoon + 0;
-  else if (d.moonKey === 'new') s += f.newMoon;
+  if (d.moonKey === 'full') s += (f.fullMoon || 0);
+  else if (d.moonKey === 'new') s += (f.newMoon || 0);
   else if (d.moonKey === 'wane' || d.moonKey === 'lastQ' || d.moonKey === 'oldC') s -= 2;
 
   if (ctx.delta != null) {
     if (ctx.delta < 0) s += f.pred ? 4 : -4;
     else if (ctx.delta > 0) s += f.pred ? -2 : -6;
   }
-  if (ice && f.pred) s -= 4;
-  if (!f.pred) s -= 2;
+  if (ice && f.pred) s -= 4; /* лёд на подходе — рыбалка меняется */
+  if (!f.pred) s -= 2; /* осень — мирной рыбѣ труднее */
 
   if (s < 5) s = 5;
   if (s > 95) s = 95;
@@ -230,7 +235,7 @@ function dayWhy(d, ctx, ice) {
   if (d.wind != null && d.wind > 20) out.push('вѣтръ крепкій — рыба забилась въ ямы');
   if (d.precip != null && d.precip > 10) out.push('ливень — клѣвъ сгинетъ');
   if (d.thaw) out.push('оттепель — сорога да елецъ оживаютъ');
-  if (d.wcode >= 71 && d.wcode <= 77) out.push('снѣгъ нежный — сорога къ клѣву охоча');
+  if (d.wcode != null && d.wcode >= 71 && d.wcode <= 77) out.push('снѣгъ нежный — сорога къ клѣву охоча');
   if (d.moonKey === 'full') out.push('луна полная — свѣтлыя ночи налиму на руку');
   else if (d.moonKey === 'new') out.push('луна млада — тѣмныя ночи, хищникъ смѣлѣе');
   else if (d.moonKey === 'wane' || d.moonKey === 'lastQ' || d.moonKey === 'oldC') out.push('луна на убыли — клѣвъ к вечеру приумолкнетъ');
@@ -264,7 +269,7 @@ function readJson(p) {
     fc.days[0].tmax != null && fc.days[0].tmax <= -4 &&
     fc.days[1] && fc.days[1].tmax != null && fc.days[1].tmax <= -4;
 
-  const mo = new Date(Date.now() + 7 * 3600000).getUTCMonth() + 1;
+  const mo = new Date(Date.now() + 7 * 3600000).getUTCMonth() + 1; /* барнаульское время */
 
   const days = fc.days.map((d) => {
     const m = moonOf(d.date);
@@ -277,6 +282,9 @@ function readJson(p) {
     const word = day >= 70 ? 'добрый' : day >= 55 ? 'серединный' : day >= 40 ? 'вялый' : 'дуренъ';
     return {
       date: d.date, dow: d.dow, moon: m.name,
+      wtext: d.wtext || 'н/д', wdirName: d.wdirName || 'н/д',
+      wind: d.wind, precip: d.precip, pressure: d.pressure, pdelta: d.pdelta, ptrend: d.ptrend,
+      tmax: d.tmax, tmin: d.tmin, tshift: d.tshift,
       score: day, word,
       verdict: verdictFor(day)[Math.floor(Math.random() * 3)],
       top,
@@ -292,7 +300,7 @@ function readJson(p) {
   console.log('OK: клѣвъ на', days.length, 'дней | сегодня', t0.score + '/100 — ' + t0.word,
     '| топъ:', t0.top.map((x) => x.n).join(', '),
     '| луна:', t0.moon,
-    '| вѣтръ:', t0.wdirName,
+    '| погода:', t0.wtext + ', вѣтръ ' + (t0.wdirName || 'н/д') + ' до ' + (t0.wind != null ? t0.wind : '?') + ' км/ч',
     '| вода:', ctx.temp === null ? 'н/д' : ctx.temp + '°',
     ice ? '| Обь скоро встанетъ' : '');
   process.exit(0);
