@@ -1,10 +1,12 @@
 /* scripts/zahar_ob.js — уровень Оби в Барнауле, каскад источников.
-   Версия 8 (22.11.2026): температура воды — отдельный каскад источников
-   (temperaturavody.com, запас rybalku.ru); заглушку allrivers «0.00» и
-   климатическую модель pogoda1 не используем; температура вшивается во
-   фразы и пишется в JSON полем temp. Остальное как в версии 7: порядок
-   источников уровня — allrivers, fishingsib, velobarnaul; пути — прямой,
-   jina, allorigins, codetabs; чистка тегов; шесть классов сдвига; 1896. */
+   Версия 9 (22.11.2026): температура воды — каскад temperaturavody.com
+   и ru-meteo.com (второй честный источник, согласуется по цифре);
+   rybalku.ru убран из каскада — их таблица модельная, не замер.
+   Заглушка allrivers «0.00С°» не используется. Температура вшивается
+   во фразы («Вода въ Оби нынче 0,0°») и пишется полем temp.
+   Остальное как в версии 8: уровень — allrivers, fishingsib,
+   velobarnaul; пути — прямой, jina, allorigins, codetabs; чистка
+   тегов; шесть классов сдвига; год 1896. */
 const fs = require('fs');
 const path = require('path');
 
@@ -20,10 +22,10 @@ const SOURCES = [
   { name: 'velobarnaul.ru', url: 'https://velobarnaul.ru/info/water/ob/' },
 ];
 
-/* температура воды — отдельные источники (замер/модель по месту) */
+/* температура воды — отдельные источники (замер по месту) */
 const TEMP_SOURCES = [
   { name: 'temperaturavody.com', url: 'https://temperaturavody.com/v/russia/barnaul-in-ob-river' },
-  { name: 'rybalku.ru',          url: 'https://rybalku.ru/prognoz/userplaces/56628' },
+  { name: 'ru-meteo.com',        url: 'https://ru-meteo.com/barnaul-temperatura-vody' },
 ];
 
 const MONTHS = {
@@ -108,10 +110,10 @@ function parseTemp(text) {
   const patterns = [
     /* temperaturavody: «Текущая температура воды 1.4°C» */
     /Текущая\s+температура\s+воды\s+(-?\d+(?:[.,]\d+)?)/i,
-    /* temperaturavody: «…составляет 1.4°C» */
-    /составля[её]т\s+(-?\d+(?:[.,]\d+)?)\s*°\s*[CcС]/i,
-    /* rybalku: «температура воды … поверхность/глубина +12 … / +13» — берём поверхность */
-    /температура\s+воды[^+]{0,60}?\+(\d+(?:[.,]\d+)?)/i,
+    /* ru-meteo: «Температура воды на сегодня … составляет 1.00°C» */
+    /на\s+сегодня[^.]{0,60}?составля[её]т\s+(-?\d+(?:[.,]\d+)?)/i,
+    /* общий запас: «температура воды … 1.4°C» в пределах строки */
+    /температура\s+воды[^0-9-]{0,40}?(-?\d+(?:[.,]\d+)?)\s*°\s*[CcС]/i,
   ];
   for (const p of patterns) {
     const t = text.match(p);
