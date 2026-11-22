@@ -1,11 +1,12 @@
 /* scripts/zahar_ob.js — уровень Оби в Барнауле, каскад источников.
-   Версия 5 (22.11.2026): порядок источников — allrivers (без гео-стены,
-   те же данные ЦГМС), fishingsib, velobarnaul; у каждого пути — прямой
-   (с повтором по кукам), r.jina.ai (с ожиданием отрисовки), allorigins,
-   codetabs; подробная диагностика в логе; предупреждение, если дата
-   отстаёт от реального дня; шесть классов суточного сдвига, случайная
-   фраза; год в мире Захара — всегда 1896; подпись «водомѣрный постъ».
-   Молчание источников не роняет запуск — старый ob-level.json цел. */
+   Версия 6 (22.11.2026): перед разбором страница чистится от тегов и
+   markdown-звёздочек (цифры у allrivers и fishingsib сидят в <b>/<strong>);
+   глаголы сдвига расширены (снизился, вырос, упал и пр.); дата ищется и
+   в виде «21 ноября 2026»; порядок источников — allrivers, fishingsib,
+   velobarnaul; пути: прямой, jina с ожиданием, allorigins, codetabs;
+   шесть классов суточного сдвига, случайная фраза; год в мире Захара —
+   всегда 1896; подпись «водомѣрный постъ „Барнаулъ“». Молчание источников
+   не роняет запуск — старый ob-level.json сохраняется. */
 const fs = require('fs');
 const path = require('path');
 
@@ -88,13 +89,29 @@ function pick(level, delta, day, monthName) {
   ];
 }
 
-function parse(text, name) {
+/* чистка: HTML-теги и markdown-звёздочки долой — цифры должны стоять голыми */
+function clean(text) {
+  return String(text)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\*+/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function parse(rawText, name) {
+  const text = clean(rawText);
   const m = text.match(/составля[её]т\s+(-?\d+)\s*[cс]м/i);
   if (!m) return null;
   const level = parseInt(m[1], 10);
   let delta = 0;
-  const t = text.match(/(повысился|понизился|прибыло|убыло)\D{0,30}?(\d+)\s*[cс]м/i);
-  if (t) delta = parseInt(t[2], 10) * ((t[1] === 'понизился' || t[1] === 'убыло') ? -1 : 1);
+  const t = text.match(
+    /(повысился|вырос|прибыл|поднялся|подскочил|понизился|снизился|убыл|опустился|упал)[а-яё]*\s[^.]{0,30}?(\d+)\s*[cс]м/i
+  );
+  if (t) {
+    const down = /^(понизился|снизился|убыл|опустился|упал)/i.test(t[1]);
+    delta = parseInt(t[2], 10) * (down ? -1 : 1);
+  }
 
   let day = '', month = '', year = '';
   const dn = text.match(/[Нн]а\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/);
@@ -102,6 +119,11 @@ function parse(text, name) {
   else {
     const dw = text.match(/[Нн]а\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i);
     if (dw && MONTHS[dw[2].toLowerCase()]) { day = dw[1]; month = MONTHS[dw[2].toLowerCase()]; year = dw[3]; }
+    else {
+      /* запасъ: любая дата словами — «Дата проверки: 21 ноября 2026» и пр. */
+      const dg = text.match(/(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})/i);
+      if (dg) { day = dg[1]; month = MONTHS[dg[2].toLowerCase()]; year = dg[3]; }
+    }
   }
   if (!day || !month) {
     const now = new Date(Date.now() + 7 * 3600 * 1000); /* барнаульское время */
@@ -128,7 +150,6 @@ async function rawFetch(url, extra) {
   return { status: r.status, text: r.ok ? await r.text() : '', jar };
 }
 
-/* прямой путь, с повтором по кукам с первого ответа */
 async function fetchDirect(url) {
   const r1 = await rawFetch(url);
   if (r1.status !== 200) throw new Error('HTTP ' + r1.status);
@@ -155,16 +176,15 @@ async function fetchCodetabs(url) {
   return await r.text();
 }
 
-/* диагностика: если цифра рядом есть — показать кусок вокруг неё */
-function diag(name, via, text) {
-  const flat = text.replace(/\s+/g, ' ');
-  const i = flat.search(/составля[её]/i);
+function diag(name, via, rawText) {
+  const text = clean(rawText);
+  const i = text.search(/составля[её]/i);
   if (i >= 0) {
-    console.warn(name, '(' + via + ') — цифра рядом есть, разбор мимо. Контекст:', flat.slice(Math.max(0, i - 100), i + 240));
-  } else if (/Выберите регион/i.test(text)) {
+    console.warn(name, '(' + via + ') — цифра рядом есть, разбор мимо. Контекст:', text.slice(Math.max(0, i - 80), i + 220));
+  } else if (/Выберите регион/i.test(rawText)) {
     console.warn(name, '(' + via + ') — геостена: сайт требует выбор региона с этого IP.');
   } else {
-    console.warn(name, '(' + via + ') — страница не распознана. Фрагмент:', flat.slice(0, 300));
+    console.warn(name, '(' + via + ') — страница не распознана. Фрагмент:', text.slice(0, 300));
   }
 }
 
@@ -189,7 +209,6 @@ function save(d, dir, name, via) {
 (async () => {
   const dataDir = path.join(__dirname, '..', 'data');
   for (const s of SOURCES) {
-    /* 1) прямой запрос, с повтором по кукам */
     try {
       const r1 = await fetchDirect(s.url);
       let d = parse(r1.text, s.name);
@@ -206,7 +225,6 @@ function save(d, dir, name, via) {
     } catch (e) {
       console.warn(s.name, '— прямой запрос не прошёл:', e.message);
     }
-    /* 2) текстовый прокси r.jina.ai — с ожиданием отрисовки */
     try {
       const text = await fetchJina(s.url);
       const d = parse(text, s.name);
@@ -215,7 +233,6 @@ function save(d, dir, name, via) {
     } catch (e) {
       console.warn(s.name, '— jina не прошёл:', e.message);
     }
-    /* 3-4) запасные прокси из погодного конвейера */
     try {
       const text = await fetchAllorigins(s.url);
       const d = parse(text, s.name);
