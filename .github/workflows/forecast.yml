@@ -1,0 +1,23 @@
+name: forecast
+on:
+  schedule:
+    - cron: '15 */3 * * *'   # раз в три часа: прогноз дневной, чаще незачем
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/zahar_forecast.js
+      - name: commit
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/forecast.json
+          git diff --cached --quiet || git commit -m "прогноз: авто-обновление"
+          git push
