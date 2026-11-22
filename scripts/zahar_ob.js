@@ -1,9 +1,10 @@
 /* scripts/zahar_ob.js — уровень Оби в Барнауле, каскад источников.
-   Версия 3 (22.11.2026): шесть классов суточного сдвига (штиль, обычный,
-   заметный, сильный, экстраординарный), случайный выбор фразы внутри класса;
-   дата в мире Захара — всегда 1896 год; подпись «водомѣрный постъ „Барнаулъ“».
-   Полные браузерные заголовки; запасной путь через r.jina.ai; диагностика
-   фрагмента в логе; молчание источников не роняет запуск — старый JSON цел. */
+   Версия 4 (22.11.2026): у каждого источника четыре пути — прямой,
+   r.jina.ai, allorigins, codetabs; предупреждение в логе, если дата
+   измерения отстаёт от реального дня; шесть классов суточного сдвига,
+   случайная фраза внутри класса; год в мире Захара — всегда 1896;
+   подпись «водомѣрный постъ „Барнаулъ“». Молчание источников не роняет
+   запуск — старый ob-level.json сохраняется. */
 const fs = require('fs');
 const path = require('path');
 
@@ -123,37 +124,64 @@ async function fetchText(url) {
   return await r.text();
 }
 
-async function fetchViaProxy(url) {
+/* путь через текстовый прокси r.jina.ai */
+async function fetchJina(url) {
   const r = await fetch('https://r.jina.ai/' + url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (!r.ok) throw new Error('прокси HTTP ' + r.status);
+  if (!r.ok) throw new Error('jina HTTP ' + r.status);
   return await r.text();
 }
 
+/* путь через allorigins — проверен в погодном конвейере */
+async function fetchAllorigins(url) {
+  const r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error('allorigins HTTP ' + r.status);
+  return await r.text();
+}
+
+/* путь через codetabs — проверен в погодном конвейере */
+async function fetchCodetabs(url) {
+  const r = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error('codetabs HTTP ' + r.status);
+  return await r.text();
+}
+
+/* отставание данных от реального дня (барнаульское время) */
+function staleness(dateStr) {
+  const p = (dateStr || '').split('.');
+  if (p.length !== 3) return 99;
+  const d = new Date(Date.UTC(+p[2], +p[1] - 1, +p[0]));
+  const now = new Date(Date.now() + 7 * 3600 * 1000);
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((today - d.getTime()) / 86400000);
+}
+
 function save(d, dir, name, via) {
+  const lag = staleness(d.date);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'ob-level.json'), JSON.stringify(d, null, 2), 'utf8');
   console.log('OK:', d.level, 'см,', d.trend, '(' + (d.delta > 0 ? '+' : '') + d.delta + ' см), класс:', d.klass,
     '| источник:', name, '(' + via + ') | на', d.date);
+  if (lag > 1) console.warn('Внимание: данные отстают от реального дня на', lag, 'сут. — источник не обновился.');
 }
 
 (async () => {
   const dataDir = path.join(__dirname, '..', 'data');
+  const paths = [
+    ['прямой запрос', fetchText],
+    ['jina', fetchJina],
+    ['allorigins', fetchAllorigins],
+    ['codetabs', fetchCodetabs],
+  ];
   for (const s of SOURCES) {
-    let text = '';
-    try {
-      text = await fetchText(s.url);
-      const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'прямой запрос'); process.exit(0); }
-    } catch (e) {
-      console.warn(s.name, '— прямой запрос не прошёл:', e.message);
-    }
-    try {
-      text = await fetchViaProxy(s.url);
-      const d = parse(text, s.name);
-      if (d) { save(d, dataDir, s.name, 'текстовый прокси'); process.exit(0); }
-      console.warn(s.name, '— страница не распознана. Фрагмент:', text.replace(/\s+/g, ' ').slice(0, 240));
-    } catch (e) {
-      console.warn(s.name, '— запасной путь не прошёл:', e.message);
+    for (const [via, fn] of paths) {
+      try {
+        const text = await fn(s.url);
+        const d = parse(text, s.name);
+        if (d) { save(d, dataDir, s.name, via); process.exit(0); }
+        console.warn(s.name, '(' + via + ') — страница не распознана. Фрагмент:', text.replace(/\s+/g, ' ').slice(0, 240));
+      } catch (e) {
+        console.warn(s.name, '(' + via + ') — не прошёл:', e.message);
+      }
     }
   }
   console.error('Ни один источник не ответил — старый ob-level.json не трогаем');
