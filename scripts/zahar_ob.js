@@ -133,9 +133,10 @@ function parse(rawText, name) {
   }
   const variants = pick(level, delta, day, MONTH_NAMES[month] || month);
   const trend = delta > 0 ? 'подъём' : delta < 0 ? 'спад' : 'без изменений';
-  return {
+    return {
     level, delta, trend, klass: klass(delta),
     date: `${day}.${month}.${year}`,
+    phrases: variants,
     phrase: variants[Math.floor(Math.random() * variants.length)],
     source: name, ts: Date.now(),
   };
