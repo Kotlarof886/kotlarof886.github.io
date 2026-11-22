@@ -1,8 +1,8 @@
 /* scripts/zahar_forecast.js — прогноз погоды Барнаула на 7 дней, дневной.
-   Версия 3 (22.11.2026): добавлены направление ветра (daily
-   wind_direction_10m_dominant), среднесуточная температура воздуха
-   и её сдвиг ко вчерашнему дню (hourly temperature_2m), тенденция
-   давления для первого дня (past_days=1). Пишет data/forecast.json. */
+   Версия 4 (22.11.2026): добавлены повторы — каждый путь пробуется до
+   трёх раз с паузой 5 секунд (Open-Meteo и прокси иногда молчат
+   несколько минут); остальное как в версии 3: направление ветра,
+   среднесуточная температура и её сдвиг, давление почасово с past_days=1. */
 const fs = require('fs');
 const path = require('path');
 
@@ -129,6 +129,8 @@ function parse(jsonText, via) {
   return { ts: Date.now(), source: 'open-meteo.com', via, days };
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 (async () => {
   const dataDir = path.join(__dirname, '..', 'data');
   const paths = [
@@ -137,20 +139,23 @@ function parse(jsonText, via) {
     ['codetabs', () => fetchCodetabs(URL_API)],
   ];
   for (const [via, fn] of paths) {
-    try {
-      const f = parse(await fn(), via);
-      fs.mkdirSync(dataDir, { recursive: true });
-      fs.writeFileSync(path.join(dataDir, 'forecast.json'), JSON.stringify(f, null, 2), 'utf8');
-      const t0 = f.days[0], t1 = f.days[1];
-      console.log('OK: прогноз на', f.days.length, 'дней | сегодня', t0.tmin + '…' + t0.tmax + '°,',
-        t0.wtext + ', ветер до', t0.wind, 'км/ч (' + t0.wdirName + '),',
-        'давление', t0.pressure, 'гПа (' + t0.ptrend + '),',
-        'тепло', t0.tshift === null ? 'н/д' : (t0.tshift > 0 ? '+' : '') + t0.tshift + '° ко вчера',
-        '| завтра', t1.pressure, 'гПа (' + t1.ptrend + ')',
-        '| источник: open-meteo.com (' + via + ')');
-      process.exit(0);
-    } catch (e) {
-      console.warn('путь «' + via + '» не прошёл:', e.message);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const f = parse(await fn(), via);
+        fs.mkdirSync(dataDir, { recursive: true });
+        fs.writeFileSync(path.join(dataDir, 'forecast.json'), JSON.stringify(f, null, 2), 'utf8');
+        const t0 = f.days[0], t1 = f.days[1];
+        console.log('OK: прогноз на', f.days.length, 'дней | сегодня', t0.tmin + '…' + t0.tmax + '°,',
+          t0.wtext + ', ветер до', t0.wind, 'км/ч (' + t0.wdirName + '),',
+          'давление', t0.pressure, 'гПа (' + t0.ptrend + '),',
+          'тепло', t0.tshift === null ? 'н/д' : (t0.tshift > 0 ? '+' : '') + t0.tshift + '° ко вчера',
+          '| завтра', t1.pressure, 'гПа (' + t1.ptrend + ')',
+          '| источник: open-meteo.com (' + via + ')');
+        process.exit(0);
+      } catch (e) {
+        console.warn('путь «' + via + '», попытка', attempt, '— не прошёл:', e.message);
+        if (attempt < 3) await sleep(5000);
+      }
     }
   }
   console.error('Ни один путь не ответил — старый forecast.json не трогаем');
