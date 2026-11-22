@@ -1,10 +1,9 @@
 /* ============================================================
    zahar_river.js — мостъ рѣки для Захара (уровень Оби въ Барнаулѣ)
    Источникъ: data/ob-level.json въ репозитории, обновляетъ GitHub Actions
-   (scripts/zahar_ob.js, разъ въ часъ). Версія 3 (22.11.2026): скриптъ
-   собираетъ фразу самъ, въ шести классахъ суточного сдвига, съ датой
-   «N ноября 1896 года» и подписью водомѣрнаго поста — здѣсь она берется
-   готовой изъ поля phrase; старая сборка — запасъ на старый JSON.
+   (scripts/zahar_ob.js, разъ въ часъ). Версія 4 (22.11.2026): если въ JSON
+   есть наборъ фразъ (phrases) — жребій брошается при каждомъ вопросѣ,
+   подрядъ не повторяемъ; готовая phrase — запасъ на старый JSON.
    Ответъ — обещаніемъ (Promise), какъ погодныя ветки чата.
    ============================================================ */
 (function () {
@@ -12,6 +11,7 @@
 
   var TTL = 30 * 60 * 1000;   /* свежесть кэша: полчаса */
   var KEY = 'barnaul-ob-level';
+  var KEY_LAST = KEY + '-last';
   var SRC = 'data/ob-level.json';   /* относительный путь — переживетъ смену домена */
 
   function readCache() {
@@ -44,12 +44,23 @@
     x.send();
   }
 
-  /* готовая фраза: изъ JSON, если скриптъ ея прислалъ; иначе старая сборка */
-  function phrase(d, stale) {
+  /* жребій: случайная фраза изъ набора, не та что въ прошлый разъ */
+  function drawPhrase(d) {
+    if (Array.isArray(d.phrases) && d.phrases.length) {
+      var last = null;
+      try { last = localStorage.getItem(KEY_LAST); } catch (e) {}
+      var pool = d.phrases.filter(function (p) { return p !== last; });
+      var s = pool[Math.floor(Math.random() * pool.length)];
+      try { localStorage.setItem(KEY_LAST, s); } catch (e) {}
+      return s;
+    }
+    return null;   /* набора нѣтъ — идемъ въ запасъ */
+  }
+
+  /* запасъ: старая сборка по полямъ (на случайъ старого JSON) */
+  function fallback(d) {
     var s;
-    if (d.phrase && typeof d.phrase === 'string') {
-      s = d.phrase;
-    } else if (d.trend === 'подъём') {
+    if (d.trend === 'подъём') {
       s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, рѣка идеть на подъемъ: за сутки прибыло ' + Math.abs(d.delta) + ' смъ.';
     } else if (d.trend === 'спад') {
       s = 'Уровень Оби въ Барнаулѣ нынче ' + d.level + ' смъ, рѣка идетъ на спадъ: за сутки убыло ' + Math.abs(d.delta) + ' смъ.';
@@ -60,7 +71,14 @@
     }
     if (!d.phrase) {
       s += ' Измереніе отъ ' + (d.date || new Date(d.ts).toLocaleDateString('ru-RU')) + ', данные: ' + (d.source || 'fishingsib.ru') + '.';
+    } else {
+      s = d.phrase;
     }
+    return s;
+  }
+
+  function phrase(d, stale) {
+    var s = drawPhrase(d) || fallback(d);
     if (stale) s += ' (Данные могли устарѣть — запрошу свежіе при следующей депешѣ.)';
     return s;
   }
