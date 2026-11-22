@@ -1,19 +1,19 @@
 /* scripts/zahar_forecast.js — прогноз погоды Барнаула на 7 дней, дневной.
-   Версия 2 (22.11.2026): давление запрашивается почасовым (в дневных
-   переменных Open-Meteo его нет — потому и был HTTP 400) и усредняется
-   по суткам; тенденция — между среднесуточными значениями. Имена
-   переменных по актуальной документации: weather_code, wind_speed_10m_max.
-   Пишет data/forecast.json; молчание API не роняет запуск. */
+   Версия 3 (22.11.2026): добавлены направление ветра (daily
+   wind_direction_10m_dominant), среднесуточная температура воздуха
+   и её сдвиг ко вчерашнему дню (hourly temperature_2m), тенденция
+   давления для первого дня (past_days=1). Пишет data/forecast.json. */
 const fs = require('fs');
 const path = require('path');
 
 const URL_API =
   'https://api.open-meteo.com/v1/forecast?latitude=53.348&longitude=83.777' +
-  '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,weather_code' +
-  '&hourly=pressure_msl' +
-  '&timezone=Asia%2FBarnaul&forecast_days=7';
+  '&daily=temperature_2m_max,temperature_2m_mean,temperature_2m_min,precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant,weather_code' +
+  '&hourly=temperature_2m,pressure_msl' +
+  '&timezone=Asia%2FBarnaul&forecast_days=7&past_days=1';
 
 const DOW = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+const DIRS = ['северный', 'северо-восточный', 'восточный', 'юго-восточный', 'южный', 'юго-западный', 'западный', 'северо-западный'];
 
 function wtext(code) {
   if (code === 0) return 'ясно';
@@ -28,6 +28,11 @@ function wtext(code) {
   return 'гроза';
 }
 
+function dirName(deg) {
+  if (deg == null) return 'н/д';
+  return DIRS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+
 function ptrend(delta) {
   if (delta === null) return 'н/д';
   if (delta <= -3) return 'падает';
@@ -40,16 +45,16 @@ function num(v, digits) {
   return Number(Number(v).toFixed(digits === undefined ? 0 : digits));
 }
 
-/* среднесуточное давление из почасовых значений */
-function dailyPressure(o) {
+/* среднесуточные значения из почасовых */
+function dailyFromHourly(o, key) {
   const h = o.hourly;
-  if (!h || !Array.isArray(h.time) || !Array.isArray(h.pressure_msl)) return {};
-  const sums = {};
-  const counts = {};
+  if (!h || !Array.isArray(h.time) || !Array.isArray(h[key])) return {};
+  const sums = {}, counts = {};
   for (let i = 0; i < h.time.length; i++) {
-    if (h.pressure_msl[i] === null || h.pressure_msl[i] === undefined) continue;
+    const v = h[key][i];
+    if (v === null || v === undefined) continue;
     const day = String(h.time[i]).slice(0, 10);
-    sums[day] = (sums[day] || 0) + h.pressure_msl[i];
+    sums[day] = (sums[day] || 0) + v;
     counts[day] = (counts[day] || 0) + 1;
   }
   const out = {};
@@ -87,21 +92,28 @@ function parse(jsonText, via) {
   if (!d || !Array.isArray(d.time) || !Array.isArray(d.temperature_2m_max)) {
     throw new Error('неожиданный ответ API');
   }
-  const pres = dailyPressure(o);
-  const days = [];
+  const pres = dailyFromHourly(o, 'pressure_msl');
+  const tmean = dailyFromHourly(o, 'temperature_2m');
+  const all = [];
   for (let i = 0; i < d.time.length; i++) {
     const date = d.time[i];
     const dow = DOW[new Date(date + 'T12:00:00').getUTCDay()];
     const prev = i > 0 ? (pres[d.time[i - 1]] ?? null) : null;
     const cur = pres[date] ?? null;
     const pdelta = (prev === null || cur === null) ? null : Math.round((cur - prev) * 10) / 10;
-    days.push({
-      date,
-      dow,
+    const tm = tmean[date] ?? null;
+    const tmPrev = i > 0 ? (tmean[d.time[i - 1]] ?? null) : null;
+    const tshift = (tmPrev === null || tm === null) ? null : Math.round((tm - tmPrev) * 10) / 10;
+    all.push({
+      date, dow,
       tmax: num(d.temperature_2m_max[i]),
       tmin: num(d.temperature_2m_min[i]),
+      tmean: tm,
+      tshift,
       precip: num(d.precipitation_sum[i], 1),
       wind: num(d.wind_speed_10m_max[i]),
+      wdir: d.wind_direction_10m_dominant ? num(d.wind_direction_10m_dominant[i]) : null,
+      wdirName: dirName(d.wind_direction_10m_dominant ? d.wind_direction_10m_dominant[i] : null),
       pressure: cur,
       pdelta,
       ptrend: ptrend(pdelta),
@@ -109,6 +121,11 @@ function parse(jsonText, via) {
       wtext: d.weather_code ? wtext(d.weather_code[i]) : 'н/д',
     });
   }
+  /* отрезаем вчерашний день: в выводе — только прогнозные */
+  const now = new Date(Date.now() + 7 * 3600000);
+  const todayStr = now.getUTCFullYear() + '-' + String(now.getUTCMonth() + 1).padStart(2, '0') + '-' + String(now.getUTCDate()).padStart(2, '0');
+  const days = all.filter(x => x.date >= todayStr);
+  if (!days.length) throw new Error('прогнозные дни не найдены');
   return { ts: Date.now(), source: 'open-meteo.com', via, days };
 }
 
@@ -124,12 +141,12 @@ function parse(jsonText, via) {
       const f = parse(await fn(), via);
       fs.mkdirSync(dataDir, { recursive: true });
       fs.writeFileSync(path.join(dataDir, 'forecast.json'), JSON.stringify(f, null, 2), 'utf8');
-      const today = f.days[0];
-      const tomorrow = f.days[1];
-      console.log('OK: прогноз на', f.days.length, 'дней | сегодня', today.tmin + '…' + today.tmax + '°,',
-        today.wtext + ', ветер до', today.wind, 'км/ч,',
-        'давление', today.pressure, 'гПа (' + today.ptrend + ')',
-        '| завтра', tomorrow.pressure, 'гПа (' + tomorrow.ptrend + ')',
+      const t0 = f.days[0], t1 = f.days[1];
+      console.log('OK: прогноз на', f.days.length, 'дней | сегодня', t0.tmin + '…' + t0.tmax + '°,',
+        t0.wtext + ', ветер до', t0.wind, 'км/ч (' + t0.wdirName + '),',
+        'давление', t0.pressure, 'гПа (' + t0.ptrend + '),',
+        'тепло', t0.tshift === null ? 'н/д' : (t0.tshift > 0 ? '+' : '') + t0.tshift + '° ко вчера',
+        '| завтра', t1.pressure, 'гПа (' + t1.ptrend + ')',
         '| источник: open-meteo.com (' + via + ')');
       process.exit(0);
     } catch (e) {
