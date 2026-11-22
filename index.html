@@ -3555,6 +3555,13 @@ function wxTry(url, parse, T, name) {
       .catch(function () { clearTimeout(to); if (fin) return; fin = true; res({ v: null, name: name }); });
   });
 }
+function wxParseNow(t) {   /* { "t": -3.8, ... } — файлъ пишетъ будильникъ GitHub разъ въ 15 минутъ */
+  try {
+    var o = JSON.parse(t);
+    return (typeof o.t === 'number') ? o.t : null;
+  } catch (e) {}
+  return null;
+}
 function wxParseOM(t) {
   var m = /"temperature_2m"\s*:\s*(-?\d+(?:\.\d+)?)/.exec(t);
   return m ? Math.round(parseFloat(m[1])) : null;
@@ -3574,6 +3581,7 @@ function wxParseMet(t) {
   } catch (e) {}
   return null;
 }
+
 /* Фабрика: маршруты собираются свѣжими на каждый вызовъ.
    wttr.in снятъ съ поста: кэшъ отстаётъ на полдня и врётъ градусомъ.
    Каждый маршрутъ рапортуетъ въ консоль — видно, кто живъ. */
@@ -3591,6 +3599,7 @@ function wxRoutes() {
     });
   }
   return [
+{ name: 'site-file', run: function () { return tag(wxTry('data/wxnow.json?_cb=' + Date.now(), wxParseNow, 5000, 'site-file'), 'site-file'); } },
     { name: 'open-meteo',    run: function () { return tag(wxTry(OM, wxParseOM, 7000, 'open-meteo'), 'open-meteo'); } },
     { name: 'OM-codetabs',   run: function () { return tag(wxTry('https://api.codetabs.com/v1/proxy?quest=' + enc, wxParseOM, 7000, 'OM-codetabs'), 'OM-codetabs'); } },
     { name: 'OM-allorigins', run: function () { return tag(wxTry('https://api.allorigins.win/raw?url=' + enc, wxParseOM, 7000, 'OM-allorigins'), 'OM-allorigins'); } }
