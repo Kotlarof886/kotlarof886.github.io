@@ -24,7 +24,6 @@ const MONTHS = {
   'мая': '05', 'июня': '06', 'июля': '07', 'августа': '08',
   'сентября': '09', 'октября': '10', 'ноября': '11', 'декабря': '12',
 };
-/* обратная карта: «11» -> «ноября» — для даты в мире Захара */
 const MONTH_NAMES = Object.fromEntries(Object.entries(MONTHS).map(([n, m]) => [m, n]));
 
 function klass(delta) {
@@ -95,7 +94,6 @@ function parse(text, name) {
   const t = text.match(/(повысился|понизился|прибыло|убыло)\D{0,30}?(\d+)\s*[cс]м/i);
   if (t) delta = parseInt(t[2], 10) * ((t[1] === 'понизился' || t[1] === 'убыло') ? -1 : 1);
 
-  /* день и месяц измерения: «На 20.11.2026» либо «на 20 ноября 2026» */
   let day = '', month = '', year = '';
   const dn = text.match(/[Нн]а\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/);
   if (dn) { day = dn[1]; month = dn[2]; year = dn[3]; }
@@ -103,16 +101,61 @@ function parse(text, name) {
     const dw = text.match(/[Нн]а\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})/i);
     if (dw && MONTHS[dw[2].toLowerCase()]) { day = dw[1]; month = MONTHS[dw[2].toLowerCase()]; year = dw[3]; }
   }
-  /* если дату в тексте не нашли — барнаульское «сегодня» */
   if (!day || !month) {
-    const now = new Date(Date.now() + 7 * 3600 * 1000);
+    const now = new Date(Date.now() + 7 * 3600 * 1000); /* барнаульское время */
     day = String(now.getUTCDate()).padStart(2, '0');
     month = String(now.getUTCMonth() + 1).padStart(2, '0');
     year = String(now.getUTCFullYear());
   }
-  const date = `${day}.${month}.${year}`;
-  const monthName = MONTH_NAMES[month] || month;
-  const phrase = pick(level, delta, day, monthName)[Math.floor(Math.random() * 3) % (level && 1 ? pick(level, delta, day, monthName).length : 1)];
+  const variants = pick(level, delta, day, MONTH_NAMES[month] || month);
   const trend = delta > 0 ? 'подъём' : delta < 0 ? 'спад' : 'без изменений';
-  return { level, delta, trend, class: klass(delta), date, phrase, source: name, ts: Date.now() };
+  return {
+    level, delta, trend, klass: klass(delta),
+    date: `${day}.${month}.${year}`,
+    phrase: variants[Math.floor(Math.random() * variants.length)],
+    source: name, ts: Date.now(),
+  };
 }
+
+async function fetchText(url) {
+  const r = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return await r.text();
+}
+
+async function fetchViaProxy(url) {
+  const r = await fetch('https://r.jina.ai/' + url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error('прокси HTTP ' + r.status);
+  return await r.text();
+}
+
+function save(d, dir, name, via) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'ob-level.json'), JSON.stringify(d, null, 2), 'utf8');
+  console.log('OK:', d.level, 'см,', d.trend, '(' + (d.delta > 0 ? '+' : '') + d.delta + ' см), класс:', d.klass,
+    '| источник:', name, '(' + via + ') | на', d.date);
+}
+
+(async () => {
+  const dataDir = path.join(__dirname, '..', 'data');
+  for (const s of SOURCES) {
+    let text = '';
+    try {
+      text = await fetchText(s.url);
+      const d = parse(text, s.name);
+      if (d) { save(d, dataDir, s.name, 'прямой запрос'); process.exit(0); }
+    } catch (e) {
+      console.warn(s.name, '— прямой запрос не прошёл:', e.message);
+    }
+    try {
+      text = await fetchViaProxy(s.url);
+      const d = parse(text, s.name);
+      if (d) { save(d, dataDir, s.name, 'текстовый прокси'); process.exit(0); }
+      console.warn(s.name, '— страница не распознана. Фрагмент:', text.replace(/\s+/g, ' ').slice(0, 240));
+    } catch (e) {
+      console.warn(s.name, '— запасной путь не прошёл:', e.message);
+    }
+  }
+  console.error('Ни один источник не ответил — старый ob-level.json не трогаем');
+  process.exit(0);
+})();
