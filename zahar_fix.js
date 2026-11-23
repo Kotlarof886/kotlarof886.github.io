@@ -1,12 +1,16 @@
-/* zahar_fix.js — правки поверхъ zahar_chat.js
+/* ============================================================
+   zahar_fix.js — правки поверхъ zahar_chat.js
    Подключать СТРОГО послѣ zahar_chat.js — одной строкой въ index.html:
-   <script src="zahar_fix.js?v=1"></script>
+   <script src="zahar_fix.js?v=2"></script>
    Что делаетъ:
    1) погода «сейчас» берётся съ data/wxnow.json (пишетъ будильникъ GitHub) — зеркала запасные;
    2) стражъ 77 переписанъ: звёзды идутъ умному ярусу (знаетъ облачность), луна безъ задвоенія,
       «когда новолуніе/полнолуніе» отвечаются прямымъ счётомъ небесной механики;
    3) выходъ Захара причесывается: «Тепра»→«Тепръ», «завтро»→«завтра», ветеръ — метры первыми,
-      вода — съ «°С», сводка погоды — «Метеорная станция доноситъ:», давленіе — современными мерами первыми. */
+      вода — съ «°С», сводка погоды — «Метеорная станция доноситъ:», давленіе — современными мерами первыми;
+   4) правка №91а: «а васъ, сударь, какъ звать?» ловится стражемъ до слоя — словарь не перехватываетъ;
+   5) правка №91б: клёв не выставляется на охотничьихъ, солнечныхъ и личныхъ вопросахъ
+      (если движок клёва получаетъ текстъ вопроса; иначе — безвредно молчимъ и ждёмъ его файлъ). */
 
 /* ---------- 1. Погода «сейчас» съ файловой сводки ---------- */
 
@@ -60,7 +64,7 @@ function zfixSyzygy(k) {
     + 0.00208 * E * E * Math.sin(2 * M) - 0.00111 * Math.sin(Mp - 2 * F)
     - 0.00057 * Math.sin(Mp + 2 * F) + 0.00056 * E * Math.sin(2 * Mp + M)
     + 0.00042 * Math.sin(3 * Mp) + 0.00042 * E * Math.sin(M + Mp)
-    + 0.00038 * E * Math.sin(M - Mp) - 0.00024 * E * Math.sin(2 * M - Mp)
+    + 0.00038 * E * Math.sin(M - Mp) - 0.00024 * Math.sin(2 * M - Mp)
     - 0.00017 * Math.sin(Om) - 0.00007 * Math.sin(2 * Mp + 2 * F);
   return j;
 }
@@ -138,13 +142,71 @@ function answerWeather() {
   return r ? zfixTidy(r) : r;
 }
 
+/* ---------- 5. Правка №91б: клёв молчитъ на чужихъ темахъ ---------- */
+
 var __zfixKlev = (typeof zaharKlevReply === 'function') ? zaharKlevReply : null;
 
 function zaharKlevReply() {
   if (!__zfixKlev) return null;
+  /* №91б: на охотничьихъ, солнечныхъ и личныхъ вопросахъ клёв не отвечаетъ —
+     пропускаемъ вопросъ дальше. Работаетъ, если движок клёва получаетъ текстъ вопроса
+     аргументомъ; если нетъ — проверка безвредно промолчитъ. */
+  try {
+    var qk = null;
+    for (var ai = 0; ai < arguments.length; ai++) {
+      if (typeof arguments[ai] === 'string' && arguments[ai].trim().length > 1) { qk = arguments[ai]; break; }
+    }
+    if (qk) {
+      var sk = qk.toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '');
+      var hunt  = /охот|косул|глухар|тетерев|ружь|капкан|собол|белк[ау]|промысл/.test(sk);
+      var sun   = /рассвет|расвет|закат|солнц[ео]|зар[яе]/.test(sk);
+      var me    = /ты\s+рыбак|ты\s+охотник|ты\s+сам|ты\s+же/.test(sk);
+      var fish  = /рыб|кл[еѣ]в|удоч|живец|поплав|налим|муксун|хариус|таймен|ершик|пескар|щук|судак|окун|карас|лещ|язь|сорог|снаст|блесн|наживк|прикорм/.test(sk);
+      if ((hunt || sun || me) && !fish) {
+        try { warn('клевъ промолчалъ: не рыболовный вопросъ'); }
+        catch (eW) { if (window.console) console.log('[zahar_fix] клевъ промолчалъ: не рыболовный вопросъ'); }
+        return null;
+      }
+    }
+  } catch (eK) {}
   var r = __zfixKlev.apply(this, arguments);
   var done = function (s) { return s ? zfixTidy(s) : s; };
   return (r && typeof r.then === 'function') ? r.then(done) : done(r);
 }
 
-if (window.console) console.log('[zahar_fix] надетъ: погода-файлъ первенствуетъ, стражъ 77 переписанъ, выходы причесаны.');
+/* ---------- 6. Правка №91а: «а васъ, сударь, какъ звать?» — стражъ имени ---------- */
+
+function zfixNameGuard(q) {
+  var s = String(q || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь](?![а-яё])/g, '');
+  if (!s) return null;
+  if (/(?:вас|тебя)\s*(?:сударь|сударын\w*)?\s*как\s*(?:зват|звать)/.test(s) ||
+      /как\s*(?:вас|тебя)\s*(?:сударь|сударын\w*)?\s*(?:зват|звать)/.test(s)) {
+    return zfixSay('Я — Захаръ Давыдовичъ Кузнецовъ, {N}. Служу на телеграфѣ неполный годъ, младший телеграфистъ Барнаульской станціи. Чемъ могу услужить?');
+  }
+  return null;
+}
+
+/* стражъ имени встаетъ первымъ въ цепочке: обертываем ZAHAR_ASK до эмбеда.
+   Эмбед потомъ обертает нашу обертку — цепочка сохраняется. */
+var __zfixAskNameTries = 0;
+var __zfixAskNameTimer = setInterval(function () {
+  if (typeof window.ZAHAR_ASK === 'function' && !window.ZAHAR_ASK.__zfix_wrapped) {
+    var __zfixOrigAsk = window.ZAHAR_ASK;
+    var zfixWrapped = function (text) {
+      var ng = zfixNameGuard(text);
+      if (ng) {
+        try { warn('стражъ имени отвѣтилъ: какъ звать'); }
+        catch (eN) { if (window.console) console.log('[zahar_fix] стражъ имени отвѣтилъ'); }
+        return Promise.resolve(ng);
+      }
+      return __zfixOrigAsk.apply(this, arguments);
+    };
+    zfixWrapped.__zfix_wrapped = true;
+    window.ZAHAR_ASK = zfixWrapped;
+    clearInterval(__zfixAskNameTimer);
+  } else if (++__zfixAskNameTries > 60) {
+    clearInterval(__zfixAskNameTimer);
+  }
+}, 500);
+
+if (window.console) console.log('[zahar_fix] надетъ: погода-файлъ первенствуетъ, стражъ 77 переписанъ, выходы причесаны, №91а-б встали.');
