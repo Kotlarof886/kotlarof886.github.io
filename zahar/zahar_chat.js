@@ -3037,7 +3037,7 @@ function tryName(raw) {
     if (total == null) return null;
     if (ones != null && total % 10 === 0) total += ones;
     if (total < 5 || total > 120) return null;
-    window.ZAHAR_USER_AGE = total;
+    window.ZAHAR_USER_AGE = total;try{var _nb87=(typeof zaharMemory==='function')?zaharMemory():null;if(_nb87&&_nb87.notebook){_nb87.notebook.age=total;if(typeof zaharSaveNotebook==='function')zaharSaveNotebook();}}catch(_e87){}
     return 'Записал в тетрадку, ' + nmOr() + ': вам ' + total + '. Теперь и вежливость моя по возрасту выправится.';
   }
   function ageRun(q, n) {
@@ -4034,7 +4034,7 @@ function tryName(raw) {
     /* №69.1: усы — прежде слоя болтовни */
     if (/ус[ыи]/.test(n) && /тебя|вас|себя|есть|какие|носиш|подкрут|отрасти/i.test(n)) return femizeOut(fill(pick(['Усики у меня юношескія, робкія. Мечтаю отрастить усъ съ подкрутомъ — покуда безуспѣшно. Зато у Семена усы роскошные, пышные: вся округъ завидуетъ!', 'Усъ покуда нѣтъ, {N}: робкія усики только. Подкрутъ мечтаю отрастить — дастъ срокъ, будетъ въусам!'])));
     /* №75: хворь — участливо прежде интро и нитей о дѣлѣ (ранѣше «я заболел» падалъ въ ветку работы) */
-    if (/з[аиое][бп]ол|[бп]ол[еиао]|болит|ломит|кашл|прост[уы]д|озноб|знобит|температур/.test(n) && !/болот|пол[еи]/.test(n)) {
+    if (/з[аиое][бп]ол|[бп]ол[еиао]|болит|ломит|кашл|прост[уы]д|озноб|знобит|температур/.test(n) && !/болот|пол[еи]/.test(n) && !(/температур/.test(n) && /вод|об[ьи]|рек/.test(n))) {
       awaitingJob = false;
       return femizeOut(fill(pick(SICK_CARE)));
     }
@@ -5297,7 +5297,7 @@ function tryName(raw) {
         : 'Виноватъ: званіе перепуталъ. Буду звать васъ сударыней — извольте, говорить стану какъ съ дамой.'));
     }
     /* №75: хворь — участливо, въ тетрадку не пишется, буферъ гасится */
-    if (/з[аиое][бп]ол|[бп]ол[еиао]|болит|ломит|кашл|прост[уы]д|озноб|знобит|температур/.test(nq) && !/болот|пол[еи]/.test(nq)) {
+    if (/з[аиое][бп]ол|[бп]ол[еиао]|болит|ломит|кашл|прост[уы]д|озноб|знобит|температур/.test(nq) && !/болот|пол[еи]/.test(nq) && !(/температур/.test(nq) && /вод|об[ьи]|рек/.test(nq))) {
       G.mode = null; G.pending = null; G.pendPat = null;
       return femizeOut(fill(pick(SICK_CARE)));
     }
@@ -5980,9 +5980,9 @@ function tryName(raw) {
     var d = W75.data;
     if (!d || !d.days || !d.days.length) return null;
     var j = z75dayIndex(s);
-    var isWat = /(температур|градус|тепл|скольк)/.test(s) && (/вод/.test(s) || /об[ьи]/.test(s));
+    var isWat = /(температур|градус|тепл|скольк)/.test(s) && (/вод/.test(s) || /об[ьи]|рек/.test(s));
     var isPres = /давлен|ртутн|барометр/.test(s);
-    var isTemp = !/вод/.test(s) && !/об[ьи]/.test(s) && /(температур|тепл|градус|мороз|жарк|холодн)/.test(s);
+    var isTemp = !/вод/.test(s) && !/об[ьи]/.test(s) && !/рек/.test(s) && /(температур|тепл|градус|мороз|жарк|холодн)/.test(s);
     var isGen = /погод|за окн|на двор/.test(s);
 
     if (j === -1) {
@@ -6151,4 +6151,199 @@ function tryName(raw) {
   setTimeout(zaharWrap71, 80);
   setInterval(function () { try { zaharWrap71(); } catch (eW71) {} }, 500);
 
+})();
+
+
+/* === №87 (23.11.2026): возрастъ и отчество — машина въ файлѣ (безъ накидки).
+   Личные вопросы → деликатная добивка «сколькихъ годовъ вы»; «мне 43/сорокъ три» →
+   въ тетрадку (notebook.age) + запасъ въ браузерѣ; 2 промаха → тишина 3 часа
+   (переживаетъ перезагрузку); возрасть 31+ → «по отчеству какъ величать?»,
+   отвѣтъ пишетъ имя «Максимъ Петровичъ» въ тетрадку.
+   Рыбалка мимо клѣва: «пошли на рыбалку» → планъ, «ты рыбак» → №69.1, «как ловить ерша» → статья.
+   Температура воды/реки и уровень Оби — прямымъ отвѣтомъ изъ кеша моста.
+   «Уровень реки» больше не «исчерпалъ»; давленіе — гектопаскали первыми; «ливень» и «сгинетъ» — порознь. === */
+(function () {
+  'use strict';
+  if (window.ZAHAR87) return;
+  var st = { ask: false, pat: false, patDone: false, tries: 0, cd: 0, turn: 0, askedTurn: -999, age: null, patName: '' };
+  try {
+    var raw = JSON.parse(localStorage.getItem('zahar_age87_v2') || 'null');
+    if (raw) { st.tries = raw.t || 0; st.cd = raw.c || 0; st.age = raw.a || null; st.patDone = !!raw.p; st.patName = raw.pn || ''; }
+  } catch (e0) {}
+  window.ZAHAR87 = st;
+  window.ZAHAR87.dbg = function () { return JSON.stringify(st); };
+  function save() { try { localStorage.setItem('zahar_age87_v2', JSON.stringify({ t: st.tries, c: st.cd, a: st.age, p: st.patDone, pn: st.patName })); } catch (e) {} }
+  function nm() { return String(window.ZAHAR_USER_NAME || ''); }
+  function addr() { return window.ZAHAR_USER_GENDER === 'f' ? 'сударыня' : 'сударь'; }
+  function N() { return nm() ? nm() : addr(); }
+  function fillN(t) { return String(t).replace(/\{N\}/g, N()).replace(/\{A\}/g, addr()); }
+  function s87(q) { return String(q || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, ' ').replace(/\s+/g, ' ').trim(); }
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function yearWord(v) {
+    var m10 = v % 10, m100 = v % 100;
+    if (m10 === 1 && m100 !== 11) return 'годъ';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'года';
+    return 'годовъ';
+  }
+  function hasPat() { return /[а-я]+(?:вич|ович|евич|вна|евна|овна|ична)$/i.test(nm()); }
+  function nb() { try { return (typeof window.zaharMemory === 'function' && window.zaharMemory() && window.zaharMemory().notebook) ? window.zaharMemory().notebook : null; } catch (e) { return null; } }
+  var AGE_Q = ' А позволите ли узнать, {N}: сколькихъ годовъ вы? Въ тетрадку запишу — по годамъ и вежливость моя выправится.';
+  var PAT_Q = ' Позвольте узнать еще, {N}: по отчеству какъ величать? Въ тетрадку запишу.';
+  var TOPIC87 = /(кто ты|кто вы|как тебя звать|как вас звать|как звать|сколько тебе|сколько вам|сколько годов|как дела|как поживаешь|как жизнь|как сам|чем занимаешься|чем занимаетесь|что делаешь|что делаете|служ|родител|отец|мать|семья|училс|школ|где жив|откуда|родом|чай|книг|хобби|любишь|любите|как выглядиш|внешност|устал|скучно|грустно|тоскливо|болен|болею|не спал|тайга|настроен)/;
+  var W87 = { 'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50, 'шестьдесят': 60, 'семьдесят': 70, 'восемьдесят': 80, 'девяносто': 90 };
+  var U87 = { 'один': 1, 'одна': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9 };
+  function parseAge(q) {
+    var bad = /(минут|минуту|час[аов]*|дн[ейя]|сутк|недел|месяц|сантиметр|градус)/.test(q);
+    var m = q.match(/мне\s+(?:уже\s+|почти\s+)?(\d{1,2})(?:\s+\S+)?/);
+    if (m) { var v = +m[1]; if (v >= 5 && v <= 99 && !bad) return v; }
+    var w = q.match(/(двадцать|тридцать|сорок|пятьдесят|шестьдесят|семьдесят|восемьдесят|девяносто)(?:\s+(один|одна|два|две|три|четыре|пять|шесть|семь|восемь|девять))?(?:\s+(?:год|год[ау]|лет|лѣт))?/);
+    if (w) {
+      var t = W87[w[1]] || 0, u = w[2] ? (U87[w[2]] || 0) : 0, v2 = t + u;
+      if (v2 >= 20 && (w[3] || st.ask) && !bad) return v2;
+    }
+    if (st.ask) {
+      var p = q.match(/^(\d{1,2})$/);
+      if (p) { var v3 = +p[1]; if (v3 >= 5 && v3 <= 99) return v3; }
+      var p2 = q.match(/(\d{1,2})\s*(?:год|год[аоуы]|лет|лѣт)(?:\s|$)/);
+      if (p2) { var v4 = +p2[1]; if (v4 >= 5 && v4 <= 99 && !bad) return v4; }
+    }
+    return null;
+  }
+  var RYBAK87 = [
+    'Рыбакъ ли я? Вѣрно, что такъ, {N}: удочка у меня завсегда въ чуланѣ, а налимъ ночью на живца беретъ — ершика али пескаря.',
+    'Рыбакъ, {N}, изъ простыхъ: по выходнымъ на Обь выбираюсь, на блесну по щуку хожу.',
+    'Рыбакъ смирный, {N}: при аппарате служу, а въ чуланѣ — удочка да мотокъ лесы.'
+  ];
+  var PLAN87 = [
+    'Съ Богомъ на Обь, {N}! Живца запаси — у ямъ да корягъ налимъ нынчѣ хозяйничаетъ, а по перволедью и щука не прочь. Уху въ котелкѣ обещаю мысленно.',
+    'Вотъ и славно, {N}: на Обь собирайтесь — по перволедью самая пора, у омутовъ щучьи жерлицы ставьте. Удачи на воде!',
+    'Пора, {N}, пора: снасть бери, живца — ершика али пескаря, закидку у ямъ оставляй до утра. А я смена сдамъ — самъ нагоню.'
+  ];
+  var fish87 = {
+    'ерш': 'Ершъ, {N}, брался весь день на червя: грузило потяжелѣе, крючокъ помѣлче, у дна — онъ тамъ зимуетъ. Клюетъ резко — подсѣкай сразу.',
+    'судак': 'Судакъ ночами беретъ, {N}: живецъ — ершикъ али пескарь, жерлица да дорожка съ бѣлесой блесной, у омутовъ ставьте. Клѣвъ тихій — подсѣчка широка.',
+    'налим': 'Налимъ — ночной гость, {N}: живецъ ершикъ али пескарь, закидка у ямъ да корягъ, и до утра оставляйте. Вода студена — его часъ.',
+    'щука': 'Щука по перволедью — самая пора, {N}: жерлицы у края травы да у омутовъ, на живца. Вѣтеръ южный ей въ помощь.',
+    'карась': 'Карась въ иле зимовать легъ, {N} — до весны не будить: развѣ что въ оттепель на прикормку. Снасть отложите.',
+    'лещ': 'Лещъ зимой клѣвомъ вялъ, {N}: мотыль у дна, прикормка съ вечера, ямъ поглубже ищите.',
+    'язь': 'Язь зимой вялый, {N}: мотыль да прикормка, у ямъ попробуйте — а болѣе ждать.',
+    'окунь': 'Окунь на блесну да на червя, {N}: стайка ходитъ у травы, дергаетъ мелко — подсѣкай часто.',
+    'сазан': 'Сазанъ въ ямахъ залегъ до весны, {N} — будить не стоитъ, клѣва не предвидится.',
+    'пескарь': 'Пескарь зимой дремлетъ, {N}: червячокъ у дна въ оттепель — но добыча мелка, рѣчь не о немъ.',
+    'сорога': 'Сорога (плотва) зимой вялая, {N}: мотыль да прикормка у дна — клѣвъ смирный.',
+    'плотва': 'Плотва зимой вялая, {N}: мотыль да прикормка у дна — клѣвъ смирный.',
+    'елец': 'Елец зимой вялый, {N}: мотыль на легкой снасти у дна — но ждать лучше.',
+    'пелядь': 'Пелядь зимой клѣвомъ смирна, {N}: мотыль у дна, прикормка съ вечера.'
+  };
+  fish87['щук'] = fish87['щука']; fish87['окун'] = fish87['окунь']; fish87['пескар'] = fish87['пескарь'];
+  fish87['сорог'] = fish87['сорога']; fish87['плотв'] = fish87['плотва']; fish87['пеляд'] = fish87['пелядь'];
+  function obCache() {
+    try {
+      var ob = JSON.parse(localStorage.getItem('barnaul-ob-level') || 'null');
+      if (ob && ob.ts && (Date.now() - ob.ts) > 6 * 3600 * 1000) return null;
+      return ob;
+    } catch (e) { return null; }
+  }
+  function pre87(q) {
+    if (st.cd && Date.now() >= st.cd) { st.cd = 0; st.tries = 0; save(); }
+    if (st.ask && (st.turn - st.askedTurn) >= 4) {
+      st.ask = false; st.tries++;
+      if (st.tries >= 2) { st.cd = Date.now() + 3 * 3600 * 1000; st.tries = 0; }
+      save();
+    }
+    var s = s87(q);
+    if (!s) return null;
+    if (st.pat) {
+      if (/^(нет|не надо|не нужно|не скажу|отстань)$/.test(s)) { st.pat = false; save(); return fillN('Какъ скажете, {N} — останусь при имени.'); }
+      var pm = s.match(/^([а-я]+)$/);
+      if (pm && /(?:вич|ович|евич|вна|евна|овна|ична)$/.test(pm[1])) {
+        var pat = pm[1].charAt(0).toUpperCase() + pm[1].slice(1);
+        var cur = nm(), full = cur ? (/\s/.test(cur) ? cur.replace(/\s+\S+$/, ' ' + pat) : cur + ' ' + pat) : pat;
+        window.ZAHAR_USER_NAME = full;
+        var _nb = nb(); if (_nb) { try { _nb.name = full; } catch (eNB) {} }
+        try { if (typeof window.zaharSetName === 'function') window.zaharSetName(full); } catch (eSN) {}
+        st.pat = false; st.patDone = true; st.patName = pat; save();
+        return fillN('Запишу, {N}: теперь такъ и звать-величать.');
+      }
+    }
+    var v = parseAge(s);
+    if (v !== null && (st.ask || /мне\s/.test(s))) {
+      st.age = v; window.ZAHAR_USER_AGE = v;
+      var _nbA = nb(); if (_nbA) { try { _nbA.age = v; if (typeof window.zaharSaveNotebook === 'function') window.zaharSaveNotebook(); } catch (eNA) {} }
+      st.ask = false; st.tries = 0; st.cd = 0; save();
+      var r = 'Запишу въ тетрадку, {N}: вамъ ' + v + ' ' + yearWord(v) + '.';
+      if (!hasPat() && v >= 31) { st.pat = true; r += PAT_Q; }
+      return fillN(r);
+    }
+    if (/уровен/.test(s) || (/(вод|рек)/.test(s) && /об[ьи]/.test(s))) {
+      var ob = obCache();
+      var lv = (ob && (ob.level != null ? ob.level : (ob.levelCm != null ? ob.levelCm : (ob.cm != null ? ob.cm : null))));
+      if (lv != null && typeof lv === 'number' && !isNaN(lv)) {
+        var dlt = (ob.delta != null ? ob.delta : (ob.diff != null ? ob.diff : null));
+        var tail = (dlt != null) ? ' (' + (dlt > 0 ? 'прибавка' : 'спадъ') + ' ' + Math.abs(dlt) + ' смъ за сутки)' : '';
+        return fillN(pick(['Уровень Оби въ Барнаулѣ — ' + lv + ' смъ' + tail + ', {N}.', 'Мостъ Оби доноситъ, {N}: вода на ' + lv + ' смъ' + tail + '.']));
+      }
+      if (/уровен/.test(s)) return fillN('Про уровень Оби, {N}, покуда молчу — мостъ депеши не прислалъ. Спросите опосля.');
+      return null;
+    }
+    if (/(температур|градус|тепл)/.test(s) && /(вод|об[ьи]|рек)/.test(s)) {
+      var ob2 = obCache();
+      if (ob2 && typeof ob2.temp === 'number' && !isNaN(ob2.temp)) {
+        var wv = String(ob2.temp).replace('.', ',');
+        return fillN(pick(['Вода въ Оби нынчѣ ' + wv + '°С, {N}.', 'Термометръ въ рекѣ ведетъ ' + wv + '°С, {N}.', 'Вода въ Оби на ' + wv + '°С — студеная, {N}.']));
+      }
+      return fillN(pick(['Про воду, {N}, молчу — депеша не дошла. Спросите опосля.', 'Градуса воды въ сводкѣ покуда нѣтъ, {N}: измерятъ — донесу.']));
+    }
+    if (/^(ты|вы)\s+рыбак$|^рыбак\s+ли\s+(ты|вы)$/.test(s)) return fillN(pick(RYBAK87));
+    if (/(пойд[её]м|пошли|собирайся|соберемся|выходим|отправляемся|ид[её]м)/.test(s) && /(рыбалк|рыбачить|на обь|ловить)/.test(s)) return fillN(pick(PLAN87));
+    var hm = s.match(/как\s+лов(?:ить|ят)\s+([а-я]+)/) || s.match(/как\s+поймать\s+([а-я]+)/);
+    if (hm) {
+      var fw = hm[1], fx = fish87[fw] || fish87[fw.replace(/(а|у|е|ом|ой|ы|и)$/, '')];
+      if (fx) return fillN(fx);
+    }
+    return null;
+  }
+  function post87(q, r) {
+    if (!r || typeof r !== 'string') return r;
+    var s = s87(q);
+    if (/исчерпал/.test(r) && /(уровен|об[ьи]|р[её]к)/.test(s)) {
+      var ob3 = obCache();
+      if (ob3 && ob3.level != null) return fillN('Уровень Оби въ Барнаулѣ — ' + ob3.level + ' смъ, {N}.');
+      return fillN('Про уровень Оби, {N}, покуда молчу — мостъ депеши не прислалъ. Спросите опосля.');
+    }
+    if (/давлен|ммъ|ртутн/.test(r) && !/гектопаскалей/.test(r)) {
+      r = r.replace(/(\d{3,4})\s*ммъ(?!\s*ртутнаго)/g, function (_, p) {
+        return Math.round(+p / 0.750062) + ' гектопаскалей (' + p + ' ммъ ртутнаго столба)';
+      });
+    }
+    r = r.replace(/часъ\s+ливень/gi, 'часъ. Ливень').replace(/сгинетъ\s+давленіе/gi, 'сгинетъ. Давленіе');
+    if (/сколькихъ годовъ вы|сколько вамъ годовъ/.test(r)) { st.ask = true; st.askedTurn = st.turn; save(); return r; }
+    if (!window.ZAHAR_USER_AGE && !st.ask && st.tries < 2 && Date.now() > (st.cd || 0) && TOPIC87.test(s)) {
+      r += fillN(AGE_Q);
+      st.ask = true; st.askedTurn = st.turn; save();
+    }
+    return r;
+  }
+  try { if (st.age && !window.ZAHAR_USER_AGE) window.ZAHAR_USER_AGE = st.age; } catch (eR) {}
+  try {
+    var _nbR = nb();
+    if (_nbR) {
+      if (st.age && !_nbR.age) _nbR.age = st.age;
+      if (st.patDone && st.patName && nm() && !hasPat() && !/\s/.test(nm())) _nbR.name = nm() + ' ' + st.patName;
+    }
+  } catch (eR2) {}
+  function install(f) {
+    if (!f || f.__z87) return;
+    var Z = function (q) {
+      try { st.turn++; } catch (eT) {}
+      try { var pre = pre87(q); if (pre != null) return pre; } catch (ePre) {}
+      var r = f.apply(this, arguments);
+      if (r && typeof r.then === 'function') return r;
+      try { return post87(q, r); } catch (ePost) { return r; }
+    };
+    Z.__z87 = true;
+    window.ZAHAR_ASK = Z;
+  }
+  if (window.ZAHAR_ASK) install(window.ZAHAR_ASK);
+  else { var n87 = 0; (function a87() { if (window.ZAHAR_ASK) { install(window.ZAHAR_ASK); return; } if (++n87 < 60) setTimeout(a87, 100); })(); }
 })();
