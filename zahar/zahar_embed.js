@@ -101,9 +101,12 @@ const STOPVERB = /(устал|занят|болен|рад|согласен|св
 /* №61: правило «на „л“ — не имя» („заболел“ — глаголъ, „Павелъ“ — имя).
    Списокъ именъ даётъ чатъ (window.ZAHAR_NAME_LIST_SET), запасъ — свой. */
 const L_NAMES = { 'павел':1,'кирилл':1,'данил':1,'даниил':1,'данила':1,'гавриил':1,'гаврила':1,'михаил':1,'ангел':1,'самуил':1 };
+/* №89: словца-оценки и междомѣтія — именемъ не мнятся (тихая запись «Похвально» отсечена) */
+const STOP3 = /(?:^|[^а-яё])(?:похвально|хорошо|отлично|прекрасно|славно|недурно|неплохо|здорово|молодец|спасибо|пожалуйста|понятно|ясно|согласен|согласна|давай|давайте|ладно|верно|точно|конечно|именно|алтын|черника|прошу|извольте)(?:[^а-яё]|$)/i;
 function nameOk(w) {
   if (!w) return false;
   const low = String(w).trim().toLowerCase().replace(/\s+/g,' ');
+  if (STOP3.test(low)) return false;
   if (/(?:^|[^а-яё])(?:кто|такой|какой|какие|каких|где|когда|сколько|тихон|семен|семён|захар|кажется|заболел)(?:[^а-яё]|$)/.test(low)) return false;
   if (/л$/.test(low.split(' ')[0])) {
     if (L_NAMES[low.split(' ')[0]]) return true;
@@ -119,9 +122,17 @@ function grabNameFromUser(text) {
   /* явное представленье — перезаписывает старое имя (на общем компьютере представятся заново) */
   const m = t.match(/(?:меня зовут|мо[ёe] имя|имя мо[ёe]|меня [а-яё]+ звать)\s+([А-ЯЁ][а-яё]{1,20}(?:\s+[А-ЯЁ][а-яё]{2,8}(?:ич|на|чна|вна))?)/i);
   if (m && nameOk(m[1])) { zaharSetName(m[1]); return; }
-  /* «привет я Анна», «это Анна» — имя в хвосте депеши */
-  const m2 = t.match(/(?:^|[^а-яё])(?:я|это|а\s+я)\s+([А-ЯЁ][а-яё]{1,20}(?:\s+[А-ЯЁ][а-яё]{2,8}(?:ич|на|чна|вна))?)\s*[.,!?]*$/i);
+  /* №89: «привет я Анна» — имя въ хвостѣ депеши; «это X» — только если X есть
+     въ списке настоящихъ именъ (оценки «это похвально» тетрадку не трогаютъ) */
+  const m2 = t.match(/(?:^|[^а-яё])(?:я|а\s+я)\s+([А-ЯЁ][а-яё]{1,20}(?:\s+[А-ЯЁ][а-яё]{2,8}(?:ич|на|чна|вна))?)\s*[.,!?]*$/i);
   if (m2 && !STOP.test(m2[1]) && !STOP2.test(m2[1].toLowerCase()) && !STOPVERB.test(m2[1].toLowerCase()) && nameOk(m2[1])) zaharSetName(m2[1]);
+  const m3 = t.match(/(?:^|[^а-яё])это\s+([А-ЯЁ][а-яё]{1,20}(?:\s+[А-ЯЁ][а-яё]{2,8}(?:ич|на|чна|вна))?)\s*[.,!?]*$/i);
+  if (m3 && !STOP.test(m3[1]) && !STOP2.test(m3[1].toLowerCase()) && !STOP3.test(m3[1]) && nameOk(m3[1])) {
+    const set = window.ZAHAR_NAME_LIST_SET;
+    const w3 = m3[1].trim().toLowerCase().replace(/\s+/g,' ');
+    const known = (set && typeof set.has === 'function') ? set.has(w3) : false;
+    if (known) zaharSetName(m3[1]);
+  }
 }
 
 window.zaharSetStation = function (st) {
@@ -255,6 +266,12 @@ async function loadLibrary() {
       const mod = await import(u);
       state.lib = mod.default || mod;
       window.transformers = state.lib;
+      /* №89: безъ COOP/COEP SharedArrayBuffer недоступенъ — сеансъ однопоточный,
+         иначе onnx проситъ многопоточный буферъ и падаетъ «failed to allocate a buffer» */
+      try {
+        const wasmEnv = state.lib.env && state.lib.env.backends && state.lib.env.backends.onnx && state.lib.env.backends.onnx.wasm;
+        if (wasmEnv) { wasmEnv.numThreads = 1; wasmEnv.proxy = false; console.log(TAG, 'сеансъ однопоточный (безъ COOP/COEP)'); }
+      } catch (eG) {}
       return state.lib;
     } catch (e) {
       lastErr = e;
