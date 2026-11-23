@@ -1,12 +1,13 @@
 /* ============================================================
    zahar_fix.js — правки поверхъ zahar_chat.js
-   Версія 5 (24.11.2026).
+   Версія 6 (24.11.2026).
    Подключать СТРОГО послѣ zahar_chat.js въ index.html:
-   <script src="zahar_fix.js?v=5"></script>
+   <script src="zahar_fix.js?v=6"></script>
 
    Что дѣлаетъ:
-   1) слой-хранитель поверхъ всей цепи ZAHAR_ASK: присвоенія
-      window.ZAHAR_ASK ловятся на лету — нашъ слой всегда вверху;
+   1) слой-хранитель поверхъ всей цепи ZAHAR_ASK: влезаетъ и
+      переопределеніемъ, и простымъ присваиваніемъ — какъ дозволитъ
+      чатъ; циклъ каждые полсекунды держитъ слой вверху;
    2) перехватываетъ раньше внутреннихъ стражей: «ты рыбакъ»,
       «пойдемъ на рыбалку», охота и «как охотиться», «рассветъ/закатъ»,
       «звёзды» по настоящему небу, луна прямымъ счетомъ;
@@ -20,7 +21,7 @@
 (function () {
   'use strict';
   if (window.__ZFIX_V__) return;
-  window.__ZFIX_V__ = 5;
+  window.__ZFIX_V__ = 6;
 
   /* ---------- 0. Помощники ---------- */
 
@@ -353,7 +354,7 @@
     return null; /* все прочее — внутренней цепи */
   }
 
-  var realAsk = window.ZAHAR_ASK;
+  var realAsk = null;
   var layerFn = null;
 
   function zfixLayer() {
@@ -368,24 +369,38 @@
     try { return zfixPost(q, r); } catch (eP) { return r; }
   }
   zfixLayer.__zaharGuard71 = true; /* чатовъ циклъ не перекроитъ слой */
+  zfixLayer.__zfix = true;
 
-  /* двойникъ-ловушка: всякое присвоеніе ZAHAR_ASK подводится подъ нашъ слой */
-  Object.defineProperty(window, 'ZAHAR_ASK', {
-    configurable: true,
-    get: function () { return layerFn || realAsk; },
-    set: function (v) { realAsk = v; layerFn = zfixLayer; }
-  });
-  layerFn = zfixLayer;
+  /* посадка слоя: переопределеніемъ, а безъ права — присваиваніемъ */
+  function zfixAttach() {
+    var cur = window.ZAHAR_ASK;
+    if (typeof cur !== 'function') return false;
+    if (cur.__zfix) { layerFn = cur; return true; }
+    realAsk = cur;
+    try {
+      Object.defineProperty(window, 'ZAHAR_ASK', {
+        configurable: true,
+        get: function () { return layerFn || realAsk; },
+        set: function (v) { realAsk = v; layerFn = zfixLayer; }
+      });
+      layerFn = zfixLayer;
+      return true;
+    } catch (eD) {
+      try { window.ZAHAR_ASK = zfixLayer; layerFn = zfixLayer; return true; } catch (eA) { return false; }
+    }
+  }
+  zfixAttach();
+  setInterval(function () { try { zfixAttach(); } catch (eA2) {} }, 500);
 
   /* контроль: ZFIX_DBG() въ консоли */
   window.ZFIX_DBG = function () {
     return JSON.stringify({
       v: window.__ZFIX_V__,
-      layerOnTop: (window.ZAHAR_ASK === zfixLayer),
+      layerOnTop: (window.ZAHAR_ASK === layerFn),
       tempCache: zfixWxRecall(),
       obFresh: !!zfixObFresh()
     });
   };
 
-  if (window.console) console.log('[zahar_fix] v5 надетъ: слой-хранитель на ZAHAR_ASK, звёзды по небу, охота и солнце отъ клёва освобождены, погода со запасомъ.');
+  if (window.console) console.log('[zahar_fix] v6 надетъ: слой-хранитель на ZAHAR_ASK, звёзды по небу, охота и солнце отъ клёва освобождены, погода со запасомъ.');
 })();
