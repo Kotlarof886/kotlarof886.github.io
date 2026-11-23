@@ -1,3 +1,4 @@
+/* === №86 (23.11.2026): ветеръ и давленіе — современныя меры первыми, старинныя въ скобкахъ; «Тепра»→«Тепръ»; «завтро»→«завтра»; луна безъ двоенія, «когда новолуніе» — прямымъ счетомъ (moonNew77); солнце: закатъ и рассветъ — порознь, датой въ вопросѣ поймано; клѣвъ: дальніе дни — «ожидается», рыбы равного балла — черезъ запятую. === */
 /* === №84 (22.11.2026): мостъ рѣки — ветка уровня Оби (zahar_river.js, Promise по образцу погоды); сканираніе по цѣлым словамъ (\b на кириллицѣ мертво). Лоръ и слои не тронуты. === */
 /* === №82 (22.11.2026): рыбий узор свободной формы; мерж полок из файла (35 новых); полка пишет слово в тетрадку со свежестью; страж null (stripTail/femizeOut); финальный отказ при молчании всех слоёв. Лор трактира не тронут. === */
 /* === №73 эт.2 (21.11.2026): стражъ-73 — очередь новостей (одна за ход, «еще» везъ \b), сезонный пулъ по мѣсяцу и градусу, нить Тихона, редкое имя, отчество, соцпулы. === */
@@ -5059,8 +5060,9 @@ function tryName(raw) {
     if (!nq.trim()) return null;
     var mq = nq.replace(/[ъь]/g, '');
     /* полнолуніе — расчётъ фазы, не допросъ о станціи */
-    if (/полнолун/.test(nq) || (/лун/.test(nq) && /когда|какого числа|какой день/.test(nq))) {
+    if (/полнолун|новолун/.test(nq) || (/лун/.test(nq) && /когда|какого числа|какой день/.test(nq))) {
       awaitingJob = false;
+      if (/новолун/.test(nq)) return femizeOut(fill(moonNew77()));
       return femizeOut(fill(moonFull70()));
     }
     /* покупка ружья — совѣтъ, а не мечта Захара о берданкѣ */
@@ -5090,7 +5092,7 @@ function tryName(raw) {
       return femizeOut(fill('Ежели позволите, {N}: сколько вамъ годовъ? Не для казенныхъ книгъ — просто къ беседѣ надобно.'));
     }
     /* №72: рассветъ и закатъ — по счету для Барнаула, окно въ семь дней */
-    if (/(рассвет|восход|закат)/.test(nq) && /(когда|во сколько|в котором часу|сегодня|завтра|послезавтра|через)/.test(nq) && !/луна|полнолун/.test(nq)) {
+    if (/(рассвет|восход|закат)/.test(nq) && !/луна|полнолун|новолун/.test(nq) && (/(когда|во сколько|в котором часу|сегодня|завтра|послезавтра|через)/.test(nq) || /\d{1,2}\s*(?:ноябр|декабр|январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр)/.test(nq))) {
       awaitingJob = false;
       var _off72 = 0;
       var _dm72 = nq.match(/черезъ?\s+(\d{1,2})\s+(?:дн[а-яё]*|сут)/);
@@ -5117,7 +5119,12 @@ function tryName(raw) {
       var _vR72 = 'встанетъ', _vS72 = 'зайдетъ';
       if (_off72 === 0 && _cur72 >= _sM72) { _vR72 = 'всталъ'; _vS72 = 'зашелъ'; }
       else if (_off72 === 0 && _cur72 >= _rM72) { _vR72 = 'всталъ'; _vS72 = 'зайдетъ'; }
-      return femizeOut(fill('Солнце ' + _when72 + ' (' + _st72.date + ') ' + _vR72 + ' въ ' + _st72.rise + ', ' + _vS72 + ' въ ' + _st72.set + ' — по счету Барнаульской долготы.'));
+      var _tail72 = ' — по счету Барнаульской долготы.';
+      var _askR72 = /рассвет|восход/.test(nq), _askS72 = /закат/.test(nq);
+      if (!_askR72 && !_askS72) { _askR72 = true; _askS72 = true; }
+      if (_askR72 && _askS72) return femizeOut(fill('Солнце ' + _when72 + ' (' + _st72.date + ') ' + _vR72 + ' въ ' + _st72.rise + ', ' + _vS72 + ' въ ' + _st72.set + _tail72));
+      if (_askS72) return femizeOut(fill('Солнце ' + _when72 + ' (' + _st72.date + ') ' + _vS72 + ' въ ' + _st72.set + _tail72));
+      return femizeOut(fill('Солнце ' + _when72 + ' (' + _st72.date + ') ' + _vR72 + ' въ ' + _st72.rise + _tail72));
 
     }
     /* №72: нить Тихона — товары и «гдѣ онъ», въ теченіе двухъ ходовъ */
@@ -5213,7 +5220,7 @@ function tryName(raw) {
   ];
   var Z73_TIH_DONE = 'Всѣ товары перечислилъ, {N}. Къ Тихону завѣдемъ опосля — возы приходятъ не каждый день.';
   var Z73_EXH = [
-    'Всѣ разсказалъ, {N}: пулъ нынче пустъ. Заглянемъ завтро — депеши спятъ.',
+    'Всѣ разсказалъ, {N}: пулъ нынче пустъ. Заглянемъ завтра — депеши спятъ.',
     'Больше не ведаю, {N}: что было — все изложилъ. Про другое спросите.',
     'Новостей нынче болѣ нетъ, {N}. Поговоримъ о другомъ — я всегда тута.'
   ];
@@ -5565,29 +5572,58 @@ function tryName(raw) {
     var sc = Math.min(10, Math.max(1, Math.round((day.score || 0) / 10)));
     var dayAcc = isToday ? 'нынчѣ' : (Z74_ACC_DOW[day.dow] || day.dow);
     var p = [];
-    p.push(femizeOut(fill('Клѣвъ ' + (isToday ? 'нынчѣ' : 'на ' + dayAcc) + ' — ' + Z74_KLABEL[sc] + '. ' + z74tail(sc))));
+    /* №86: зачин — нынчѣ по-старому; дальніе дни — «ожидается» съ датой и безъ двоенія слова;
+       рыбы съ равнымъ балломъ — черезъ запятую, описаніе одно на группу; въ «Не донимайте» — то же чиномъ */
+    var _kbMN = ['января','февраля','марта','апреля','мая','іюня','іюля','августа','сентября','октября','ноября','декабря'];
+    var _kbD = null;
+    if (!isToday && day.date) {
+      var _kbdd = String(day.date).split('.');
+      if (_kbdd.length >= 2 && +_kbdd[1] >= 1 && +_kbdd[1] <= 12) _kbD = { d: +_kbdd[0], m: +_kbdd[1] };
+    }
+    var _kbPrep = (dayAcc === 'вторникъ') ? 'во вторникъ' : 'въ ' + dayAcc;
+    if (isToday) {
+      p.push(femizeOut(fill('Клѣвъ нынчѣ — ' + Z74_KLABEL[sc] + '. ' + z74tail(sc))));
+    } else {
+      var _kbFlav = { 1: 'снасть разматывать не стоитъ', 2: 'лучше къ другому дѣлу', 3: 'рыба мимо ходитъ', 4: 'поклёвка и та черезъ часъ', 5: 'надежда есть, да не велика', 6: 'на зарѣ пробуйте', 7: 'какъ нарочно для рыбака', 8: 'какъ нарочно для рыбака', 9: 'кое-что на крючокъ сядетъ', 10: 'запасайтесь ящикомъ' };
+      var _kbWhen = _kbPrep + (_kbD ? ', ' + _kbD.d + ' ' + _kbMN[_kbD.m - 1] : '') + ', ожидается';
+      p.push(femizeOut(fill('Клѣвъ ' + _kbWhen + ' ' + Z74_KLABEL[sc] + ' — ' + _kbFlav[sc] + '.')));
+    }
     if (day.top && day.top.length) {
-      var parts = [], i, e;
+      var parts = [], i, e, plainRing = {}, plainOrder = [];
       for (i = 0; i < day.top.length; i++) {
         e = day.top[i];
         var nm = e.n || e.name || '';
         var lab = z74kshort(Math.round((e.s || 0) / 10));
         var g = e.g || e.gear || '';
-        var who = (z74genderOf(nm) === 'f') ? 'у ней' : 'у него';
         var N = nm.charAt(0).toUpperCase() + nm.slice(1);
-        if (g) parts.push(N + ' — клѣвъ ' + who + ' ' + lab + ': ' + g);
-        else parts.push(N + ' — клѣвъ ' + who + ' ' + lab);
+        if (g) {
+          parts.push(N + ' — ' + g);
+        } else {
+          if (!plainRing[lab]) { plainRing[lab] = []; plainOrder.push(lab); }
+          plainRing[lab].push(N);
+        }
       }
-      p.push('Берётъ ' + dayAcc + ': ' + parts.join('; ') + '.');
+      for (var pl = 0; pl < plainOrder.length; pl++) {
+        parts.push(plainRing[plainOrder[pl]].join(', ') + ' — клѣвъ ' + plainOrder[pl]);
+      }
+      if (parts.length) {
+        p.push(femizeOut(fill('Берётъ ' + (isToday ? 'нынчѣ' : _kbPrep) + ': ' + parts.join('; ') + '.')));
+      }
     }
     if (near && day.avoid && day.avoid.length) {
-      var ap = [], i2, e2;
+      var ap = [], i2, e2, seen2 = {}, order2 = [];
       for (i2 = 0; i2 < day.avoid.length; i2++) {
         e2 = day.avoid[i2];
         var an = e2.n || e2.name || '';
-        var aw = e2.why || '';
+        var aw = (e2.why || '').trim();
         var suff = /зимоват|залегъ|спячк|въ иле/.test(z74canon(aw)) ? ', клёва не предвидится' : '';
-        ap.push(an.charAt(0).toUpperCase() + an.slice(1) + ' — ' + aw + suff + '.');
+        if (!seen2[aw]) { seen2[aw] = { why: aw, suff: suff, names: [] }; order2.push(aw); }
+        seen2[aw].names.push(an.charAt(0).toUpperCase() + an.slice(1));
+      }
+      for (i2 = 0; i2 < order2.length; i2++) {
+        var grp2 = seen2[order2[i2]], ns = grp2.names;
+        var nmJoin = (ns.length > 1) ? (ns.slice(0, -1).join(', ') + ' и ' + ns[ns.length - 1]) : ns[0];
+        ap.push(nmJoin + ' — ' + grp2.why + grp2.suff + '.');
       }
       p.push('Не донимайте: ' + ap.join(' '));
     }
@@ -5725,11 +5761,11 @@ function tryName(raw) {
     } else if (allBad) {
       body = (girl ? [
         name + ', {N}: въ ближніе два-три дня клёва не предвидится — ' + reason + '.',
-        name + ' нынчѣ не смотритъ, и завтро съ послезавтра тоже — ' + reason + '.',
+        name + ' нынчѣ не смотритъ, и завтра съ послезавтра тоже — ' + reason + '.',
         'Про ' + fi.s + ' скажу прямо, {N}: два-три дня съ снастью на нее сидѣть зря — ' + reason + '.'
       ] : [
         name + ', {N}: въ ближніе два-три дня клёва не предвидится — ' + reason + '.',
-        name + ' нынчѣ не смотритъ, и завтро съ послезавтра тоже — ' + reason + '.',
+        name + ' нынчѣ не смотритъ, и завтра съ послезавтра тоже — ' + reason + '.',
         'Про ' + fi.s + ' скажу прямо, {N}: два-три дня съ снастью на него сидѣть зря — ' + reason + '.'
       ]);
     } else {
@@ -5807,7 +5843,7 @@ function tryName(raw) {
     'Барометръ безгласенъ, {N}: меры не прислалъ — спросите опосля.'
   ];
   var Z75_NOTEMP = [
-    'Тепра на сей день не доносятъ, {N}: приборы молчатъ. Загляните опосля.',
+    'Тепръ на сей день не доносятъ, {N}: приборы молчатъ. Загляните опосля.',
     'Градусъ на сей день въ сводкѣ нѣтъ, {N}: метеорологія недосмотрѣла.',
     'О тепрѣ не скажу, {N}: ленты сей день не содержатъ.'
   ];
@@ -5909,8 +5945,8 @@ function tryName(raw) {
     var TR = Z75_TR[day.ptrend] || null;
     var v = [
       'Давленіе ' + whenP + ' — ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба)' + (TR ? ', ' + TR : '') + '.',
-      'Столбъ ртути ' + whenP + ' на ' + M + ' ммъ (' + P + ' гектопаскалей)' + ((TR && TR !== 'ровно') ? ' — ' + TR : ', не пляшетъ') + '.',
-      ((TR && TR !== 'ровно') ? ('Давленіе ' + whenP + ' ' + TR + ': ' + P + ' гектопаскалей, ' + M + ' ммъ ртутнаго столба.') : ('Давленіе ' + whenP + ' — ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба), ровно.'))
+      'Столбъ ртути ' + whenP + ' держится на ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба)' + ((TR && TR !== 'ровно') ? ' — ' + TR : ', не пляшетъ') + '.',
+      ((TR && TR !== 'ровно') ? ('Давленіе ' + whenP + ' ' + TR + ': ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба).') : ('Давленіе ' + whenP + ' — ' + P + ' гектопаскалей (' + M + ' ммъ ртутнаго столба), ровно.'))
     ];
     return femizeOut(fill(v[Math.floor(Math.random() * v.length)]));
   }
@@ -5993,7 +6029,7 @@ function tryName(raw) {
       if (day.wind !== null && day.wind !== undefined) {
         var ms0 = Math.round((day.wind / 3.6) * 10) / 10;
         var vr0 = Math.round(day.wind * 0.9374);
-        p0.push('Вѣтръ ' + (day.wdirName || 'перѣменный') + ', ' + z75windWord(ms0) + ': до ' + vr0 + ' вёрстъ въ часъ (' + String(ms0).replace('.', ',') + ' метра въ секунду).');
+        p0.push('Вѣтръ ' + (day.wdirName || 'перѣменный') + ', ' + z75windWord(ms0) + ': до ' + String(ms0).replace('.', ',') + ' метра въ секунду (' + vr0 + ' вёрстъ въ часъ).');
       } else {
         p0.push('Вѣтръ и осадковъ аппарат не телеграфирует.');
       }
@@ -6011,7 +6047,7 @@ function tryName(raw) {
       if (day.wind !== null && day.wind !== undefined) {
         var ms = Math.round((day.wind / 3.6) * 10) / 10;
         var vr = Math.round(day.wind * 0.9374);
-        p.push('Вѣтръ ' + (day.wdirName || 'перѣменный') + ', ' + z75windWord(ms) + ': до ' + vr + ' вёрстъ въ часъ (' + String(ms).replace('.', ',') + ' метра въ секунду).');
+        p.push('Вѣтръ ' + (day.wdirName || 'перѣменный') + ', ' + z75windWord(ms) + ': до ' + String(ms).replace('.', ',') + ' метра въ секунду (' + vr + ' вёрстъ въ часъ).');
       }
       p.push(z75pressPhrase(day, 'на ' + when));
       var preTxt = (day.precip !== null && day.precip !== undefined && day.precip > 0.5)
@@ -6053,12 +6089,30 @@ function tryName(raw) {
     if (frac < 0.78) return 'послѣдняя четверть — мѣсяцъ наполовину отбылъ';
     return 'старый серпъ — луна къ новолунію клонится';
   }
+  /* №86: новолуніе — той же формулой, что полнолуніе */
+  function moonNew77() {
+    var SYN = 29.530588853;
+    var MN77 = ['января','февраля','марта','апреля','мая','іюня','іюля','августа','сентября','октября','ноября','декабря'];
+    var WD77 = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+    var ref = Date.UTC(2000, 0, 6, 18, 14);
+    var now = new Date(); now.setHours(0, 0, 0, 0);
+    var days = (now.getTime() - ref) / 86400000;
+    var frac = days / SYN - Math.floor(days / SYN);
+    var toNew = (1 - frac) % 1;
+    if (toNew < 0.02 || toNew > 0.98) return 'Нынчѣ, {N}, новолуніе — мѣсяца на нѣбѣ нетъ: темная ночь, налимъ беретъ смирнѣе.';
+    var res = new Date(now.getTime() + Math.round(toNew * SYN) * 86400000);
+    return 'Новолуніе, {N}, выйдетъ ' + res.getDate() + '-го ' + MN77[res.getMonth()] + ' (' + WD77[res.getDay()] + '). По лунѣ примечають: въ темную ночь налимъ беретъ смирнѣе.';
+  }
   function zaharSkyGuard77(q) {
     var s = String(q || '').toLowerCase().replace(/ё/g, 'е').replace(/ѣ/g, 'е').replace(/[ъь]/g, '');
     if (!s) return null;
-    if (/лун/.test(s) && !/полнолун/.test(s)) {
+    if (/новолун/.test(s) && /когда|какого числа|какой день/.test(s)) {
       awaitingJob = false;
-      return femizeOut(fill('Луна нынчѣ, {N}: ' + moonPhase77() + '.'));
+      return femizeOut(fill(moonNew77()));
+    }
+    if (/лун/.test(s) && !/полнолун|новолун/.test(s)) {
+      awaitingJob = false;
+      return femizeOut(fill('Луна нынчѣ, {N}, ' + moonPhase77().replace(/^луна\s+/, '') + '.'));
     }
     if (/зв[её]зд/.test(s)) {
       awaitingJob = false;
