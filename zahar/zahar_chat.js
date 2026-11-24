@@ -5891,6 +5891,10 @@ function tryName(raw) {
     var isFish = /(рыб|клю|улов|снаст|лов)/.test(s);
     if (!isKlev && !isFish && /(температур|тепл|градус|мороз|жарк|холодн|давлен|ртутн|барометр)/.test(s)) return null;
     if (!isFish && /тихон|новост|груст|страш|одинок|бол[еи]т|болен|погод/.test(s)) return null;
+        /* №90: не клѣвъ — дорога по чину: способы ловли, сроки, приглашенья, «ты рыбакъ» */
+    var _skip74 = /как ловит|чем ловит|на что ловит|когда.{0,24}рыбалк|пойд[ео]м|пойдеш|пойдешь|пойду|пошли|сходим|идем|идеш|идешь|поедем|поедеш|зовеш|зовешь|зови|ты рыбак|вы рыбак|рыбач/.test(s);
+    if (_skip74) return null;
+
     var _lr74 = (window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastReply) ? String(window.ZAHAR_SESSION.lastReply) : '';
     var follow = isWhen && ((Date.now() - (K74.lastAsk || 0)) < 10 * 60 * 1000 || /клѣв|клев/.test(_lr74));
     if (!(isKlev || isFish || follow)) return null;
