@@ -6215,11 +6215,15 @@ function tryName(raw) {
     if (typeof f !== 'function') return;
     if (f.__zaharGuard71) return;
     var _yo88 = function (v) { try { if (typeof v === 'string') return v.replace(/ё/g, 'е').replace(/Ё/g, 'Е'); } catch (eY88) {} return v; };
-    var g = function () {
+        var g = function () {
       var args = arguments;
       var r = null;
+      try { if (window.ZAHAR87 && window.ZAHAR87.tick) window.ZAHAR87.tick(); } catch (eT87g) {}
+      try { var _pre87g = (window.ZAHAR87 && typeof window.ZAHAR87.pre === 'function') ? window.ZAHAR87.pre(args[0]) : null; } catch (eP87g) { _pre87g = null; }
+      if (_pre87g != null) return _yo88(_pre87g);
       try { r = zaharGuard74Klev(args[0]); } catch (eK74) { r = null; }
       if (r != null) return _yo88(r);
+
       try { r = zaharSkyGuard77(args[0]); } catch (eS77) { r = null; }
       if (r != null) return _yo88(r);
       try { r = zaharGuard75Wx(args[0]); } catch (eW75) { r = null; }
@@ -6228,7 +6232,10 @@ function tryName(raw) {
       if (r != null) return _yo88(r);
       try { r = zaharGuard71Answer(args[0]); } catch (eG71) { r = null; }
       if (r != null) return _yo88(r);
-      return _yo88(f.apply(this, args));
+            r = _yo88(f.apply(this, args));
+      try { var _r87g = (window.ZAHAR87 && typeof window.ZAHAR87.post === 'function') ? window.ZAHAR87.post(args[0], r) : null; } catch (ePost87g) { _r87g = null; }
+      return (_r87g != null) ? _r87g : r;
+
     };
     g.__zaharGuard71 = true;
     window.ZAHAR_ASK = g;
@@ -6259,6 +6266,8 @@ console.log('ZAHAR-90 загружен');
   } catch (e0) {}
   window.ZAHAR87 = st;
   window.ZAHAR87.dbg = function () { return JSON.stringify(st); };
+     window.ZAHAR87.pre = pre87; window.ZAHAR87.post = post87; window.ZAHAR87.tick = function () { try { st.turn++; } catch (eT87) {} };
+
   function save() { try { localStorage.setItem('zahar_age87_v2', JSON.stringify({ t: st.tries, c: st.cd, a: st.age, p: st.patDone, pn: st.patName })); } catch (e) {} }
   function nm() { return String(window.ZAHAR_USER_NAME || ''); }
   function addr() { return window.ZAHAR_USER_GENDER === 'f' ? 'сударыня' : 'сударь'; }
@@ -6333,7 +6342,8 @@ console.log('ZAHAR-90 загружен');
     'елец': 'Елец зимой вялый, {N}: мотыль на легкой снасти у дна — но ждать лучше.',
     'пелядь': 'Пелядь зимой клѣвомъ смирна, {N}: мотыль у дна, прикормка съ вечера.'
   };
-  fish87['щук'] = fish87['щука']; fish87['окун'] = fish87['окунь']; fish87['пескар'] = fish87['пескарь'];
+  fish87['щук'] = fish87['щука']; fish87['окун'] = fish87['окунь']; fish87['пескар'] = fish87['пескарь']; fish87['карас'] = fish87['карась']; fish87['яз'] = fish87['язь']; fish87['леш'] = fish87['лещ'];
+
   fish87['сорог'] = fish87['сорога']; fish87['плотв'] = fish87['плотва']; fish87['пеляд'] = fish87['пелядь'];
   function obCache() {
     try {
@@ -6414,7 +6424,20 @@ console.log('ZAHAR-90 загружен');
       return fillN(pick(PLAN87));
     }
 
-    var hm = s.match(/как\s+лов(?:ить|ят)\s+([а-я]+)/) || s.match(/как\s+поймать\s+([а-я]+)/);
+        /* №90: s87 съелъ «ь» — «ловить» стало «ловит», «поймать» стало «поймат» */
+    var hm = s.match(/как\s+лов(?:ит|ят)\s+([а-я]+)/) || s.match(/как\s+поймат\s+([а-я]+)/);
+    var _wi90, _wd, _cut;
+    if (!hm && /ловит|поймат|снаст|брат|взят/.test(s)) {
+      var _wds = s.split(/[^а-я]+/);
+      for (_wi90 = 0; _wi90 < _wds.length && !hm; _wi90++) {
+        _wd = _wds[_wi90];
+        for (_cut = 0; _cut <= 3 && _wd; _cut++) {
+          var _try = _wd.slice(0, _wd.length - _cut);
+          if (_try && fish87[_try]) { hm = [null, _try]; break; }
+        }
+      }
+    }
+
     if (hm) {
       var fw = hm[1], fx = fish87[fw] || fish87[fw.replace(/(а|у|е|ом|ой|ы|и)$/, '')];
       if (fx) return fillN(fx);
