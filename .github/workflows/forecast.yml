@@ -1,8 +1,9 @@
 name: forecast
 on:
-  schedule:
-    - cron: '15 */3 * * *'   # раз в три часа: прогноз дневной, чаще незачем
   workflow_dispatch:
+  workflow_run:
+    workflows: ["ob-level"]
+    types: [completed]
 permissions:
   contents: write
 jobs:
