@@ -6224,7 +6224,8 @@ function tryName(raw) {
   }
 
    try { window.ZAHAR_K74 = K74; } catch (eK74w) {} /* №90: K74 наружу — приглашенье по живому клѣву */
-     try { window.ZAHAR_Z74 = { fishOf: z74fishOf, accOf: z74accOf, genderOf: z74genderOf }; } catch (eZ74w) {}
+       try { window.ZAHAR_Z74 = { fishOf: z74fishOf, accOf: z74accOf, genderOf: z74genderOf, canOf: z74canon }; } catch (eZ74w) {}
+
   zaharKlevPrefetch();
   zaharWxPrefetch();
      zaharWxNowPrefetch();
@@ -6421,8 +6422,15 @@ console.log('ZAHAR-90 загружен');
     if (/(работ|служб)/.test(s) && /(пойду|пойд|ид[её]м|идеш)/.test(s)) {
       return fillN('На службу, {N}, — дѣло прежде всего. А я при аппарате: смена моя до вечера, а на Обь — въ воскресенье, выходной.');
     }
-      
-     /* №92: рыбалка — дни, сговоръ, отказъ и память */
+         /* №93.1: короткая доводка «а завтра?» послѣ охотничьей темы */
+    if (/^(а\s*)?завтра[?!.]*$/.test(s)) {
+      var _lrP93 = (window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastReply) ? String(window.ZAHAR_SESSION.lastReply).toLowerCase() : '';
+      if (/(глухар|собол|косул|лос|охот|зайц)/.test(_lrP93)) {
+        return 'А завтра, ' + N() + ', смотрите по погодѣ: по оттепели дичь у воды держится, въ морозъ — по пороше. Спросите «какая погода завтра» — сверимъ сводку.';
+      }
+    }
+ 
+         /* №92: рыбалка — дни, сговоръ, отказъ и память */
     var _day92 = null;
     if (/суббот/.test(s)) _day92 = 'субботу';
     else if (/пятниц/.test(s)) _day92 = 'пятницу';
@@ -6458,46 +6466,64 @@ console.log('ZAHAR-90 загружен');
       /* №92: конкретная рыба — по ея клёву изъ сводки */
       var _m92 = s.match(/(?:на|за)\s+(щук|окун|налим|судак|карас|лещ|сорог|плотв|сазан|язь|ерш|елец|пескар|пеляд)/);
       if (_m92) {
-        var _fs92 = _m92[1], _e92 = null;
-                 if (_fs92 === 'плотв') { _fs92 = 'сорог'; }
-
+        var _fs92 = _m92[1];
+        if (_fs92 === 'плотв') _fs92 = 'сорог';
+                var _gn92 = _fs92; /* полное имя — для склоненья и рода */
+        if (_fs92 === 'плотв' || _fs92 === 'сорог') _gn92 = 'сорога';
+        else if (_fs92 === 'щук') _gn92 = 'щука';
+        else if (_fs92 === 'окун') _gn92 = 'окунь';
+        else if (_fs92 === 'пескар') _gn92 = 'пескарь';
+        var _e92 = null;
         try { _e92 = (window.ZAHAR_Z74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days && window.ZAHAR_K74.data.days[0]) ? window.ZAHAR_Z74.fishOf(window.ZAHAR_K74.data.days[0], _fs92) : null; } catch (eF92) { _e92 = null; }
-                if (_e92) {
-          var _fv = (typeof _e92.s === 'number') ? _e92.s : ((typeof _e92.score === 'number') ? _e92.score : null);
-          var _fsc = (_fv !== null) ? Math.min(10, Math.max(1, Math.round(_fv / 10))) : null;
-          var _facc = (window.ZAHAR_Z74 && window.ZAHAR_Z74.accOf) ? window.ZAHAR_Z74.accOf(_fs92) : 'на ' + _fs92;
-                    if (_fsc === null) {
-            st.tripDay = 'воскресенье'; save();
-            return fillN('Пойду ' + _facc + ', {N}: сводка о ней точныхъ чиселъ не донесла — снасть наведите съ вечера, на зарѣ попробуемъ.');
+        var _facc = (window.ZAHAR_Z74 && window.ZAHAR_Z74.accOf) ? window.ZAHAR_Z74.accOf(_gn92) : ('на ' + _gn92);
+        var _fwhy = (_e92 && _e92.why) ? String(_e92.why).trim() : '';
+        /* №92: рыба изъ «Не донимайте» — не соглашаемся, хотя балла и нѣтъ */
+        var _av92 = null;
+        try {
+          var _avs92 = (window.ZAHAR_K74.data && window.ZAHAR_K74.data.days[0].avoid) || [];
+          for (var _ai92 = 0; _ai92 < _avs92.length; _ai92++) {
+            var _an92 = String(_avs92[_ai92].n || _avs92[_ai92].name || '');
+            var _ac92 = (window.ZAHAR_Z74 && window.ZAHAR_Z74.canOf) ? window.ZAHAR_Z74.canOf(_an92) : _an92;
+            if (_ac92 && (_ac92.indexOf(_fs92) === 0 || _fs92.indexOf(_ac92) === 0)) { _av92 = _avs92[_ai92]; break; }
           }
-          if (_fsc !== null && _fsc >= 4) {
-            st.tripDay = 'воскресенье'; save();
-            return fillN('Пойду ' + _facc + ', {N}: сводка добрую вѣсть донесла — живца запасите, снасть наведите съ вечера.');
-          }
-          st.tripDay = null; save();
-          var _fwhy = (_e92.why || '').trim();
-          /* №92: отказъ по рыбѣ — съ подсказкой лучшей рыбы изъ сводки */
-          var _adv92 = '';
-          try {
-            var _t92 = (window.ZAHAR_K74.data && window.ZAHAR_K74.data.days[0] && window.ZAHAR_K74.data.days[0].top && window.ZAHAR_K74.data.days[0].top.length) ? window.ZAHAR_K74.data.days[0].top[0] : null;
-            if (_t92) {
-              var _tn92 = _t92.n || _t92.name || '';
-              var _tv = (typeof _t92.s === 'number') ? _t92.s : ((typeof _t92.score === 'number') ? _t92.score : null);
-              var _tsc = (_tv !== null) ? Math.min(10, Math.max(1, Math.round(_tv / 10))) : null;
-              if (_tn92 && _tsc !== null && _tsc >= 4) {
-                var _ts92 = String(_tn92).toLowerCase(), _cs92 = String(_fs92).toLowerCase();
-                if (!(_ts92.indexOf(_cs92) === 0 || _cs92.indexOf(_ts92) === 0)) {
-              _adv92 = ' А вотъ ' + _tn92 + ' нынчѣ беретъ бойче прочихъ — перекиньте снасть, {N}.';
-
-                }
+        } catch (eAv92) {}
+        /* №92: подсказка лучшей рыбы изъ сводки */
+        var _adv92 = '';
+        try {
+          var _t92 = (window.ZAHAR_K74.data && window.ZAHAR_K74.data.days[0] && window.ZAHAR_K74.data.days[0].top && window.ZAHAR_K74.data.days[0].top.length) ? window.ZAHAR_K74.data.days[0].top[0] : null;
+          if (_t92) {
+            var _tn92 = _t92.n || _t92.name || '';
+            var _tv = (typeof _t92.s === 'number') ? _t92.s : ((typeof _t92.score === 'number') ? _t92.score : null);
+            var _tsc = (_tv !== null) ? Math.min(10, Math.max(1, Math.round(_tv / 10))) : null;
+            if (_tn92 && _tsc !== null && _tsc >= 4) {
+              var _ts92 = String(_tn92).toLowerCase();
+              if (!(_ts92.indexOf(_fs92) === 0 || _fs92.indexOf(_ts92) === 0)) {
+                _adv92 = ' А вотъ ' + _tn92 + ' нынчѣ беретъ бойче прочихъ — перекиньте снасть, {N}.';
               }
             }
-          } catch (eA92) {}
-          if (!_adv92) _adv92 = ' Клѣвъ скромный у всѣхъ, {N} — стало быть, на Обь для души.';
+          }
+        } catch (eA92) {}
+        if (!_adv92) _adv92 = ' Клѣвъ скромный у всѣхъ, {N} — стало быть, на Обь для души.';
+
+        var _fv = (_e92 && (typeof _e92.s === 'number')) ? _e92.s : ((_e92 && (typeof _e92.score === 'number')) ? _e92.score : null);
+        var _fsc = (_fv !== null) ? Math.min(10, Math.max(1, Math.round(_fv / 10))) : null;
+        var _fgen = (window.ZAHAR_Z74 && window.ZAHAR_Z74.genderOf) ? window.ZAHAR_Z74.genderOf(_gn92) : 'm';
+
+        if (_av92) {
+          st.tripDay = null; save();
           return fillN('Постой, {N}: ' + _facc + ' нынчѣ не пойду — ' + (_fwhy ? (_fwhy.charAt(0).toUpperCase() + _fwhy.slice(1)) : 'клѣва не предвидится') + '.' + _adv92);
         }
+        if (_fsc === null) {
+          st.tripDay = 'воскресенье'; save();
+          return fillN('Пойду ' + _facc + ', {N}: сводка ' + (_fgen === 'f' ? 'о ней' : 'о немъ') + ' точныхъ чиселъ не донесла — снасть наведите съ вечера, на зарѣ попробуемъ.');
+        }
+        if (_fsc >= 4) {
+          st.tripDay = 'воскресенье'; save();
+          return fillN('Пойду ' + _facc + ', {N}: сводка добрую вѣсть донесла — снасть наведите съ вечера, на зарѣ попробуемъ.');
+        }
+        st.tripDay = null; save();
+        return fillN('Постой, {N}: ' + _facc + ' нынчѣ не пойду — ' + (_fwhy ? (_fwhy.charAt(0).toUpperCase() + _fwhy.slice(1)) : 'клѣва не предвидится') + '.' + _adv92);
       }
-
       var _k92 = null;
       try { _k92 = (window.ZAHAR_K74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days && window.ZAHAR_K74.data.days[0]) || null; } catch (eK92) {}
       var _sc92 = null;
@@ -6515,7 +6541,6 @@ console.log('ZAHAR-90 загружен');
       st.tripDay = 'воскресенье'; save();
       return fillN(pick(PLAN87));
     }
-
 
 
         /* №90: s87 съелъ «ь» — «ловить» стало «ловит», «поймать» стало «поймат» */
