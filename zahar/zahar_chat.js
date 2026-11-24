@@ -6386,25 +6386,9 @@ console.log('ZAHAR-90 загружен');
       if (!hasPat() && v >= 31) { st.pat = true; r += PAT_Q; }
       return fillN(r);
     }
-    if (/уровен/.test(s) || (/(вод|рек)/.test(s) && /об[ьи]/.test(s))) {
-      var ob = obCache();
-      var lv = (ob && (ob.level != null ? ob.level : (ob.levelCm != null ? ob.levelCm : (ob.cm != null ? ob.cm : null))));
-      if (lv != null && typeof lv === 'number' && !isNaN(lv)) {
-        var dlt = (ob.delta != null ? ob.delta : (ob.diff != null ? ob.diff : null));
-        var tail = (dlt != null) ? ' (' + (dlt > 0 ? 'прибавка' : 'спадъ') + ' ' + Math.abs(dlt) + ' смъ за сутки)' : '';
-        return fillN(pick(['Уровень Оби въ Барнаулѣ — ' + lv + ' смъ' + tail + ', {N}.', 'Мостъ Оби доноситъ, {N}: вода на ' + lv + ' смъ' + tail + '.']));
-      }
-      if (/уровен/.test(s)) return fillN('Про уровень Оби, {N}, покуда молчу — мостъ депеши не прислалъ. Спросите опосля.');
-      return null;
-    }
-    if (/(температур|градус|тепл)/.test(s) && /(вод|об[ьи]|рек)/.test(s)) {
-      var ob2 = obCache();
-      if (ob2 && typeof ob2.temp === 'number' && !isNaN(ob2.temp)) {
-        var wv = String(ob2.temp).replace('.', ',');
-        return fillN(pick(['Вода въ Оби нынчѣ ' + wv + '°С, {N}.', 'Термометръ въ рекѣ ведетъ ' + wv + '°С, {N}.', 'Вода въ Оби на ' + wv + '°С — студеная, {N}.']));
-      }
-      return fillN(pick(['Про воду, {N}, молчу — депеша не дошла. Спросите опосля.', 'Градуса воды въ сводкѣ покуда нѣтъ, {N}: измерятъ — донесу.']));
-    }
+        /* №91: уровень и вода — отдаю старой веткѣ, она отвечает фразой водомѣрнаго поста */
+    if (/уровен/.test(s) || (/(температур|градус|тепл)/.test(s) && /(вод|об[ьи]|рек)/.test(s))) return null;
+
     if (/^(ты|вы)\s+рыбак$|^рыбак\s+ли\s+(ты|вы)$/.test(s)) return fillN(pick(RYBAK87));
         if (/(пойд[её]м|пойдеш|пойду|пошли|сходим|собирайся|соберемся|выходим|отправляемся|ид[её]м|идеш)/.test(s) && /(рыбалк|рыбачить|на обь|ловить)/.test(s)) {
       /* №90: приглашенье — согласіе/отказъ по живому клѣву; «когда» и отказъ — мимо */
