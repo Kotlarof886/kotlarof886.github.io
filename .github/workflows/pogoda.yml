@@ -1,7 +1,7 @@
 name: Погода сейчас
 on:
   schedule:
-    - cron: '*/30 * * * *'      # каждые 30 минут
+    - cron: '*/30 * * * *'      # каждые 30 минут 
   workflow_dispatch: {}
 permissions:
   contents: write
