@@ -6835,4 +6835,4 @@ console.log('ZAHAR-90 загружен');
   }
   if (window.ZAHAR_ASK) install(window.ZAHAR_ASK);
   else { var n87 = 0; (function a87() { if (window.ZAHAR_ASK) { install(window.ZAHAR_ASK); return; } if (++n87 < 60) setTimeout(a87, 100); })(); }
-})();
+}})();
