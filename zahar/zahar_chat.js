@@ -3826,8 +3826,8 @@ function tryName(raw) {
         'Отопленіе у насъ дровяное: голландка въ углу да уголья къ самовару. Иные конторы уже керосинками греются — хвалятъ примусъ, безъ копоти и запаху, — но у насъ печь на мѣстѣ стоитъ.',
         'Въ канторѣ у насъ голландка да самоваръ; ежели дежурство ночное — и второй разъ топимъ. Скучнѣе некуда, а зато въ депешахъ правды больше.'
       ] },
-    { name: 'клѣвъ',
-      keys: [/клев|клюет|клует|поклевк/, /будет|думаешь|думаете|ожидать|сегодня|завтра|сейчас/],
+        { name: 'клѣвъ',
+      keys: [/клев|клюет|клует|поклевк/, /примет|примѣт/],
       texts: [
         'Клѣвъ — дѣло Господне, {N}: я предсказывать не мастакъ, приметамъ верю. Карась беретъ въ старицахъ да омутахъ, на червя да на тесто; погода тихая да давленіе ровное — пробуйте.',
         'Умныхъ приметъ о клѣвѣ не скажу, покорно извините: по бородѣ ничего не чувствуется. Но удочку беру съ собой обязательно — какъ смѣну сдамъ.',
@@ -4431,12 +4431,17 @@ function tryName(raw) {
       var _howF = null; try { _howF = zaharFishOf(_shM); } catch (eHw59c) {}
       var _howN = (_howF && _howF.k && _howF.k.length) ? (FISH_K2W59[_howF.k[0]] || null) : null;
       /* №106: анафора — рыбы въ депешѣ нѣтъ, тянемъ изъ ранней памяти (свѣжость 10 минутъ) */
-      if (!_howN) {
+            if (!_howN) {
         try {
           var _eF106w = window.__zaharFishEarly;
-          if (_eF106w && FISH_HOW59[_eF106w] && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000) _howN = _eF106w;
+          /* №108: свежій звѣрь старѣ рыбьей памяти — «его» по рыбѣ не тянемъ */
+          var _beast106 = window.__zaharLastAnimal59 &&
+            ((window.__zaharTurn59e || 0) - (window.__zaharLastAnimalTick59 || -999)) <= 3;
+          if (_eF106w && FISH_HOW59[_eF106w] && !_beast106 &&
+              (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000) _howN = _eF106w;
         } catch (eAn106) {}
       }
+
       if (_howN && FISH_HOW59[_howN]) {
         awaitingJob = false; lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); lastFish59 = _howN;
         return femizeOut(fill(FISH_HOW59[_howN]));
@@ -4528,10 +4533,22 @@ function tryName(raw) {
     }
     /* клѣвъ по рыбѣ — прежде кастома (нельму какъ ловить не глотается парами) */
     var _shAnimalNow = null; try { _shAnimalNow = zaharHuntAnimal59(_shM); } catch (eShA0) { _shAnimalNow = null; }
-    if (((/(клевк|брать|жируе|клюну|улов|пойма|снаст|наживк|приман|лучше на|хочу на|пойду на|иду на|как ловить|кль|кл[её]т)/.test(_shM) && !/патрон/.test(_shM) && !_shAnimalNow) ||
+        if (((/(клевк|брать|жируе|клюну|улов|пойма|снаст|наживк|приман|лучше на|хочу на|пойду на|иду на|как ловить|кль|кл[её]т|кл[её]в|клев|клб)/.test(_shM) && !/патрон/.test(_shM) && !_shAnimalNow) ||
+        (_shW.length <= 3 && /(клю|кль|кл[её]т|клѣв|клев|клб|рыб|улов|жируе|покл)/.test(_shM) &&
+ !/патрон/.test(_shM) && !_shAnimalNow) ||
         (_shW.length <= 3 && /(клю|кль|кл[её]т|клѣв|клев|рыб|улов|жируе|покл)/.test(_shM) &&
          !/(что|как|гдѣ|где|когда|привет|пока|проверк|погод|пагод|добр|утро|вечер|ноч|здравств|свидан|спасибо|прощай|проверка|про([^а-я]|$)|растолк|разскаж|расскаж)/.test(_shM)))) {
-      var _shBite = null; try { _shBite = zaharBiteReply(_shQ || n); } catch (eShB) { _shBite = null; }
+            /* №108: анафора клёва — рыбы въ депешѣ нѣтъ, подсовываемъ свежую память (звѣрь старѣ — не тянемъ) */
+      var _biteQ = _shQ || n;
+      try {
+        var _beastNow = window.__zaharLastAnimal59 &&
+          ((window.__zaharTurn59e || 0) - (window.__zaharLastAnimalTick59 || -999)) <= 3;
+        if (!_beastNow && window.__zaharFishEarly &&
+            (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000)
+          _biteQ = String(_biteQ) + ' ' + window.__zaharFishEarly;
+      } catch (eBq108) {}
+      var _shBite = null; try { _shBite = zaharBiteReply(_biteQ); } catch (eShB) { _shBite = null; }
+
       if (_shBite) { awaitingJob = false; lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0);
         try { var _fx59w = zaharFishOf(_shM); if (_fx59w && _fx59w.w) lastFish59 = _fx59w.w; } catch (eFx59) {}
         return femizeOut(fill(_shBite)); }
