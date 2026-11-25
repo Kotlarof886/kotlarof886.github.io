@@ -6420,6 +6420,8 @@ console.log('ZAHAR-90 загружен');
             if (_fish101) console.info('[№101] рыба въ депешѣ:', _fish101);
 
       if (_fish101) { st.lastFish92 = _fish101; st.lastFish92Turn = st.turn; }
+      s = s.replace(/ловят(?=[^а-я]|$)/g, 'ловит'); /* №105: «ловят» → «ловит» на любую депешу */
+
       if (st.__mem101 !== st.lastFish92) { st.__mem101 = st.lastFish92; if (st.lastFish92) console.info('[№101] память смѣнилась:', st.lastFish92); }
             var _fishCtx101 = /лов|снаст|клю|кл[её]в|пойм|рыбач|удочк|блесн|мормыш|живец|нажив|жор/.test(s) || /^(расскажи|поведай)\s+про\s+(него|нее|его|ее)/.test(s);
       if (!_fish101 && _fishCtx101 && st.lastFish92) {
@@ -6430,6 +6432,8 @@ console.log('ZAHAR-90 загружен');
           for (var _k101 in FISH_STEMS101) if (FISH_STEMS101[_k101] === st.lastFish92) { _stem101 = _k101; break; }
           if (_stem101) {
                         s = s.replace(new RegExp('(^|[^а-я])(него|нее|её|ее|неё|ней)(?=[^а-я]|$)', 'g'), '$1' + _stem101);
+            
+
             console.info('[№101] депеша послѣ замѣнъ:', s);
           }
         }
