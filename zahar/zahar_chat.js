@@ -4476,6 +4476,17 @@ function tryName(raw) {
       lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); lastFish59 = 'налим';
       return femizeOut(fill('Ноябрь по чину, {N}: налимъ — самая пора, ночами на живца беретъ; щука по перволедью на жерлицы; окунь да ершъ у дна — мормышка съ червемъ; судакъ у омутовъ на закидку. Карась въ иле зимовать собрался — до весны.'));
     }
+    /* №106-чатъ: ранняя память о рыбѣ — прежде перехватчиковъ слоя */
+    try {
+      var _fE106 = null;
+      try { _fE106 = zaharFishOf(String(_shM || '').toLowerCase()); } catch (eFE106) {}
+      if (_fE106) {
+        st.lastFish92 = _fE106; st.lastFish92Turn = st.turn;
+        window.__zaharFishEarly = _fE106; window.__zaharFishEarlyTime = Date.now();
+        console.info('[№106] рыба въ наружной дверѣ слоя:', _fE106);
+      }
+    } catch (eF106) {}
+
     /* намеренье на рыбалку */
     /* №59.9д: опечатки «пойбеш/пойдеш» — тоже рыбье намеренье */
     if (/(пойбеш|пойдеш|пойб)/.test(_shM) && /(рыбалк|рыб|обь)/.test(_shM)) { lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); awaitingJob = false; return femizeOut(fill(pick(FISH_PLAN))); }
