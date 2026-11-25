@@ -6398,6 +6398,8 @@ console.log('ZAHAR-90 загружен');
         var s = s87(String(q || '').toLowerCase());
 
     if (!s) return null;
+    console.info('[pre87 №99] входъ:', s);
+
          if (!nm()) { try { var _nbN = nb(); if (_nbN && _nbN.name) window.ZAHAR_USER_NAME = _nbN.name; } catch (eNN91) {} }
     if (st.pat) {
       if (/^(нет|не надо|не нужно|не скажу|отстань)$/.test(s)) { st.pat = false; save(); return fillN('Какъ скажете, {N} — останусь при имени.'); }
