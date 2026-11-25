@@ -6698,6 +6698,26 @@ console.log('ZAHAR-90 загружен');
           return fillN(_ph92 + (String(_ph92).indexOf('чужой удачи') < 0 ? _adv92 : ''));
         }
 
+      if (_solo92) {
+        return fillN('Хорошо, {N}: на зарѣ на Обь — снасть наведите съ вечера. Удачи на воде!');
+      }
+      var _k92 = null;
+      try { _k92 = (window.ZAHAR_K74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days && window.ZAHAR_K74.data.days[0]) || null; } catch (eK92) {}
+      var _sc92 = null;
+      if (_k92) {
+        var _raw92 = (_k92.score != null) ? _k92.score : ((_k92.s != null) ? _k92.s : ((_k92.k != null) ? _k92.k : ((_k92.bite != null) ? _k92.bite : null)));
+        if (_raw92 != null && !isNaN(+_raw92)) {
+          var _v92 = +_raw92;
+          _sc92 = (_v92 <= 10) ? Math.round(_v92) : Math.min(10, Math.max(1, Math.round(_v92 / 10)));
+        }
+      }
+      if (_sc92 !== null) {
+        if (_sc92 >= 4) { st.tripDay = 'воскресенье'; save(); return fillN(pick(INVITE_YES86)); }
+        return fillN(pick(INVITE_NO86));
+      }
+      st.tripDay = 'воскресенье'; save();
+      return fillN(pick(PLAN87));
+    }
 
 
         /* №90: s87 съелъ «ь» — «ловить» стало «ловит», «поймать» стало «поймат» */
