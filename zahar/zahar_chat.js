@@ -4425,14 +4425,22 @@ function tryName(raw) {
     };
     /* №59.9д: способы ловли — стемъ въ имя по картѣ (записи клѣва поля w не имѣютъ) */
     /* №60.0а: карта рыбы перенесена выше скана — былъ сбой «налимъ» */
-    if (/(ловит|ловля|ловить|ловиш)/.test(_shM)) {
+        if (/(ловит|ловля|ловить|ловиш|снаст)/.test(_shM) && !/патрон/.test(_shM)) {
       var _howF = null; try { _howF = zaharFishOf(_shM); } catch (eHw59c) {}
       var _howN = (_howF && _howF.k && _howF.k.length) ? (FISH_K2W59[_howF.k[0]] || null) : null;
+      /* №106: анафора — рыбы въ депешѣ нѣтъ, тянемъ изъ ранней памяти (свѣжость 10 минутъ) */
+      if (!_howN) {
+        try {
+          var _eF106w = window.__zaharFishEarly;
+          if (_eF106w && FISH_HOW59[_eF106w] && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000) _howN = _eF106w;
+        } catch (eAn106) {}
+      }
       if (_howN && FISH_HOW59[_howN]) {
         awaitingJob = false; lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); lastFish59 = _howN;
         return femizeOut(fill(FISH_HOW59[_howN]));
       }
     }
+
     /* нить рыбалки */
     if (lastTopic59 === 'fish' && !/(охот|ружь|промысл|на зайца|на медв|на утку|на глухар|на тетерев)/.test(_shM)) {
       if (/растолк|разскаж|расскаж|что такое|кто такой|как ловить|чем ловить|что за рыба/.test(_shM)) {
