@@ -6558,7 +6558,7 @@ console.log('ZAHAR-90 загружен');
     if (!/(кл[её]в|клю)/.test(s)) {
       var _wds95 = s.split(/[^а-я]+/);
       for (var _wi95 = 0; _wi95 < _wds95.length && !_m92; _wi95++) {
-        var _st95 = z95stem(_wds95[_i95]);
+                var _st95 = z95stem(_wds95[_wi95]);
         if (_st95) _m92 = [null, _st95];
       }
     }
