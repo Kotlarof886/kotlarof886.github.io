@@ -6245,9 +6245,10 @@ var body;
   setInterval(function () { try { zaharWxNowPrefetch(); } catch (eWNi) {} }, 10 * 60 * 1000);
 
   function zaharWrap71() {
+        if (window.__zaharWrap71Done) return; /* №102: обертка — единожды; цепь дверей не растетъ */
     var f = window.ZAHAR_ASK;
     if (typeof f !== 'function') return;
-    if (f.__zaharGuard71) return;
+
     var _yo88 = function (v) { try { if (typeof v === 'string') return v.replace(/ё/g, 'е').replace(/Ё/g, 'Е'); } catch (eY88) {} return v; };
         var g = function () {
       var args = arguments;
@@ -6273,6 +6274,8 @@ var body;
     };
     g.__zaharGuard71 = true;
     window.ZAHAR_ASK = g;
+    window.__zaharWrap71Done = true; /* №102: флагъ въ файлѣ — переживетъ любые обертки */
+
   }
   setTimeout(zaharWrap71, 80);
   setInterval(function () { try { zaharWrap71(); } catch (eW71) {} }, 500);
@@ -6404,7 +6407,8 @@ console.log('ZAHAR-90 загружен');
         /* === №101 (25.11.2026): память о рыбѣ — карта локальная; ходъ памяти самолѣчится; сбои видны === */
     var FISH_STEMS101 = { 'карас':'карась','налим':'налим','судак':'судак','щук':'щука','окун':'окунь','ерш':'ерш','лещ':'лещ','яз':'язь','хариус':'хариус','таймен':'таймень','стерля':'стерлядь','осетр':'осетр','пескар':'пескарь','плотв':'плотва','сорог':'сорога','чебак':'сорога','чабак':'сорога','сазан':'сазан','карп':'сазан','елец':'елец','ельц':'елец','нельм':'нельма','муксун':'муксун','пеляд':'пелядь','сырок':'сырок','ленок':'ленок' };
     try {
-      console.info('[№101] входъ:', s, '| память:', st.lastFish92, '| ходъ памяти:', st.lastFish92Turn, '| ходъ ныне:', st.turn);
+            if (st.lastFish92 !== st.__mem101) { st.__mem101 = st.lastFish92; console.info('[№101] память смѣнилась:', st.lastFish92); }
+
       var _wd101 = s.split(/[^а-я]+/), _fish101 = null;
       for (var _i101 = 0; _i101 < _wd101.length && !_fish101; _i101++) {
         var _t101 = _wd101[_i101];
@@ -6413,9 +6417,12 @@ console.log('ZAHAR-90 загружен');
           if (_cu101 && FISH_STEMS101[_cu101]) { _fish101 = FISH_STEMS101[_cu101]; break; }
         }
       }
-      console.info('[№101] рыба въ депешѣ:', _fish101);
+            if (_fish101) console.info('[№101] рыба въ депешѣ:', _fish101);
+
       if (_fish101) { st.lastFish92 = _fish101; st.lastFish92Turn = st.turn; }
-      if (!_fish101 && st.lastFish92) {
+            var _fishCtx101 = /лов|снаст|клю|кл[её]в|пойм|рыбач|удочк|блесн|мормыш|живец|нажив|жор/.test(s) || /^(расскажи|поведай)\s+про\s+(него|нее|его|ее)/.test(s);
+      if (!_fish101 && _fishCtx101 && st.lastFish92) {
+
         if (st.lastFish92Turn == null) st.lastFish92Turn = st.turn; /* самолѣченіе: память безъ хода — свежая */
         if ((st.turn - st.lastFish92Turn) <= 6) {
           var _stem101 = null;
