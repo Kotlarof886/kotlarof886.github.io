@@ -6403,6 +6403,8 @@ console.log('ZAHAR-90 загружен');
          if (!nm()) { try { var _nbN = nb(); if (_nbN && _nbN.name) window.ZAHAR_USER_NAME = _nbN.name; } catch (eNN91) {} }
          /* === №100 (25.11.2026): рыба въ депешѣ — послѣдняя запоминается; мѣстоименія раскрываются === */
     try {
+      console.info('[№100] память:', st.lastFish92, '| помнена на ходу:', st.lastFish92Turn, '| ходъ ныне:', st.turn);
+
       var _wd100 = s.split(/[^а-я]+/), _fishHit100 = null;
       for (var _i100 = 0; _i100 < _wd100.length && !_fishHit100; _i100++) {
         var _t100 = _wd100[_i100];
@@ -6417,6 +6419,8 @@ console.log('ZAHAR-90 загружен');
         var _stem100 = null;
         for (var _si100 = 0; _si100 < _stems100.length && !_stem100; _si100++) if (FISH_K2W59[_stems100[_si100]] === st.lastFish92) _stem100 = _stems100[_si100];
         if (_stem100) s = s.replace(new RegExp('(^|[^а-я])(него|нее|его|ее|ней)(?=[^а-я]|$)', 'g'), '$1' + _stem100);
+      console.info('[№100] депеша послѣ замѣнъ:', s);
+
       }
     } catch (eM100) {}
     /* №100: клѣвъ послѣдней рыбы — по сводкѣ, а не общій */
