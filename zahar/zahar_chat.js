@@ -6438,6 +6438,8 @@ console.log('ZAHAR-90 загружен');
         /* №101: клѣвъ послѣдней рыбы; коли рыбы въ свѣдкѣ нѣтъ — Захаръ скажетъ по приметамъ */
     try {
       var _clv101 = /(кл[её]в|клю)/.test(s) || /ловит(ся)?/.test(s);
+      if (_clv101) console.info('[№101] клѣвъ-ворота: рыба=' + st.lastFish92 + ' ходъПамяти=' + st.lastFish92Turn + ' ходъНыне=' + st.turn + ' запретКакЛов=' + /как\s+(?:[а-я]+\s+)?(?:лов|поймат)/.test(s) + ' рыба()' + (window.ZAHAR_Z74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days ? 'есть' : 'нетъ') + ' статья=' + (function(){ try { return (window.ZAHAR_Z74.fishOf(window.ZAHAR_K74.data.days[0], st.lastFish92) ? 'есть' : 'нетъ'); } catch(e){ return 'сбой:' + e.message; } })());
+
       if (_clv101 && !/клюкв/.test(s) && !/(всех|всѣх|общ|сводк)/.test(s) &&
           !/как\s+(?:[а-я]+\s+)?(?:лов|поймат)/.test(s) && st.lastFish92) {
         if (st.lastFish92Turn == null) st.lastFish92Turn = st.turn;
