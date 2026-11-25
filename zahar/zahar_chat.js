@@ -6619,8 +6619,16 @@ console.log('ZAHAR-90 загружен');
         else if (_fs92 === 'щук') _gn92 = 'щука';
         else if (_fs92 === 'окун') _gn92 = 'окунь';
         else if (_fs92 === 'пескар') _gn92 = 'пескарь';
-        var _e92 = null;
-        try { _e92 = (window.ZAHAR_Z74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days && window.ZAHAR_K74.data.days[0]) ? window.ZAHAR_Z74.fishOf(window.ZAHAR_K74.data.days[0], _fs92) : null; } catch (eF92) { _e92 = null; }
+                var _e92 = null;
+        try {
+          if (window.ZAHAR_Z74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days && window.ZAHAR_K74.data.days[0]) {
+            var _fd92 = window.ZAHAR_K74.data.days[0];
+            _e92 = window.ZAHAR_Z74.fishOf(_fd92, _fs92)
+                || window.ZAHAR_Z74.fishOf(_fd92, _gn92)
+                || window.ZAHAR_Z74.fishOf(_fd92, _gn92 + 'ъ');
+          }
+        } catch (eF92) { _e92 = null; }
+
         var _facc = (window.ZAHAR_Z74 && window.ZAHAR_Z74.accOf) ? window.ZAHAR_Z74.accOf(_gn92) : ('на ' + _gn92);
         var _accMap92 = { 'пескарь': 'пескаря', 'налим': 'налима', 'щука': 'щуку', 'окунь': 'окуня', 'карась': 'карася', 'лещ': 'леща', 'сорога': 'сорогу', 'сазан': 'сазана', 'язь': 'язя', 'ерш': 'ерша', 'елец': 'елеца', 'пелядь': 'пелядь', 'судак': 'судака' };
         if (_facc === 'на ' + _gn92 && _accMap92[_gn92]) _facc = 'на ' + _accMap92[_gn92];
