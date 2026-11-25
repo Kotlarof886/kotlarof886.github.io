@@ -4340,11 +4340,12 @@ function tryName(raw) {
     } catch (eZE67) {}
 
     var _shShort = _shW.length <= 7 && !/(что|как|сколько|который|когда|почему|зачем|проверк|погод|пагод|спасибо|пока(?:[^а-яё]|$)|привет|свидан|прощай|расскажи|растолк|разскаж|расскаж|как ловить|чем ловить|утро|утречк|добр[ое]|тебя|тебе|(?:^|[^а-яё])ты(?:$|[^а-яё])|новост|кошел|праздник|ружье|оруж|где|работ|контор|патронташ|станц|научи|забуд)/.test(_shM);
-        /* №62: сводка клёва без рыбы — прежде рыбьей нити */
-    if (/кл[её]в/.test(_shM) && /что|какой/.test(_shM) && !(function(){ try { return zaharFishOf(_shM); } catch (eKG62) { return null; } })()) {
+            /* №62: сводка клёва без рыбы — прежде рыбьей нити */
+    if (/кл[её]в/.test(_shM) && /что|какой/.test(_shM) && !(function(){ try { return zaharFishOf(_shM); } catch (eKG62) { return null; } })() && !(window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000)) {
       awaitingJob = false;
       return femizeOut(fill('Клѣвъ въ ноябрѣ, {N}, таковъ: налимъ въ самомъ жорѣ — чѣмъ ночи холоднѣе, тѣмъ ярче; щука на жерлицы къ омутамъ; окунь да ершъ у дна съ мормышкой. Карась въ иле — до весны.'));
     }
+
     /* №62: чебакъ и сорога — одно и то же */
     if (/чебак/.test(_shM) && /сорог/.test(_shM)) {
       awaitingJob = false;
@@ -6418,6 +6419,7 @@ console.log('ZAHAR-90 загружен');
         }
       }
             if (_fish101) console.info('[№101] рыба въ депешѣ:', _fish101);
+      if (!_fish101 && window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000) { _fish101 = window.__zaharFishEarly; } /* №106: ранняя память — дожившая до слоя */
 
       if (_fish101) { st.lastFish92 = _fish101; st.lastFish92Turn = st.turn; }
       s = s.replace(/ловят(?=[^а-я]|$)/g, 'ловит'); /* №105: «ловят» → «ловит» на любую депешу */
