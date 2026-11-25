@@ -289,7 +289,15 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.11 (№60.0а) — черви: запасаю�
         var _cqw = String(q || '').toLowerCase().replace(/ё/g, 'е');
         if (/^(забудьте|забудь|забыть)(\s|$|:)/.test(_cqw) || /^научи(ть)?(\s|:|$)/.test(_cqw) || /^(кто ты|ты кто)(\s|\?|$)/.test(_cqw) || /^что такое\s/.test(_cqw) || /^сколько мне\s/.test(_cqw) || /^(а\s+)?(да|еще|ещё|ага|угу)[!.?]*$/.test(_cqw)) return _ask.apply(this, arguments);
       } catch (eB61) {}
+      /* №104: рыбьи депеши — мимо тетради: память о рыбѣ и снасти важнѣе паръ */
+      try {
+        var _qw104 = String(q || '').toLowerCase();
+        if (/рыбач|рыбалк|лов|снаст|клю|кл[её]в|пойм|удочк|блесн|мормыш|живец|нажив|жор/.test(_qw104)) {
+          return _ask.apply(this, arguments);
+        }
+      } catch (eF104) {}
       var a = findPair(q);
+
       if (a) return a;
       return _ask.apply(this, arguments);
     };
