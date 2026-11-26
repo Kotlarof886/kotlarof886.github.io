@@ -4996,10 +4996,13 @@ function tryName(raw) {
       var rr = String(s).replace(/\s+/g, ' ').trim();
       var last = String(st.lastReply || '').replace(/\s+/g, ' ').trim();
       var sameQ = !!qq && qq === String(st.lastAskQ || '');
-      if (rr && last && rr === last && !sameQ) {
+            /* №117б: рыбьи дѣла повторяемъ безъ «Задайте иную» — прогнозъ на день одинъ */
+      if (rr && last && rr === last && !sameQ &&
+          !/рыб|клю|улов|снаст|живца|жерлиц|мормышк|закидк|стерля|осетр|нал[иі]м|лещ|окун|ерш|судак|щук|карас|сорог|елец|хариус|таймен|пеляд|муксун|нельм/.test(String(rr))) {
         lastCounter = true;
         return fill(pick(EXTEND_DONE));
       }
+
       st.lastAskQ = qq;
     } catch (e) {}
     return s;
