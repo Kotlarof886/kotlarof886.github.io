@@ -4584,7 +4584,7 @@ function tryName(raw) {
         var _beastNow = window.__zaharLastAnimal59 &&
           ((window.__zaharTurn59e || 0) - (window.__zaharLastAnimalTick59 || -999)) <= 3;
         /* №113в: голый «какой клёв» — общая сводка, свежую память не подсовываемъ */
-            var _genKlev113 = /^(какой|какая)\s+кл/.test(String(_shM || '').trim());
+            var _genKlev113 = /^как(ой|ая|ое)/.test(String(_shM || '').trim()) && /кл/.test(String(_shM || '').trim());
       if (!_beastNow && !_genKlev113 && window.__zaharFishEarly &&
           (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000)
         _biteQ = String(_biteQ) + ' ' + window.__zaharFishEarly;
