@@ -234,7 +234,8 @@ window.ZAHAR_CUSTOM_VERSION = 'v2.11 (№60.0а) — черви: запасаю�
     var deg = '—';
     if (!isNaN(t)) deg = (t > 0 ? '+' : '') + Math.round(t) + '°';
     return String(s || '')
-      .split('{N}').join(window.ZAHAR_USER_NAME || addr())
+      .split('{N}').join(String(window.ZAHAR_USER_NAME || addr()).replace(/\S+/g, function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }))
+
       .split('{A}').join(addr())
       .split('{T}').join(TODMAP[c.tod] || '')
       .split('{S}').join(SEASMAP[c.season] || '')

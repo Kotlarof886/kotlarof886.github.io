@@ -441,7 +441,7 @@ console.info('[zahar_chat] сборка №98 на посту');
     return 'сударь';
   }
   function nmOr() { return window.ZAHAR_USER_NAME || addr(); }
-  function fill(s) { return String(s || '').replace(/\{N\}/g, nmOr()).replace(/\{A\}/g, addr()); }
+  function fill(s) { return String(s || '').replace(/\{N\}/g, String(nmOr() || '').replace(/\S+/g, function (w) { return w.charAt(0).toUpperCase() + w.slice(1); })).replace(/\{A\}/g, addr()); }
 
   /* ---------- нечеткий разбор: Левенштейн ---------- */
   function lev(a, b) {
@@ -4348,10 +4348,12 @@ function tryName(raw) {
 
     var _shShort = _shW.length <= 7 && !/(что|как|сколько|который|когда|почему|зачем|проверк|погод|пагод|спасибо|пока(?:[^а-яё]|$)|привет|свидан|прощай|расскажи|растолк|разскаж|расскаж|как ловить|чем ловить|утро|утречк|добр[ое]|тебя|тебе|(?:^|[^а-яё])ты(?:$|[^а-яё])|новост|кошел|праздник|ружье|оруж|где|работ|контор|патронташ|станц|научи|забуд)/.test(_shM);
             /* №62: сводка клёва без рыбы — прежде рыбьей нити */
-    if (/кл[её]в/.test(_shM) && /что|какой/.test(_shM) && !(function(){ try { return zaharFishOf(_shM); } catch (eKG62) { return null; } })() && !(window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000)) {
+        if (/кл[её]в/.test(_shM) && /что|какой/.test(_shM) && !(function(){ try { return zaharFishOf(_shM); } catch (eKG62) { return null; } })() && !(window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000)) {
       awaitingJob = false;
-      return femizeOut(fill('Клѣвъ въ ноябрѣ, {N}, таковъ: налимъ въ самомъ жорѣ — чѣмъ ночи холоднѣе, тѣмъ ярче; щука на жерлицы къ омутамъ; окунь да ершъ у дна съ мормышкой. Карась въ иле — до весны.'));
+      /* №121: сводка одна — изъ zaharBiteReply, с сезоннымъ перечнемъ */
+      return femizeOut(fill(zaharBiteReply('клев')));
     }
+
 
     /* №62: чебакъ и сорога — одно и то же */
     if (/чебак/.test(_shM) && /сорог/.test(_shM)) {
