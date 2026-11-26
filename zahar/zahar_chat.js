@@ -4519,8 +4519,15 @@ function tryName(raw) {
         if (/(не\s+могу|не\s+выйдет|не\s+получится|занят)/.test(_shM)) { lastTopic59 = null; return femizeOut(fill('Жаль, {N}. Обь не убѣжитъ — въ другое воскресенье сговоримся.')); }
         if (/суббот/.test(_shM)) return femizeOut(fill('Въ субботу — такъ въ субботу, {N}: на Обь къ рассвету, снасть наведите съ вечера. Ежели надобенъ совѣтъ — спрашивайте, растолкую.'));
         if (/воскрес/.test(_shM)) return femizeOut(fill('Воскресенье — мой свободный день, {N}: на Обь къ рассвету, удочка наготовѣ. Ежели обрыбимся — уха въ котелкѣ будетъ по первому разряду!'));
-        awaitingJob = false;
-        return femizeOut(fill('Такъ запишу, {N}: на Обь къ рассвету, червяка прикупите на рынкѣ — въ ноябрѣ земля въ камень, изъ-подъ снѣга не накопаешь. Ежели обрыбимся — уха въ котелкѣ будетъ по первому разряду!'));
+                awaitingJob = false;
+        /* №124: наживка по рыбѣ — живецъ хищнику, червякъ прочимъ */
+        var _bait124 = 'червяка';
+        try {
+          if (/щук|нал[иі]м|судак|нельм/.test(String(window.__zaharFishEarly || '')) &&
+              (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000) _bait124 = 'живца';
+        } catch (e124) {}
+        return femizeOut(fill('Такъ запишу, {N}: на Обь къ рассвету, ' + _bait124 + ' прикупите на рынкѣ — въ рыбномъ ряду его завсегда продаютъ. Ежели обрыбимся — уха въ котелкѣ будетъ по первому разряду!'));
+
       }
       if (/рыб/.test(_shM) && !/(что такое|кто такой|что за рыба|что за)/.test(_shM)) {
         lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); lastFish59 = 'налим';
@@ -4568,10 +4575,22 @@ function tryName(raw) {
         return femizeOut(fill(_invB + ' Извольте, {N} — снасть наготовѣ.'));
       }
       /* клѣв-прогноза нѣтъ — отпускаемъ глубже, какъ прежде */
-    } else if (/(пойду|собираюсь|хочу|пойдем|пойдемъ|пойдешь|пошли|иду|направляюсь)/.test(_shM) && /(рыбалк|рыбу\s+лов|удочк)/.test(_shM) && !/ты|тебя|тебе/.test(_shM) && !/(что такое|кто такой|расскажи|разскажи|расскажы|рассажы|раскажи)/.test(_shM)) {
+        } else if (/(пойду|собираюсь|хочу|пойдем|пойдемъ|пойдешь|пошли|иду|направляюсь)/.test(_shM) && /(рыбалк|рыбу\s+лов|удочк|рыбач|рыбк)/.test(_shM) && !/ты|тебя|тебе/.test(_shM) && !/(что такое|кто такой|расскажи|разскажи|расскажы|рассажы|раскажи)/.test(_shM)) {
+      /* №123: «на нее рыбачить» — анафора свежей рыбы ведетъ къ клев-оцѣнкѣ №109 */
+      var _ana123 = /нее|ней|нея/.test(_shM) && window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000;
+      if (_ana123) {
+        lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); awaitingJob = false;
+        var _invB123 = null; try { _invB123 = zaharBiteReply('клев ' + window.__zaharFishEarly); } catch (eInv123) { _invB123 = null; }
+        if (_invB123) {
+          if (/(иле|залегъ|залег|не предвидится|зимовать|вяло|беретъ неохотно|бѣрезжно|беретъ вяло)/.test(_invB123))
+            return femizeOut(fill(_invB123 + ' Нынчѣ ту рыбу не гони, {N} — ищите живую: налимъ ночами на живца, щука на жерлицы, окунь да ершъ у дна.'));
+          return femizeOut(fill(_invB123 + ' Извольте, {N} — снасть наготовѣ.'));
+        }
+      }
       lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0); awaitingJob = false;
       return femizeOut(fill(pick(FISH_PLAN)));
     }
+
 
     /* клѣвъ по рыбѣ — прежде кастома (нельму какъ ловить не глотается парами) */
     var _shAnimalNow = null; try { _shAnimalNow = zaharHuntAnimal59(_shM); } catch (eShA0) { _shAnimalNow = null; }
@@ -6041,10 +6060,13 @@ var body;
     if (!(isKlev || isFish || follow)) return null;
     if (!K74.data) { zaharKlevPrefetch(); return null; }
     K74.lastAsk = Date.now();
+        /* №126: «что за рыба …» — дорога къ статье, не къ сводкѣ №74 (какъ въ заголовкѣ №60.0а) */
+    if (/что\s+за\s+рыб|кто\s+так[оа][йя]\s+рыб/i.test(String(s || ''))) return null;
     var fr = zaharFishReply(s);
     if (fr) return fr;
     return zaharKlevReply(s);
   }
+
 
   var Z75_WTXT = { 'ясно': 'ясно', 'переменная облачность': 'перемѣнная облачность', 'пасмурно': 'пасмурно', 'туман': 'туманъ', 'морось': 'морось', 'дождь': 'дождь', 'снег': 'снѣгъ', 'ливни': 'ливни', 'снег ливнями': 'снѣгъ ливнями', 'гроза': 'гроза' };
   function z75wtxt(t) { return Z75_WTXT[t] || t; }
