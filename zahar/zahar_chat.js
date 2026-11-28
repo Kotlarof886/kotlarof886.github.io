@@ -4291,13 +4291,11 @@ function tryName(raw) {
     try {
       if (window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastWord && /желаете\?\s*$/.test(String(window.ZAHAR_SESSION.lastWord)) && /^(а\s+)?(да|давай|давайте|ну давай|хорошо|ладно|ок|окей|валяй|подробнее|расскажи|разскажи|расскажы|рассажы|раскажи|растолкуй|желаю)\s*\??$/i.test(_shQ.trim())) return null;
     } catch (eOf59) {}
-    /* №60.0а: «какая луна» — ярусъ отъ мостика неба (ZAHAR_SKY_INFO); запасъ — формула новолунія */
+        /* №60.0а: «какая луна» — ярусъ отъ мостика неба (ZAHAR_SKY_INFO); запасъ — формула новолунія */
     if (/лун/.test(_shM) && /(какая|какой|какова|что за|фаза|на небе|видна|видно|сейчас|сегодня|сей час)/.test(_shM) && !/лунк|затмен/.test(_shM)) {
       var _sky59 = null;
       try { _sky59 = (typeof window.ZAHAR_SKY_INFO === 'function') ? window.ZAHAR_SKY_INFO() : null; } catch (eSky59) { _sky59 = null; }
       if (_sky59 && _sky59.tierName) {
-        /* №60.0б: «луна» изъ яруса срезается (двоеніе слова), тире — по приказу;
-           три формулировки — стражъ повтора не гаситъ соседнюю депешу */
         var _tn59 = String(_sky59.tierName).replace(/\s*[лЛ]уна\.?(?=[\s,]|$)/g, '').replace(/\s{2,}/g, ' ').trim();
         var _mm59 = [
           fill('Луна нынчѣ, {N}, ' + _tn59 + '.'),
@@ -4305,7 +4303,6 @@ function tryName(raw) {
           fill('Посмотрѣли на луну, {N}? Она ' + _tn59 + '.')
         ];
         var _m59r = _mm59[Math.floor(Math.random() * _mm59.length)];
-        /* №61: отбор мимо последней реплики — соседняя формулировка стражем повтора не гасится */
         try {
           var _lr61 = (window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastReply) ? String(window.ZAHAR_SESSION.lastReply).replace(/\s+/g, ' ').trim() : '';
           if (_lr61) {
@@ -4336,7 +4333,6 @@ function tryName(raw) {
       else if (_ph59m < 0.71) _fz59m = 'ущербная луна';
       else if (_ph59m < 0.79) _fz59m = 'послѣдняя четверть';
       else _fz59m = 'старый серпъ';
-      /* №62б: единый словарь — «луна» въ ответѣ не двоится */
       _fz59m = _fz59m.replace(/\s*[лЛ]уна\.?(?=[\s,]|$)/g, '').replace(/\s{2,}/g, ' ').trim();
       return femizeOut(fill('Луна нынчѣ, {N}, ' + _fz59m + '.'));
     }
@@ -4347,7 +4343,7 @@ function tryName(raw) {
       var _MN2b = ['января','февраля','марта','апреля','мая','іюня','іюля','августа','сентября','октября','ноября','декабря'];
       var _hol59 = null; try { _hol59 = holBy(_hd59.getMonth() + 1, _hd59.getDate()); } catch (eH59) {}
       var _dw59b = ['воскресенье','понедельникъ','вторникъ','среда','четвергъ','пятница','суббота'][_hd59.getDay()];
-      var _ref59 = new Date(2000, 0, 6); /* новолуніе 6.1.2000 */
+      var _ref59 = new Date(2000, 0, 6);
       var _syn59 = 29.530588853;
       var _ph59 = (((_hd59 - _ref59) / 86400000) % _syn59 + _syn59) % _syn59 / _syn59;
       var _skH59 = null;
@@ -4362,11 +4358,34 @@ function tryName(raw) {
       else if (_ph59 < 0.71) _fz59 = 'ущербная луна';
       else if (_ph59 < 0.79) _fz59 = 'послѣдняя четверть';
       else _fz59 = 'старый серпъ';
-      /* №62б: единый словарь — «луна» не двоится */
       _fz59 = _fz59.replace(/\s*[лЛ]уна\.?(?=[\s,]|$)/g, '').replace(/\s{2,}/g, ' ').trim();
+      window.__zaharLastTheme59 = 'date'; window.__zaharThemeTick59 = (window.__zaharTurn59e || 0);
       if (_hol59) return femizeOut(fill('Нынчѣ ' + _hd59.getDate() + '-е ' + _MN2b[_hd59.getMonth()] + ', ' + _dw59b + '. Праздникъ — ' + _hol59 + '. Луна нынчѣ — ' + _fz59 + '.'));
       return femizeOut(fill('Нынчѣ ' + _hd59.getDate() + '-е ' + _MN2b[_hd59.getMonth()] + ', ' + _dw59b + ' — праздника въ святцахъ на сей день не значится. Луна нынчѣ — ' + _fz59 + '. А ежели что праздновать надобно — телеграфъ тому не помѣха.'));
     }
+
+    /* №156: нить темы — «а завтра» продолжаетъ погоду, клёв али день */
+    var _thFresh59 = (window.__zaharTurn59e || 0) - (window.__zaharThemeTick59 || -99) <= 2;
+    var _az156 = /(^|[^а-я])(а\s+)?(на\s+)?завтра\s*[?!.,]*\s*$/.test(String(_shM || '').trim());
+    if (_az156 && _thFresh59 && window.__zaharLastTheme59 === 'fish') {
+      var _k156 = null; try { _k156 = zaharKlevReply('клев завтра'); } catch (eK156) { _k156 = null; }
+      if (_k156) { awaitingJob = false; lastTopic59 = 'fish'; lastTopicTick59 = (window.__zaharTurn59e || 0);
+        return femizeOut(fill(_k156)); }
+    }
+    if (_az156 && _thFresh59 && window.__zaharLastTheme59 === 'weather') {
+      var _d156 = (W75.data && W75.data.days && W75.data.days[1]) ? W75.data.days[1] : null;
+      if (_d156) {
+        var _r156 = z75range(_d156);
+        var _w156 = z75wtxt(_d156.wtxt || _d156.weather || '') || '';
+        var _s156 = 'Завтра, {N}: ' + (_w156 ? _w156.toLowerCase() : 'погода безъ переменъ');
+        if (_r156) _s156 += ', ' + _r156;
+        if (typeof _d156.pressure === 'number') _s156 += '. Давленіе — ' + Math.round(_d156.pressure * 0.750062) + ' ммъ ртутнаго столба';
+        _s156 += '.';
+        awaitingJob = false; lastTopic59 = 'wx';
+        return femizeOut(fill(_s156));
+      }
+    }
+
     /* №138а: «клёв завтра/послезавтра» — прямо въ движокъ №74, мимо святцовъ */
     if (/кл[её]в|клю/.test(_shM) && /завтра|послезавтра/.test(_shM) && !/до\s+завтра|пойдем|пойдемъ|сходим|пошли/.test(_shM)) {
       var _k74t = null; try { _k74t = zaharKlevReply(_shM); } catch (eK74t) { _k74t = null; }
@@ -4437,9 +4456,11 @@ function tryName(raw) {
     var _shShort = _shW.length <= 7 && !/(что|как|сколько|который|когда|почему|зачем|проверк|погод|пагод|спасибо|пока(?:[^а-яё]|$)|привет|свидан|прощай|расскажи|растолк|разскаж|расскаж|как ловить|чем ловить|утро|утречк|добр[ое]|тебя|тебе|(?:^|[^а-яё])ты(?:$|[^а-яё])|новост|кошел|праздник|ружье|оруж|где|работ|контор|патронташ|станц|научи|забуд)/.test(_shM);
             /* №62: сводка клёва без рыбы — прежде рыбьей нити */
         if (/кл[её]в/.test(_shM) && /что|какой/.test(_shM) && !(function(){ try { return zaharFishOf(_shM); } catch (eKG62) { return null; } })() && !(window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000)) {
-      awaitingJob = false;
+            awaitingJob = false;
+      window.__zaharLastTheme59 = 'fish'; window.__zaharThemeTick59 = (window.__zaharTurn59e || 0);
       /* №121: сводка одна — изъ zaharBiteReply, с сезоннымъ перечнемъ */
       return femizeOut(fill(zaharBiteReply('клев')));
+
     }
 
 
@@ -4582,6 +4603,22 @@ function tryName(raw) {
 
     } catch (eF106) {}
 
+    /* №157: «пошли сегодня» — служба прежде нити */
+    if (/(пошли|пойдем|пойдемъ|сходим|пойдемте)/.test(n) && /(сегодня|сейчас)/.test(n) && !/не\s/.test(n)) {
+      awaitingJob = false;
+      return femizeOut(fill('Сегодня на службѣ, {N}: смѣна до вечера, шефъ не отпуститъ. Воскресенье — выходной мой: на Обь къ рассвету.'));
+    }
+    /* №158: приглашенье — «ты со мной пойдешь», «на корося рыбачить» */
+    if (/(пойдем|пойдемъ|пойдемте|пойдешь|пошли|сходим)/.test(n) && /(рыбалк|рыбач|удочк|со\s+мной|со\s+мною)/.test(n) && !/не\s/.test(n)) {
+      var _cx158 = null; try { _cx158 = zaharFishOf(String(n).replace(/коро[сз][а-я]*|какас[а-я]*/g, 'карась')); } catch (e158c) { _cx158 = null; }
+      if (_cx158 && _cx158.w) lastFish59 = _cx158.w;
+      if (lastFish59 && /карас|сазан|стерля|осетр|лещ/.test(String(lastFish59))) {
+        lastFish59 = 'налим';
+        return femizeOut(fill('Карася въ иле не гони, {N} — до весны спитъ. Лучше на налима: ночами на живца беретъ, къ рассвету закидку оставьте. Такъ и запишу — на налима!'));
+      }
+      awaitingJob = false;
+      return femizeOut(fill('Извольте, {N}: самъ зовете — а ступить нынчѣ не могу, смѣна до вечера. Воскресенье — выходной мой: на Обь къ рассвету, снасть наведите съ вечера.'));
+    }
 
 
     /* нить рыбалки */
@@ -4614,13 +4651,8 @@ function tryName(raw) {
           return femizeOut(fill(pick(REGRET55)));
         }
         /* №142б: названый будній день — на службѣ; свободенъ только въ воскресенье */
-        if (/воскрес/.test(_shM)) { awaitingJob = false; return femizeOut(fill('Воскресенье — мой свободный день, {N}: на Обь къ рассвету, удочка наготовѣ. Ежели обрыбимся — уха въ котелкѣ будетъ по первому разряду!')); }
-        var _dwFull142 = (/суббот/.test(_shM) ? 'субботу' : /пятниц/.test(_shM) ? 'пятницу' : /четверг/.test(_shM) ? 'четвергъ' : /сред[ау]/.test(_shM) ? 'среду' : /вторник/.test(_shM) ? 'вторникъ' : /понедельн/.test(_shM) ? 'понедельникъ' : null);
-        if (_dwFull142) {
-          awaitingJob = false;
-          return femizeOut(fill('Въ ' + _dwFull142 + ', {N}, я на службѣ: смѣна у аппарата до вечера. Воскресенье — выходной мой: на Обь къ рассвету.'));
-        }
-        awaitingJob = false;
+       
+        
         /* №146: «когда пойдем» — три варианта; живецъ — только живцовымъ рыбамъ */
         var _when59 = [
           'Въ воскресенье, {N}, и сговорено: на Обь къ рассвету, снасть наведите съ вечера. Наживку ежели нетъ — на рынкѣ прикупите, а мальчишки возле трактира за пару копеекъ продадутъ и червяка, и опарыша.',
@@ -4674,6 +4706,8 @@ function tryName(raw) {
     if (/(на\s+кого\s+пойд[её]м|какую\s+рыбу\s+(?:пойд|лови|брать)|что\s+(?:лучше\s+)?(?:клю[её]т|ловить|брать))/.test(n)) {
       try {
         var _k152 = (window.ZAHAR_K74 && window.ZAHAR_K74.data && window.ZAHAR_K74.data.days) ? window.ZAHAR_K74.data : null;
+
+
         if (_k152 && _k152.days && _k152.days.length) {
           var _di152 = 0;
           if (/завтра|воскресен|суббот/i.test(n)) _di152 = (_k152.days.length > 1) ? 1 : 0;
@@ -4682,6 +4716,7 @@ function tryName(raw) {
           if (_day152 && _day152.top && _day152.top.length) {
             var _e152 = _day152.top[0];
             var _n152 = _e152.n || _e152.name || '';
+            window.__zaharSuggested59 = _n152; window.__zaharSuggestedTick59 = (window.__zaharTurn59e || 0);
             var _w152 = (typeof _e152.s === 'number') ? z74kshort(Math.round(_e152.s / 10)) : 'добрый';
             var _acc152 = z74accOf(_n152);
             var _when152 = (_di152 === 0) ? 'нынчѣ' : 'въ ' + (Z74_ACC_DOW[_day152.dow] || _day152.dow);
@@ -4728,6 +4763,10 @@ function tryName(raw) {
       lastFish59 = _invFish59; awaitingJob = false;
        /* №127: совместное («пойдёмъ/пошли/сходим») — Захаръ товарищъ: согласіе али
          отговорка съ лучшей рыбой; одиночное («пойду/собираюсь») — совѣтъ въ путь, какъ было */
+      var _sugg59 = window.__zaharSuggested59 &&
+        window.__zaharSuggested59 === _invFish59 &&
+        ((window.__zaharTurn59e || 0) - (window.__zaharSuggestedTick59 || -99)) <= 3;
+
       var _joint59 = /(пойдем|пойдемъ|пошли|сходим|вместе|давай)/.test(_shM);
       var _invB = null; try { _invB = zaharBiteReply('клев ' + _invFish59); } catch (eInv59) { _invB = null; }
       var _bestF59 = null;
@@ -4772,8 +4811,10 @@ function tryName(raw) {
         }
         if (_invB) {
           var _gear59t = GEAR59[String(_invFish59)] || '';
-                   return femizeOut(fill(_invClean59 + ' Пойдемте вместе. ' + (_gear59t ? _gear59t + ' ' : '') + pick(KICK59[kickSeason59()])));
+                             var _lead59 = _sugg59 ? ('Извольте, {N}! На ' + (_acc59[_invFish59] || _invFish59) + ' и гони — я самъ об томъ и говорилъ. ') : '';
+                    return femizeOut(fill(_lead59 + _invClean59 + ' Пойдемте вместе. ' + (_gear59t ? _gear59t + ' ' : '') + pick(KICK59[kickSeason59()])));
         }
+
         /* клѣв-прогноза нѣтъ — отпускаемъ глубже, какъ прежде */
       }
       if (_invB) {
@@ -4785,7 +4826,8 @@ function tryName(raw) {
 
       /* клѣв-прогноза нѣтъ — отпускаемъ глубже, какъ прежде */
 
-        } else if (/(пойду|собираюсь|хочу|пойдем|пойдемъ|пойдешь|пошли|иду|направляюсь)/.test(_shM) && /(рыбалк|рыбу\s+лов|удочк|рыбач|рыбк)/.test(_shM) && !/ты|тебя|тебе/.test(_shM) && !/(что такое|кто такой|расскажи|разскажи|расскажы|рассажы|раскажи)/.test(_shM)) {
+            } else if (/(пойду|собираюсь|хочу|пойдем|пойдемъ|пойдешь|пошли|иду|направляюсь)/.test(_shM) && /(рыбалк|рыбу\s+лов|удочк|рыбач|рыбк)/.test(_shM) && !/ты|тебя|тебе/.test(_shM) && !/(что такое|кто такой|расскажи|разскажи|расскажы|рассажы|раскажи)/.test(_shM) && !/щук|окун|нал[иі]м|судак|карас|коро[сз]|какас|сазан|лещ|леш|сорог|плотв|чебак|елец|язь|ерш|пескар/.test(_shM)) {
+
       /* №123: «на нее рыбачить» — анафора свежей рыбы ведетъ къ клев-оцѣнкѣ №109 */
       var _ana123 = /нее|ней|нея/.test(_shM) && window.__zaharFishEarly && (Date.now() - (window.__zaharFishEarlyTime || 0)) < 600000;
       if (_ana123) {
@@ -5024,8 +5066,9 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
       return _lossT;
     }
     /* №59.9ч: клѣвъ — по рыбѣ въ любомъ падежѣ и безъ глагола («а налимъ», «лучше на щуку») */
-    /* №151: описки въ названіяхъ рыбъ — «корося» къ карасю */
-    n = String(n || '').replace(/коро[сз][а-я]*/g, 'карась');
+        /* №151: описки въ названіяхъ рыбъ — «корося», «какася» къ карасю */
+    n = String(n || '').replace(/коро[сз][а-я]*|какас[а-я]*/g, 'карась');
+
 
     var _fx59c = zaharFishOf(n, true);
         /* №110б: именованная рыба — не планъ, а сговоръ (клѣв-оцѣнка) */
@@ -5060,11 +5103,13 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
       try { if (typeof window.ZAHAR_RIVER_ASK === 'function') return window.ZAHAR_RIVER_ASK(); } catch (e154w) {}
     }
     /* №59.9ч: погода — прежде статей и упоминаній («а погода какая» не огрызается тетрадкой) */
-    if (/(погод|пагод|сколк[а-я]* градус|температур|метель)/.test(n) && !/(что такое|кто такой|что значит)/.test(n) &&
+        if (/(погод|пагод|сколк[а-я]* градус|температур|метель)/.test(n) && !/(что такое|кто такой|что значит)/.test(n) &&
         !/(температур|градус|тепло|скольк).{0,24}(вод|об[ьи]|рек)/.test(n)) {
       awaitingJob = false; lastTopic59 = 'wx';
+      window.__zaharLastTheme59 = 'weather'; window.__zaharThemeTick59 = (window.__zaharTurn59e || 0);
       return answerWeather();
     }
+
 
     var mnt0 = mentionReply(q, n);
     if (mnt0) { awaitingJob = false; return maybeCounter(mnt0); }
@@ -5104,6 +5149,8 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
       }
       var _dayQ48 = /(ден недел|какой сегодня ден)/.test(n);
       var _numQ48 = /(число|какая дата|какой месяц|календар)/.test(n);
+      window.__zaharLastTheme59 = 'date'; window.__zaharThemeTick59 = (window.__zaharTurn59e || 0);
+
       if (_dayQ48 && !_numQ48) return fill('День недели — ' + dn48 + ', {N}.' + holTxt48 + ' По журналамъ и аппарату сверено.');
       if (_numQ48 && !_dayQ48) return fill('Число — ' + dd48.getDate() + ' ' + ms48 + ' ' + dd48.getFullYear() + ' года, {N}.' + holTxt48 + ' По журналамъ и аппарату сверено.' + omenDot56(omen56Phrase(dd48.getMonth() + 1, dd48.getDate())));
       return fill('День недели — ' + dn48 + ', число — ' + dd48.getDate() + ' ' + ms48 + ' ' + dd48.getFullYear() + ' года, {N}.' + holTxt48 + ' По журналамъ и аппарату сверено.' + omenDot56(omen56Phrase(dd48.getMonth() + 1, dd48.getDate())));
@@ -5444,7 +5491,8 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
     'глухарь': 'Глухарь, {N}, самый большой боровой бѣлъ: весной на токовищѣ поетъ да глухѣетъ — тогда и подходить.',
     'тетерев': 'Тетеревъ, {N}, косачъ черныя: на березовыхъ гривахъ кормится, зимой въ снѣгу лунками ночуетъ.',
     'кабан': 'Кабанъ, {N}, секачъ опасный: у овсовъ по ночамъ кормится. Въ одиночку не берутъ.',
-    'косуля': 'Косуля, {N}, звѣръ небольшой да чуткій: у осокорниковъ на зорькѣ ходитъ.'
+      'косуля': 'Косуля, {N}, звѣръ небольшой да чуткій: ростомъ со теленка, лѣтомъ рыжая, къ зимѣ въ серину отливаетъ. Живетъ въ осокорникахъ да по марясовымъ краямъ, на зорькѣ выходитъ на траву поедать. Слухъ тонкій — хрустъ сучка за полверсты слышитъ, потому подходить надо противъ вѣтра да тихонько. Зимой держится подъ кедрачами, къ снегопадамъ ныряетъ въ чащу. Дробь первая, выстрѣлъ на десятъ саженей — и только по чистой груди.'
+
   };
   function beastWord70(n) {
     var m = /(^|[^а-я])(ло[сь]|зайц|медвед|медвѣд|волк|лис[ауо]|собол|рыс[ьи]|б[ѣе]лк|глухар|тетерев|кабан|косул)/.exec(String(n || ''));
@@ -5752,7 +5800,9 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
         : 'Виноватъ: званіе перепуталъ. Буду звать васъ сударыней — извольте, говорить стану какъ съ дамой.'));
     }
     /* №75: хворь — участливо, въ тетрадку не пишется, буферъ гасится */
-    if (/з[аиое][бп]ол|[бп]ол[еиао]|болит|ломит|кашл|прост[уы]д|озноб|знобит|температур/.test(nq) && !/болот|пол[еи]/.test(nq) && !(/температур/.test(nq) && /вод|об[ьи]|рек/.test(nq))) {
+                if (/з[аиое][бп]ол|[бп]ол[еиао]|болит|ломит|кашл|прост[уы]д|озноб|знобит|температур/.test(nq) && !/болот|пол[еи]/.test(nq) && !(/температур/.test(nq) && /вод|об[ьи]|рек/.test(nq)) && !/(улиц|погод|на дворе|снаружи)/.test(nq) && !/(какая|скольк|сколько)/.test(nq)) {
+
+
       G.mode = null; G.pending = null; G.pendPat = null;
       return femizeOut(fill(pick(SICK_CARE)));
     }
@@ -6124,17 +6174,22 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
         p.push(femizeOut(fill(pool[Math.floor(Math.random() * pool.length)].replace(/\{P\}/g, Pmm))));
       }
     }
-    if (isToday && d.ice) p.push('Обь подъ берегомъ скоро схватитъ — снасти берите зимніе.');
-        if (isToday) {
-      var w = d.level || {};
-      var _wparts74 = [];
-      if (_wtmp74) _wparts74.push('вода въ Оби нынче ' + _wtmp74 + '°С');
-      if (typeof w.level === 'number') {
-        _wparts74.push('уровень ' + w.level + ' смъ' +
-          (typeof w.delta === 'number' ? (w.delta < 0 ? ', идётъ на спадъ (' + Math.abs(w.delta) + ' смъ за сутки)' : ', идётъ на подъёмъ (+' + w.delta + ' смъ за сутки)') : ''));
+        if (isToday && d.ice) p.push('Обь подъ берегомъ скоро схватитъ — снасти берите зимніе.');
+    if (_wtmp74 === null && d.days[0] && d.days[0].why && d.days[0].why.length) {
+      for (var _w4 = 0; _w4 < d.days[0].why.length && _wtmp74 === null; _w4++) {
+        var _wm4 = String(d.days[0].why[_w4]).match(/Оби\s*([\d,.]+)\s*°/);
+        if (_wm4) _wtmp74 = _wm4[1];
       }
-      if (_wparts74.length) p.push(_wparts74.join(', ') + '.');
     }
+    var w = d.level || {};
+    var _wparts74 = [];
+    if (_wtmp74) _wparts74.push('вода въ Оби нынче ' + _wtmp74 + '°С');
+    if (typeof w.level === 'number') {
+      _wparts74.push('уровень ' + w.level + ' смъ' +
+        (typeof w.delta === 'number' ? (w.delta < 0 ? ', идётъ на спадъ (' + Math.abs(w.delta) + ' смъ за сутки)' : ', идётъ на подъёмъ (+' + w.delta + ' смъ за сутки)') : ''));
+    }
+    if (_wparts74.length) p.push(_wparts74.join(', ') + '.');
+
 
     var st = Math.floor((Date.now() - d.ts) / 86400000);
     if (st > 1) p.push('(Летопись моя отстала на ' + st + ' сут. — таковы вѣсти.)');
