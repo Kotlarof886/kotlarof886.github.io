@@ -3679,7 +3679,11 @@ function tryName(raw) {
     var out = body;
     if (out.toLowerCase().indexOf(norm(e.w)) !== 0) out = cap(e.w) + ' — ' + out;
     if (e.own && e.d && e.b) out += ' (Могу подробнее разсказать — желаете?)';
+    if (e.own && e.d && e.b) {
+      window.__zaharOffer148 = { d: e.d, tick: (window.__zaharTurn59e || 0) };
+    }
     return out;
+
   }
 
   /* №59.6: кастомъ-первымъ — пары ZAHAR_CUSTOM_DATA отвечают раньше ярусовъ чата.
@@ -4158,7 +4162,7 @@ function tryName(raw) {
     }
     /* №150: ноябрь — черви въ землю ушли, накопать не выйдетъ */
     var _monW150 = new Date().getMonth();
-        if (/черв/.test(n) && /(накопа|копать|копайт)/.test(n) && (_monW150 >= 9 || _monW150 <= 3)) {
+            if (/черв/.test(n) && /(накоп|копа|нарыть)/.test(n) && (_monW150 >= 9 || _monW150 <= 3)) {
       return femizeOut(fill(pick([
         'Ноябрь, {N}: черви въ землю ушли до весны — грунтъ прихваченъ. Живую насадку ищите на рынкѣ: опарыша да мальковъ мальчишки продаютъ, съ краснымъ червемъ нынчѣ туго.',
         'Червей по ноябрю не накопаешь, {N}: земля простыла. На живца — ершика али пескаря на рынкѣ, опарышъ тоже годится.'
@@ -4383,7 +4387,7 @@ function tryName(raw) {
     /* №67: сказъ о зверѣ — прежде блока короткихъ стражей («про зайца» мимо _shShort) */
     try {
       var _zE67 = null;
-      if (/про|расскажи|растолкуй/.test(_shM)) {
+       if (/про|расскаж|растолкуй|ресскаж|рескаж|кто\s+(такая|такой|такое)/.test(_shM)) {
         var _zEs67 = String(_shM).toLowerCase().replace(/ё/g, 'е');
         var _zEarr67 = _zEs67.split(/[^а-яѣ]+/);
         var _zEmap67 = [['зайц','заяц'],['лос(?!ьс|ось)','лось'],['медвед','медвѣдь'],['медвѣд','медвѣдь'],['утк','утка'],['глухар','глухарь'],['тетерев','тетерев'],['рябчик','рябчик'],['белк','белка'],['косул','косуля'],['кабарг','кабарга'],['кабан','кабан'],['лис(?!т)','лиса'],['рыс','рысь'],['волк','волк'],['собол','соболь'],['барсук','барсук']];
@@ -4400,16 +4404,25 @@ function tryName(raw) {
           }
         }
       }
+      /* №148б: «ресскажи про нее» — свежему зверю */
+      if (!_zE67 && /про\s*(нее|ней|неё)/.test(_shM) && window.__zaharLastAnimal59 &&
+          ((window.__zaharTurn59e || 0) - (window.__zaharLastAnimalTick59 || -999)) <= 3) {
+        _zE67 = window.__zaharLastAnimal59;
+      }
+
             if (_zE67 && typeof HUNT_POOLS59 !== 'undefined' && HUNT_POOLS59[_zE67]) {
         awaitingJob = false;
         window.__zaharLastAnimal59 = _zE67; window.__zaharLastAnimalTick59 = (window.__zaharTurn59e || 0);
         /* №148: «расскажи про X» — сказъ + оферта; промыселъ по согласію */
-        if (typeof HUNT_INFO59 !== 'undefined' && HUNT_INFO59[_zE67]) {
+                if (typeof HUNT_INFO59 !== 'undefined' && HUNT_INFO59[_zE67]) {
+          var _d67 = pick(HUNT_POOLS59[_zE67]);
+          window.__zaharOffer148 = { d: _d67, tick: (window.__zaharTurn59e || 0) };
           try {
             window.ZAHAR_SESSION = window.ZAHAR_SESSION || {};
-            window.ZAHAR_SESSION.lastWord = { w: _zE67, b: HUNT_INFO59[_zE67], d: pick(HUNT_POOLS59[_zE67]) };
+            window.ZAHAR_SESSION.lastWord = { w: _zE67, b: HUNT_INFO59[_zE67], d: _d67 };
             window.ZAHAR_SESSION.lastField = 'd';
           } catch (eZI67) {}
+
           return femizeOut(fill(HUNT_INFO59[_zE67] + ' (Могу подробнее разсказать — желаете?)'));
         }
                 return femizeOut(fill(pick(HUNT_POOLS59[_zE67])));
@@ -4644,16 +4657,16 @@ function tryName(raw) {
     }
 
         
-    /* №148: согласіе послѣ «желаете?» — записка вторая (справка али промыселъ), рыбья нить не глотаетъ */
+        /* №148: согласіе послѣ «желаете?» — записка вторая по флагу, рыбья нить не глотаетъ */
     try {
-      var _lr148 = (window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastReply) ? String(window.ZAHAR_SESSION.lastReply) : '';
-      if (/желает/.test(_lr148) && window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastWord && window.ZAHAR_SESSION.lastWord.d &&
+      var _o148 = window.__zaharOffer148;
+      if (_o148 && _o148.d && ((window.__zaharTurn59e || 0) - (_o148.tick || -999)) <= 1 &&
           /^(а\s+)?(да|давай|давайте|ну давай|хорошо|ладно|ок|окей|валяй|подробнее|желаю|конечно|ава|ага)\s*[\?\!.]*$/i.test(String(_shQ || '').trim())) {
-        var _d148 = window.ZAHAR_SESSION.lastWord.d;
-        window.ZAHAR_SESSION.lastWord.d = '';
-        return femizeOut(fillN(_d148));
+        window.__zaharOffer148 = null;
+        return femizeOut(fill(_o148.d));
       }
     } catch (e148) {}
+
 
 
             /* намеренье на рыбалку */
@@ -5206,6 +5219,15 @@ var _genKlev113 = /как(?:ой|ая|ое|их|ие)[а-яё]*\s+(?:кл[её]|
     window.__zaharChatInstalled = true;
     var _ask = window.ZAHAR_ASK;
     window.ZAHAR_ASK = function (q) {
+      /* №148в: согласіе послѣ «желаете?» — самая вершина: прежде слоя, мозга и отписокъ */
+      try {
+        var _o148t = window.__zaharOffer148;
+        if (_o148t && _o148t.d && ((window.__zaharTurn59e || 0) - (_o148t.tick || -999)) <= 1 &&
+            /^(а\s+)?(да|давай|давайте|ну давай|хорошо|ладно|ок|окей|валяй|подробнее|желаю|конечно|ава|ага)\s*[\?\!.]*$/i.test(String(q || '').trim())) {
+          window.__zaharOffer148 = null;
+          return femizeOut(fill(_o148t.d));
+        }
+      } catch (e148t) {}
       /* №59.5: команда забвенья проходит мимо слоя болтовни прямо в мозгъ */
       var _f55 = /^\s*(?:забуд(?:ьте|ь)?|забыть)(\s|$|:)/i.exec(String(q || '').trim());
       /* №59.7: «забыть всѣ» — после ответа стирать и тетрадку (имя, станція, темы), и рамку */
@@ -6832,7 +6854,7 @@ console.log('ZAHAR-90 загружен');
       if (!hasPat() && v >= 31) { st.pat = true; r += PAT_Q; }
       return fillN(r);
     }
-    /* №98: «да» послѣ «желаете?» — отдаемъ подробность справки */
+     /* №98: «да» послѣ «желаете?» — отдаемъ подробность справки (№148 глушимъ)
     var _lr98 = (window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastReply) ? String(window.ZAHAR_SESSION.lastReply).toLowerCase() : '';
     if (/^(да|давайте|давай|конечно|ава|ага|продолжай|продолжайте)[?!.]*$/i.test(s) &&
         window.ZAHAR_SESSION && window.ZAHAR_SESSION.lastWord && window.ZAHAR_SESSION.lastWord.d &&
@@ -6841,6 +6863,7 @@ console.log('ZAHAR-90 загружен');
       window.ZAHAR_SESSION.lastWord.d = '';
       return fillN(_d98);
     }
+*/
         
 /* №91: уровень и вода — отдаю старой веткѣ, она отвечает фразой водомѣрнаго поста */
     if (/уровен/.test(s) || (/(температур|градус|тепл)/.test(s) && /(вод|об[ьи]|рек)/.test(s))) return null;
@@ -7212,7 +7235,7 @@ console.log('ZAHAR-90 загружен');
       if (_gear94) r = r.replace(/удочка съ осокоревымъ поплавкомъ/, _gear94);
     }
     /* №93: чинка старого словаря и примѣтка зверя изъ ответа */
-    r = r.replace(/подъзод/g, 'подходъ').replace(/бълует/g, 'жирует').replace(/зонт да калоши/g, 'шапку да валенки');    
+    r = r.replace(/подъзод/g, 'подходъ').replace(/жирует/g, 'жирует').replace(/зонт да калоши/g, 'шапку да валенки');    
  var _mh92r = /глухар/.test(r) ? 'глухарь' : (/тетерев/.test(r) ? 'тетерев' : (/собол/.test(r) ? 'соболь' : (/косул/.test(r) ? 'косуля' : (/зайц/.test(r) ? 'заяц' : (/лис/.test(r) ? 'лиса' : (/лос/.test(r) ? 'лось' : null))))));
     if (_mh92r) st.lastHuntName = _mh92r;
 
